@@ -81,9 +81,16 @@
 
     <!-- bottom centre: the one outlined status block -->
     <div id="status">
-      <div class="row1"><button id="mic" class="mic" data-action="mute" title="Mute / unmute microphone"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/><path class="slash" d="M4 4l16 16"/></svg></button><b id="st-state">BOOTING</b><span id="convtag" hidden>LISTENING · say ‘sleep’ to stop</span></div>
+      <div class="row1"><b id="st-state">BOOTING</b><span id="convtag" hidden>LISTENING · say ‘sleep’ to stop</span></div>
       <div id="transcript"></div>
       <div id="reply"></div>
+      <!-- type to JARVIS, with the microphone inside the bar -->
+      <form id="ask" autocomplete="off">
+        <button type="button" id="mic" class="mic" data-action="mute" title="Mute / unmute microphone"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/><path class="slash" d="M4 4l16 16"/></svg></button>
+        <input id="ask-input" maxlength="4000" placeholder="Type to JARVIS…" spellcheck="false">
+        <kbd id="ask-key">⌘K</kbd>
+        <button type="submit" id="ask-send" title="Send (Enter)" disabled><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+      </form>
     </div>
     <!-- bottom corners -->
     <div id="bl"><div class="compass"><i></i></div><div class="lines"><div id="bl-ver">CLAUDE CODE —</div><div id="bl-voice">VOICE —</div></div></div>

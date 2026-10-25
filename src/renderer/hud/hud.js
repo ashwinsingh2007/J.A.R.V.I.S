@@ -960,6 +960,33 @@
   for (const type of ['mousemove', 'mousedown', 'wheel', 'keydown']) document.addEventListener(type, armFocus, { passive: true });
   armFocus();
 
+  // ---------- the input bar: typed messages go to JARVIS like spoken ones ----------
+  const askInput = $('ask-input');
+  askInput.addEventListener('input', () => { $('ask-send').disabled = !askInput.value.trim(); });
+  $('ask').addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    const text = askInput.value.trim();
+    if (!text) return;
+    post({ type: 'action', name: 'type', text });
+    askInput.value = '';
+    $('ask-send').disabled = true;
+  });
+  askInput.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Escape') return;
+    ev.stopPropagation();
+    if (askInput.value) askInput.value = ''; else askInput.blur();
+    $('ask-send').disabled = true;
+  });
+  // Cmd+K, or "/" when not already typing somewhere, puts the cursor in the bar.
+  document.addEventListener('keydown', (ev) => {
+    const typing = document.activeElement && document.activeElement.matches('input, select, textarea');
+    if ((ev.metaKey && ev.key.toLowerCase() === 'k') || (ev.key === '/' && !typing)) {
+      ev.preventDefault();
+      if (body.dataset.view !== 'cc') showView('cc');
+      askInput.focus();
+    }
+  });
+
   document.addEventListener('keydown', (ev) => { if (ev.key !== 'Escape') return; if (!livePop.hidden) { livePop.hidden = true; return; } post({ type: 'action', name: 'stop' }); });
 
   // ---------- theme: reactor colours follow the CSS theme ----------

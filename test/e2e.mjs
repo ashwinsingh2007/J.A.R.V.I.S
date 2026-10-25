@@ -719,6 +719,19 @@ async function testHud() {
   check('screen access row hides when off', await hud.evaluate(() => document.getElementById('hands-row').hidden));
   await shot(hud, 'hud-settings-form');
 
+  // Typing to JARVIS: the input bar sends like a spoken command
+  await hud.click('#nav a[data-view="cc"]');
+  await hud.keyboard.press('Meta+k');
+  check('Cmd+K puts the cursor in the input bar', await hud.evaluate(() => document.activeElement && document.activeElement.id === 'ask-input'));
+  let tm = s.mark();
+  await hud.keyboard.type('what is the capital of france');
+  await hud.keyboard.press('Enter');
+  check('a typed message goes to the brain', await s.waitLog(/brain: asked 'what is the capital of france'/, 5000, tm));
+  check('the bar clears after sending', await hud.inputValue('#ask-input') === '');
+  check('the typed message shows in the captions', /capital of france/.test(await text(hud, '#transcript')));
+  await s.waitLog(/timing: claude done/, 60000, tm);
+  await hud.evaluate(() => document.activeElement && document.activeElement.blur());
+
   // Full mode: idle HOME hides the panels and shows the crew; moving the mouse brings them back
   await hud.click('#nav a[data-view="cc"]');
   await hud.evaluate(() => window.hud.event({ type: 'settings', autoHideMs: 1200 }));
