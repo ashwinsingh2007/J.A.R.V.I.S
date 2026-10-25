@@ -681,12 +681,13 @@ async function testHud() {
   check('crew shows FRIDAY, EDITH and KAREN', await hud.evaluate(() => ['friday', 'edith', 'karen'].every((id) => getComputedStyle(document.getElementById('crew-' + id)).opacity === '1')));
   await shot(hud, 'hud-focus');
   check('captions stay visible in full mode', await hud.evaluate(() => getComputedStyle(document.getElementById('status')).opacity === '1'));
+  check('full mode hides the mic and the state word', await hud.evaluate(() => getComputedStyle(document.querySelector('#status .row1')).opacity === '0'));
   await hud.evaluate(() => { window.hud.event({ type: 'state', state: 'idle' }); window.hud.event({ type: 'reply', text: 'Three new emails, sir.' }); });
   await hud.evaluate(() => window.hud.event({ type: 'transcript', text: 'and what about', final: false }));
   check('new speech clears the old reply', await text(hud, '#reply') === '');
   await hud.evaluate(() => { window.hud.event({ type: 'transcript', text: 'and what about tomorrow', final: true }); window.hud.event({ type: 'reply', text: 'Nothing booked, sir.' }); window.hud.event({ type: 'state', state: 'idle' }); });
-  await sleep(9000);
-  check('captions clear after a quiet spell', await text(hud, '#reply') === '' && await text(hud, '#transcript') === '');
+  for (let i = 0; i < 9; i++) { await hud.evaluate(() => { window.hud.event({ type: 'state', state: 'idle' }); window.hud.event({ type: 'transcript', text: '' }); }); await sleep(1000); }
+  check('captions clear after a quiet spell, even with repeat updates', await text(hud, '#reply') === '' && await text(hud, '#transcript') === '');
   await hud.mouse.move(mid[0] + 30, mid[1] + 20);
   await sleep(300);
   check('moving the mouse brings the panels back', !(await isFocus()));
