@@ -1,0 +1,23 @@
+{
+  "name": "jarvis",
+  "productName": "JARVIS",
+  "version": "0.2.0",
+  "description": "JARVIS: open-source AI voice assistant for macOS, like Iron Man's. Hands-free wake word, local speech recognition and neural text-to-speech, powered by Claude Code, the Anthropic API or local Ollama models.",
+  "main": "src/main/main.js",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/ashwinsingh2007/jarvis-voice-assistant.git" },
+  "homepage": "https://github.com/ashwinsingh2007/jarvis-voice-assistant",
+  "keywords": ["jarvis", "ai-assistant", "voice-assistant", "ai-voice-assistant", "macos", "claude", "claude-code", "anthropic", "ollama", "local-llm", "llm", "ai-agent", "speech-recognition", "text-to-speech", "wake-word", "kokoro-tts", "elevenlabs", "electron", "iron-man", "siri-alternative", "hands-free", "telegram-bot"],
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "ears": "sh native/build-ears.sh",
+    "pack": "sh build.sh",
+    "test": "node test/e2e.mjs all"
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.3.0",
+    "electron": "^45.0.0",
+    "playwright": "^1.64.1"
+  }
+}

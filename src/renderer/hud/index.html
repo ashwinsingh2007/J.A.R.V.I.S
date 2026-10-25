@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>J.A.R.V.I.S.</title>
+<link rel="stylesheet" href="hud.css?v=23">
+<link rel="stylesheet" href="../themes.css">
+<script src="../themes.js"></script>
+<script>(function(){var q=new URLSearchParams(location.search);jarvisTheme.apply(q.get('theme')||undefined,q.get('mode')||undefined);})();</script>
+</head>
+<body data-state="booting" data-view="cc" class="booting">
+
+<div id="boot"><div class="scan"></div><div id="bootlines"></div></div>
+
+<!-- brand + nav chips: shared by every view -->
+<header id="brand">
+  <div class="word">J.A.R.V.I.S.<span class="sub">· OPEN-SOURCE VOICE AGENT</span></div>
+  <div class="word2" id="brand2">HOME · BOOTING</div>
+  <nav id="nav">
+    <a data-view="cc" class="active">HOME</a>
+    <a data-view="sessions">SESSIONS <em id="n-sessions">0</em></a>
+    <a data-view="history">HISTORY <em id="n-turns">0</em></a>
+    <a data-view="memory">MEMORY <em id="n-memory">0</em></a>
+    <a data-view="settings">SETTINGS</a>
+    <a data-view="music" id="nav-music"><span class="eq"><i></i><i></i><i></i><i></i></span>MUSIC <em id="n-music"></em></a>
+  </nav>
+</header>
+
+<main id="main">
+  <!-- VIEW: command center (classic blue HUD) -->
+  <section class="view on" id="v-cc">
+    <div id="stage"><canvas id="scene"></canvas>
+      <div class="corelabel"><div class="jv">JARVIS</div></div>
+      <div id="panels"></div>
+    </div>
+
+    <!-- left column: system readouts + live feed -->
+    <div id="lc">
+      <div class="h">SYSTEM</div>
+      <ul class="kv">
+        <li><span>CPU</span><i></i><b id="k-cpu">—</b></li>
+        <li><span>RAM</span><i></i><b id="k-ram">—</b></li>
+        <li><span>DISK</span><i></i><b id="k-disk">—</b></li>
+        <li><span>BATTERY</span><i></i><b id="k-bat">—</b></li>
+        <li><span>UPTIME</span><i></i><b id="k-up">—</b></li>
+        <li><span>HOST</span><i></i><b id="k-host">—</b></li>
+      </ul>
+      <div class="h">SERVICES</div>
+      <ul class="kv svc">
+        <li id="s-claude"><span>BRAIN</span><i></i><b>○</b></li>
+        <li id="s-model"><span>MODEL</span><i></i><b>○</b></li>
+        <li id="s-tts"><span>KOKORO</span><i></i><b>○</b></li>
+        <li id="s-stt"><span>APPLE SPEECH</span><i></i><b>●</b></li>
+        <li id="s-tg"><span>TELEGRAM</span><i></i><b>○</b></li>
+      </ul>
+    </div>
+
+    <!-- right column: clock, readouts, toggle, waveform, live feed -->
+    <div id="tr">
+      <div id="clock">00:00:00</div>
+      <div id="date">—</div>
+      <ul class="kv r">
+        <li><span>STATE</span><i></i><b id="r-state">BOOTING</b></li>
+        <li><span>MODEL</span><i></i><b id="r-model">—</b></li>
+        <li><span>SESSIONS</span><i></i><b id="r-sessions">0 RUNNING</b></li>
+      </ul>
+      <button id="power" class="power" data-action="disable"><i></i><b>DISABLE JARVIS</b></button>
+      <div id="wave"></div>
+      <div id="lf">
+        <div class="h livehead">
+          <div class="picker" id="live-picker">
+            <button id="live-btn" class="pickbtn"><i>▾</i><span id="live-name">AUTO</span></button>
+            <div id="live-pop" class="pop" hidden></div>
+          </div>
+          <span class="dot" id="live-dot"></span><span id="live-ago"></span><em id="live-pin"></em>
+        </div>
+        <ol id="livelog" class="livelog"></ol>
+      </div>
+    </div>
+
+    <!-- bottom centre: the one outlined status block -->
+    <div id="status">
+      <div class="row1"><button id="mic" class="mic" data-action="mute" title="Mute / unmute microphone"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/><path class="slash" d="M4 4l16 16"/></svg></button><b id="st-state">BOOTING</b><span id="convtag" hidden>LISTENING · say ‘sleep’ to stop</span></div>
+      <div id="transcript"></div>
+      <div id="reply"></div>
+    </div>
+    <!-- bottom corners -->
+    <div id="bl"><div class="compass"><i></i></div><div class="lines"><div id="bl-ver">CLAUDE CODE —</div><div id="bl-voice">VOICE —</div></div></div>
+    <div id="br"><div id="br-work">— SESSIONS WORKING</div><div id="br-worker">AGENTS —</div><div id="br-tg">TELEGRAM —</div></div>
+  </section>
+
+  <!-- VIEW: sessions -->
+  <section class="view" id="v-sessions">
+    <div class="panel">
+      <h3>SESSIONS<span class="tabs" data-tabs><button data-tab="jarvis" class="on">JARVIS <i>0</i></button><button data-tab="claude">CLAUDE CODE <i>0</i></button></span><em data-sesscount>0 running</em></h3>
+      <div class="cards big" data-cards data-max="24"></div>
+    </div>
+  </section>
+
+  <!-- VIEW: history -->
+  <section class="view" id="v-history">
+    <div class="panel">
+      <h3>HISTORY<em>THIS SESSION</em></h3>
+      <ul id="chat" class="chat"></ul>
+    </div>
+  </section>
+
+  <!-- VIEW: memory -->
+  <section class="view" id="v-memory">
+    <div class="mem-grid">
+      <div class="panel">
+        <h3>WHAT I KNOW ABOUT YOU<em id="mem-count"></em></h3>
+        <form id="mem-add" class="mem-add"><input id="mem-input" placeholder="Tell me something to remember…" maxlength="400" autocomplete="off"><button class="mini" type="submit">ADD</button></form>
+        <ul id="mem-list" class="mem-list"></ul>
+      </div>
+      <div class="panel">
+        <h3>REMINDERS &amp; ROUTINES<em id="sched-count"></em></h3>
+        <ul id="sched-list" class="mem-list"></ul>
+        <p class="mem-hint">Say “remind me at five to call the bank”, or “every morning at eight, check the AI news and tell me what's new”.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- VIEW: music -->
+  <section class="view" id="v-music">
+    <div class="mus">
+      <div class="mus-hero" id="mh">
+        <div class="viz" id="mh-viz"></div>
+        <div class="mus-meta">
+          <div class="lab" id="mh-src">NOW PLAYING · RADIO</div>
+          <div class="mus-name" id="mh-name">Nothing playing</div>
+          <div class="mus-title" id="mh-title">Choose a station or a YouTube stream below</div>
+          <div class="mus-ctl">
+            <button id="mh-play" class="mplay big">▶</button>
+            <button id="mh-next" class="mnext big" title="Next station">⏭</button>
+            <div class="mvol wide"><span>VOLUME</span><input id="mh-vol" type="range" min="0" max="100" step="1" value="30"><b id="mh-volv">30%</b></div>
+          </div>
+        </div>
+      </div>
+      <div class="mus-cols">
+        <div class="mus-col"><div class="h">RADIO</div><div id="mus-radio" class="mus-list"></div></div>
+        <div class="mus-col"><div class="h">YOUTUBE</div><div id="mus-yt" class="mus-list"></div>
+          <div class="mus-yt-ctl"><button id="yt-window" class="ghost">SHOW / HIDE PLAYER</button><button id="yt-stop" class="ghost">STOP YOUTUBE</button></div>
+          <div class="mus-hint">Say “play <i>anything</i> on YouTube” or “play Radio Mirchi” while I am awake.</div>
+        </div>
+      </div>
+      <div class="mus-credit" id="mus-credit"></div>
+    </div>
+  </section>
+
+  <!-- VIEW: settings -->
+  <section class="view" id="v-settings">
+    <div class="panel narrow settings">
+      <h3>SETTINGS <span class="saved" id="set-saved">SAVED</span></h3>
+
+      <h3 class="sub">VOICE</h3>
+      <ul class="rows form">
+        <li><b>Engine</b><select data-key="ttsEngine">
+          <option value="kokoro">Kokoro (local)</option><option value="elevenlabs">ElevenLabs</option>
+          <option value="edge">Edge neural</option><option value="native">macOS voice</option></select></li>
+        <li data-tts="kokoro"><b>Voice</b><select data-key="kokoroVoice">
+          <option value="bm_george">George (British male)</option><option value="bm_lewis">Lewis (British male)</option>
+          <option value="bm_daniel">Daniel (British male)</option><option value="bm_fable">Fable (British male)</option>
+          <option value="bf_emma">Emma (British female)</option><option value="am_michael">Michael (American male)</option>
+          <option value="af_heart">Heart (American female)</option></select></li>
+        <li data-tts="kokoro"><b>Speed</b><span class="unit"><input data-key="kokoroSpeed" type="number" min="0.5" max="2" step="0.05"><i>×</i></span></li>
+        <li data-tts="edge"><b>Voice</b><select data-key="edgeVoice">
+          <option>en-GB-RyanNeural</option><option>en-GB-ThomasNeural</option><option>en-GB-SoniaNeural</option><option>en-US-GuyNeural</option>
+          <option>en-US-JennyNeural</option><option>en-IN-PrabhatNeural</option><option>en-IN-NeerjaNeural</option></select></li>
+        <li data-tts="native"><b>Voice</b><select data-key="nativeVoice"></select></li>
+        <li data-tts="elevenlabs"><b>Model</b><select data-key="elevenLabsModel">
+          <option value="eleven_flash_v2_5">Flash v2.5 (fastest)</option><option value="eleven_turbo_v2_5">Turbo v2.5</option>
+          <option value="eleven_multilingual_v2">Multilingual v2 (best)</option></select></li>
+        <li><b>Try it</b><button class="mini" id="test-voice">▶ TEST VOICE</button></li>
+      </ul>
+
+      <h3 class="sub">LISTENING</h3>
+      <ul class="rows form">
+        <li><b>Speech to text</b><select data-key="sttEngine">
+          <option value="apple">On-device (Apple)</option><option value="elevenlabs">ElevenLabs Scribe</option></select></li>
+        <li><b>Recogniser</b><select data-key="appleSpeech">
+          <option value="instant">Instant: words as you speak</option><option value="accurate">Accurate: about once a second</option></select></li>
+        <li><b>Language</b><select data-key="speechLocale">
+          <option value="en-US">English (US)</option><option value="en-GB">English (UK)</option><option value="en-IN">English (India)</option>
+          <option value="en-AU">English (Australia)</option><option value="hi-IN">Hindi</option><option value="de-DE">German</option>
+          <option value="fr-FR">French</option><option value="es-ES">Spanish</option></select></li>
+        <li><b>Pause before sending</b><span class="unit"><input data-key="commandSilenceSeconds" type="number" min="0.5" max="15" step="0.5"><i>s</i></span></li>
+        <li><b>Only send when I say “over”</b><label class="tog"><input data-key="requireEndWord" type="checkbox"><span></span></label></li>
+      </ul>
+
+      <div id="brain-settings">
+        <h3 class="sub">BRAIN</h3>
+        <ul class="rows form">
+          <li><b>Voice model</b><select data-key="model"><option>sonnet</option><option>opus</option><option>haiku</option></select></li>
+          <li><b>Effort</b><select data-key="effort"><option>low</option><option>medium</option><option>high</option></select></li>
+          <li><b>Work model</b><select data-key="agentModel"><option>opus</option><option>sonnet</option><option>haiku</option><option value="inherit">same as voice</option></select></li>
+          <li><b>Progress updates</b><select data-key="progressUpdates"><option value="off">off</option><option value="normal">normal</option><option value="chatty">chatty</option></select></li>
+        </ul>
+      </div>
+
+      <h3 class="sub">GENERAL</h3>
+      <ul class="rows form">
+        <li><b>Form of address</b><select data-key="honorific"><option value="sir">sir</option><option value="ma'am">ma'am</option><option value="boss">boss</option><option value="friend">friend</option></select></li>
+        <li><b>Announce finished sessions</b><label class="tog"><input data-key="announceSessions" type="checkbox"><span></span></label></li>
+        <li><b>Morning briefing</b><label class="tog"><input data-key="morningBriefing" type="checkbox"><span></span></label></li>
+        <li><b>Check-ins when quiet</b><select data-key="checkIns"><option value="off">off</option><option value="sometimes">sometimes</option><option value="often">often</option></select></li>
+        <li><b>Use apps outside Chrome</b><label class="tog"><input data-key="screenControl" type="checkbox"><span></span></label></li>
+        <li id="hands-row"><b>Screen access</b><small id="hands-state">—</small><button id="hands-permit" class="mini" hidden>ALLOW</button></li>
+      </ul>
+
+      <h3 class="sub">APPEARANCE</h3>
+      <div class="looks" id="look-themes">
+        <button data-theme-pick="jarvis"><i style="--sw:#39c3ff"></i>JARVIS</button>
+        <button data-theme-pick="terminal"><i style="--sw:#33ff66"></i>TERMINAL</button>
+        <button data-theme-pick="neon"><i style="--sw:#ff3dc8"></i>NEON</button>
+        <button data-theme-pick="stark"><i style="--sw:#ffb240"></i>STARK</button>
+        <button data-theme-pick="minimal"><i style="--sw:#9a9ca3"></i>MINIMAL</button>
+      </div>
+      <div class="looks modes" id="look-modes">
+        <button data-mode-pick="dark">DARK</button>
+        <button data-mode-pick="light">LIGHT</button>
+        <button data-mode-pick="system">MATCH MACOS</button>
+      </div>
+
+      <h3 class="sub">SYSTEM</h3>
+      <ul class="rows">
+        <li><b>Brain</b><small data-kv="model">—</small></li>
+        <li><b>Voice</b><small data-kv="tts">—</small></li>
+        <li><b>Speech to text</b><small data-kv="stt">—</small></li>
+        <li><b>Telegram</b><small data-kv="telegram">—</small></li>
+        <li><b>Claude Code CLI</b><small data-kv="claude">—</small></li>
+        <li><b>Host</b><small data-kv="host">—</small></li>
+        <li><b>Config file</b><small>~/.jarvis/config.json</small></li>
+        <li><b>Log file</b><small>~/.jarvis/jarvis.log</small></li>
+      </ul>
+      <button id="open-setup" class="setup-btn">OPEN SETUP</button>
+      <div class="hint">Changes here apply at once. API keys, the ElevenLabs voice, the brain provider and Telegram are in Setup.</div>
+    </div>
+  </section>
+
+  <div id="notice"></div>
+</main>
+
+<script src="three.min.js"></script>
+<script src="hud.js?v=23"></script>
+</body>
+</html>

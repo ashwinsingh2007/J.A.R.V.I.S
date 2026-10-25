@@ -1,0 +1,10 @@
+node_modules/
+.venv/
+models/
+music/
+dist/
+JARVIS.app/
+resources/jarvis-ears
+native/ears/.build/
+.DS_Store
+resources/jarvis-hands
