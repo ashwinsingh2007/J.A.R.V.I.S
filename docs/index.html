@@ -131,7 +131,7 @@
       <a class="btn" href="https://github.com/ashwinsingh2007/J.A.R.V.I.S#install">GET IT ON GITHUB</a>
       <a class="btn ghost" href="#demo">WATCH THE DEMO</a>
     </div>
-    <div class="small">Runs on Claude Code, the Claude API, or local models with Ollama</div>
+    <div class="small">Runs on Claude Code, the Claude API, Gemini, or local models with Ollama</div>
     <div class="video" id="demo">
       <video src="demo/jarvis-demo.mp4" poster="demo/poster.jpg" controls playsinline preload="metadata" aria-label="A one-minute demo of JARVIS: checking Gmail in the background, a reminder, a status update, remembering a birthday and switching themes"></video>
     </div>
@@ -152,7 +152,7 @@
       <div class="card"><h3>Speaks up when there's a reason</h3><p>A morning briefing, spoken reminders, routines you set by voice, and the occasional check-in when something is worth mentioning.</p><span class="say">“Every morning at eight, check the AI news.”</span></div>
       <div class="card"><h3>Honest about results</h3><p>Background jobs come back as done, unverified or failed, and it won't call something done that it couldn't check. Text from emails and web pages is never treated as an instruction.</p><span class="say">“I pressed send, but I couldn't confirm it went through.”</span></div>
       <div class="card"><h3>A voice with some character</h3><p>A calm British butler with a dry sense of humour. When it looks something up, it tells you what it found in its own words and skips the list of links.</p><span class="say">“Twenty past nine, sir.”</span></div>
-      <div class="card"><h3>Your choice of brain</h3><p>Claude Code with your Claude subscription, the Anthropic API pay as you go, or Ollama, which is free and stays on your Mac.</p><span class="say">Claude Code · Claude API · Ollama</span></div>
+      <div class="card"><h3>Your choice of brain</h3><p>Claude Code with your Claude subscription, the Anthropic API pay as you go, Gemini with its free tier, or Ollama, which is free and stays on your Mac.</p><span class="say">Claude Code · Claude API · Ollama</span></div>
       <div class="card"><h3>Also on your phone</h3><p>Message it on Telegram, voice notes included. Reminders go there too when JARVIS is asleep.</p><span class="say">Telegram bot, locked to your chat</span></div>
     </div>
   </div>
@@ -206,7 +206,7 @@
           <tr><td>Wake word</td><td>Stays on your Mac</td></tr>
           <tr><td>Speech recognition</td><td>On your Mac (Apple). Optional ElevenLabs, streamed only while awake</td></tr>
           <tr><td>Voice</td><td>On your Mac (Kokoro). Optional ElevenLabs or Edge</td></tr>
-          <tr><td>Your requests</td><td>Your chosen brain: Claude, or local with Ollama</td></tr>
+          <tr><td>Your requests</td><td>Your chosen brain: Claude, Gemini, or local with Ollama</td></tr>
           <tr><td>Memory, journal, reminders</td><td><code>~/.jarvis</code> on your Mac, mode 600</td></tr>
           <tr><td>API keys, Telegram token</td><td>Encrypted with the macOS Keychain</td></tr>
           <tr><td>Network</td><td>Nothing listens. The radio proxy is local only</td></tr>
@@ -255,7 +255,7 @@ open JARVIS.app</pre>
   <div class="wrap">
     <div class="lab">Questions</div>
     <h2>FAQ</h2>
-    <details><summary>Is it free?</summary><p>Yes. JARVIS is free and open source under the MIT licence. With the Claude Code brain it uses your existing Claude subscription; with the Anthropic API you pay Anthropic for what you use; with Ollama it costs nothing.</p></details>
+    <details><summary>Is it free?</summary><p>Yes. JARVIS is free and open source under the MIT licence. With the Claude Code brain it uses your existing Claude subscription; with the Anthropic API you pay Anthropic for what you use; Gemini has a free tier; with Ollama it costs nothing.</p></details>
     <details><summary>Does it work offline?</summary><p>Partly. The wake word, speech recognition and the Kokoro voice run on your Mac. The brain needs Claude unless you use a local model through Ollama.</p></details>
     <details><summary>Does it always listen to me?</summary><p>It listens for the wake word on the device. After "wake up" it treats what you say as commands until you say "sleep". "Standby" turns the microphone off, and "Disable" in the HUD releases it completely.</p></details>
     <details><summary>Can it send emails or messages on its own?</summary><p>Only after you confirm. It reads the message back and waits for a yes before it sends, posts, deletes or pays for anything.</p></details>

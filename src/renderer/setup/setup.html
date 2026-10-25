@@ -76,11 +76,12 @@
   <section data-step="brain">
     <p class="eyebrow">Step 3</p>
     <h1>Brain</h1>
-    <p class="lead"><b>Automatic</b> uses Claude Code if it is installed, then an Anthropic API key, then Ollama.</p>
+    <p class="lead"><b>Automatic</b> uses Claude Code if it is installed, then an Anthropic or Gemini API key, then Ollama.</p>
     <div class="cards" id="brain-cards">
       <button class="card" data-brain="auto"><b>Automatic</b><small>Best available, in the order shown.</small><span class="chip" id="auto-pick"></span></button>
       <button class="card" data-brain="claude-code"><b>Claude Code</b><small>Full agent: steers your sessions, runs background agents in your Chrome, web and files. Uses your Claude plan.</small><span class="chip" id="cc-status"></span></button>
       <button class="card" data-brain="anthropic"><b>Anthropic API</b><small>Your own API key, pay per use. Smaller, sandboxed tool set.</small><span class="chip" id="api-status"></span></button>
+      <button class="card" data-brain="gemini"><b>Gemini</b><small>Google's models with your own key. Has a free tier. Smaller, sandboxed tool set.</small><span class="chip" id="gemini-status"></span></button>
       <button class="card" data-brain="ollama"><b>Ollama</b><small>Free and fully local. Quality depends on the model.</small><span class="chip" id="ollama-status"></span></button>
     </div>
 
@@ -100,6 +101,15 @@
       </div>
       <div class="field"><label for="anthropicModel">Model</label><input id="anthropicModel" list="anthropic-models"><datalist id="anthropic-models"></datalist></div>
       <p class="note">Get a key at <a data-href="https://console.anthropic.com/settings/keys">console.anthropic.com</a>.</p>
+    </div>
+    <div class="group" data-for="gemini">
+      <h3>Gemini</h3>
+      <div class="field">
+        <div class="lrow"><label for="geminiApiKey">API key</label><span class="stored" id="geminiApiKey-stored"></span></div>
+        <div class="ig"><input id="geminiApiKey" type="password" placeholder="AIza…" autocomplete="off"><button data-test="gemini">Test</button></div>
+      </div>
+      <div class="field"><label for="geminiModel">Model</label><input id="geminiModel" list="gemini-models"><datalist id="gemini-models"></datalist></div>
+      <p class="note">Get a free key at <a data-href="https://aistudio.google.com/apikey">aistudio.google.com</a>. Leave the model as <code>gemini-flash-latest</code> to always use the newest Flash model.</p>
     </div>
     <div class="group" data-for="ollama">
       <h3>Ollama</h3>

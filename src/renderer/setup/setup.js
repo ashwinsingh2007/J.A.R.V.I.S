@@ -3,10 +3,10 @@
 const $ = (id) => document.getElementById(id);
 const FIRST = new URLSearchParams(location.search).get('first') === '1';
 const STEPS = ['welcome', 'look', 'brain', 'ears', 'voice', 'extras', 'finish'];
-const TEXT = ['userName', 'honorific', 'model', 'effort', 'anthropicModel', 'ollamaUrl', 'ollamaModel', 'speechLocale', 'appleSpeech', 'kokoroVoice', 'elevenLabsVoiceId', 'elevenLabsModel', 'edgeVoice', 'nativeVoice', 'radioCountry'];
+const TEXT = ['userName', 'honorific', 'model', 'effort', 'anthropicModel', 'geminiModel', 'ollamaUrl', 'ollamaModel', 'speechLocale', 'appleSpeech', 'kokoroVoice', 'elevenLabsVoiceId', 'elevenLabsModel', 'edgeVoice', 'nativeVoice', 'radioCountry'];
 const NUM = ['commandSilenceSeconds', 'kokoroSpeed', 'telegramChatId'];
 const BOOL = ['requireEndWord', 'telegramVoiceReplies'];
-const SECRET = ['anthropicApiKey', 'elevenLabsApiKey', 'telegramToken'];
+const SECRET = ['anthropicApiKey', 'geminiApiKey', 'elevenLabsApiKey', 'telegramToken'];
 
 let info = null;
 let step = 0;
@@ -61,6 +61,7 @@ function autoPick() {
   const hasKey = $('anthropicApiKey').value || info.cfg.has_anthropicApiKey;
   if (f.claude.path && f.claude.loggedIn) return 'Claude Code';
   if (hasKey) return 'Anthropic API';
+  if ($('geminiApiKey').value || info.cfg.has_geminiApiKey) return 'Gemini';
   return 'Ollama';
 }
 
@@ -71,6 +72,7 @@ function renderDetection() {
   else if (!f.claude.loggedIn) { status(cc, `! ${f.claude.version} · not signed in`, 'warn'); $('cc-help').innerHTML = 'Run <code>claude</code> in Terminal once and sign in.'; }
   else { status(cc, `✓ ${f.claude.version}`, 'ok'); $('cc-help').textContent = 'Runs without permission prompts and hands long tasks to background agents. It asks before anything that sends, posts, deletes or pays.'; }
   status($('api-status'), info.cfg.has_anthropicApiKey ? '✓ key stored' : '— no key', info.cfg.has_anthropicApiKey ? 'ok' : '');
+  status($('gemini-status'), info.cfg.has_geminiApiKey ? '✓ key stored' : '— no key', info.cfg.has_geminiApiKey ? 'ok' : '');
   status($('ollama-status'), f.ollama.running ? `✓ running · ${f.ollama.models.length} models` : '— not running', f.ollama.running ? 'ok' : '');
   fillList('ollama-models', f.ollama.models);
   status($('auto-pick'), `→ ${autoPick()}`, 'ok');
@@ -113,6 +115,7 @@ function gather() {
   for (const k of NUM) { const v = parseFloat($(k).value); p[k] = isNaN(v) ? (k === 'telegramChatId' ? 0 : undefined) : v; if (p[k] === undefined) delete p[k]; }
   for (const k of BOOL) p[k] = $(k).checked;
   p.anthropicApiKey = $('anthropicApiKey').value.trim();
+  p.geminiApiKey = $('geminiApiKey').value.trim();
   p.elevenLabsApiKey = ($('elevenLabsApiKey').value || $('elevenLabsApiKey2').value).trim();
   p.telegramToken = $('telegramToken').value.trim();
   if (!p.honorific) p.honorific = 'sir';
@@ -121,7 +124,7 @@ function gather() {
 
 function renderSummary() {
   const p = gather();
-  const brain = { auto: `Automatic (${autoPick()})`, 'claude-code': `Claude Code · ${p.model}`, anthropic: `Anthropic API · ${p.anthropicModel}`, ollama: `Ollama · ${p.ollamaModel}` }[p.brainProvider];
+  const brain = { auto: `Automatic (${autoPick()})`, 'claude-code': `Claude Code · ${p.model}`, anthropic: `Anthropic API · ${p.anthropicModel}`, gemini: `Gemini · ${p.geminiModel}`, ollama: `Ollama · ${p.ollamaModel}` }[p.brainProvider];
   const rows = [
     ['Name', p.userName ? `${p.userName} (“${p.honorific}”)` : `“${p.honorific}”`],
     ['Look', `${choice.theme[0].toUpperCase() + choice.theme.slice(1)} · ${choice.themeMode === 'system' ? 'match macOS' : choice.themeMode}`],
@@ -140,9 +143,10 @@ function problem() {
   const f = info.found;
   if (p.brainProvider === 'claude-code' && !f.claude.path) return 'Claude Code is not installed. Pick another brain or install it.';
   if (p.brainProvider === 'anthropic' && !p.anthropicApiKey && !info.cfg.has_anthropicApiKey) return 'Enter an Anthropic API key.';
+  if (p.brainProvider === 'gemini' && !p.geminiApiKey && !info.cfg.has_geminiApiKey) return 'Enter a Gemini API key.';
   const needs11 = p.sttEngine === 'elevenlabs' || p.ttsEngine === 'elevenlabs';
   if (needs11 && !p.elevenLabsApiKey && !info.cfg.has_elevenLabsApiKey) return 'Enter an ElevenLabs API key.';
-  if (p.brainProvider === 'auto' && !(f.claude.path && f.claude.loggedIn) && !p.anthropicApiKey && !info.cfg.has_anthropicApiKey && !f.ollama.running) {
+  if (p.brainProvider === 'auto' && !(f.claude.path && f.claude.loggedIn) && !p.anthropicApiKey && !info.cfg.has_anthropicApiKey && !p.geminiApiKey && !info.cfg.has_geminiApiKey && !f.ollama.running) {
     return 'No brain is available yet: install Claude Code, add an API key, or start Ollama.';
   }
   return null;
@@ -170,7 +174,7 @@ async function next() {
 
 async function test(kind) {
   const map = {
-    anthropic: ['anthropicApiKey', 'api-status'], ollama: ['ollamaUrl', 'ollama-status'],
+    anthropic: ['anthropicApiKey', 'api-status'], gemini: ['geminiApiKey', 'gemini-status'], ollama: ['ollamaUrl', 'ollama-status'],
     elevenlabs: ['elevenLabsApiKey', 'el-status'], elevenlabs2: ['elevenLabsApiKey2', 'el2-status'], telegram: ['telegramToken', 'tg-status'],
   };
   const [field, statusId] = map[kind];
@@ -179,6 +183,7 @@ async function test(kind) {
   const r = await window.setup.test(kind === 'elevenlabs2' ? 'elevenlabs' : kind, $(field).value.trim());
   if (!r.ok) { status(out, `✗ ${r.msg || 'failed'}`, 'bad'); return; }
   if (kind === 'anthropic') { status(out, '✓ key works', 'ok'); fillList('anthropic-models', r.models || []); }
+  else if (kind === 'gemini') { status(out, '✓ key works', 'ok'); fillList('gemini-models', ['gemini-flash-latest', ...(r.models || [])]); }
   else if (kind === 'ollama') { status(out, `✓ running · ${r.models.length} models`, 'ok'); fillList('ollama-models', r.models); info.found.ollama = { running: true, models: r.models }; }
   else if (kind === 'telegram') status(out, `✓ ${r.msg}`, 'ok');
   else {
@@ -207,7 +212,7 @@ function bind() {
   // One ElevenLabs key, two fields.
   $('elevenLabsApiKey').addEventListener('input', () => { $('elevenLabsApiKey2').value = $('elevenLabsApiKey').value; });
   $('elevenLabsApiKey2').addEventListener('input', () => { $('elevenLabsApiKey').value = $('elevenLabsApiKey2').value; });
-  $('anthropicApiKey').addEventListener('input', () => status($('auto-pick'), `→ ${autoPick()}`, 'ok'));
+  for (const k of ['anthropicApiKey', 'geminiApiKey']) $(k).addEventListener('input', () => status($('auto-pick'), `→ ${autoPick()}`, 'ok'));
   $('back').addEventListener('click', () => show(step - 1));
   $('next').addEventListener('click', next);
   $('test-voice').addEventListener('click', async () => {

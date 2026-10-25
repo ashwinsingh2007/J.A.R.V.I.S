@@ -8,7 +8,7 @@ const path = require('path');
 const HOME = os.homedir();
 const STATE_DIR = process.env.JARVIS_STATE_DIR || path.join(HOME, '.jarvis');
 const CONFIG_FILE = path.join(STATE_DIR, 'config.json');
-const SECRET_KEYS = new Set(['anthropicApiKey', 'elevenLabsApiKey', 'telegramToken']);
+const SECRET_KEYS = new Set(['anthropicApiKey', 'geminiApiKey', 'elevenLabsApiKey', 'telegramToken']);
 
 const DEFAULTS = {
   onboarded: false,
@@ -18,8 +18,8 @@ const DEFAULTS = {
   themeMode: 'dark',              // dark | light | system
   wakeWords: ['jarvis', 'jervis', 'jarvus', 'jar vis'],
 
-  // Brain: "auto" picks Claude Code, then the Anthropic API, then Ollama.
-  brainProvider: 'auto',          // auto | claude-code | anthropic | ollama
+  // Brain: "auto" picks Claude Code, then the Anthropic API, then Gemini, then Ollama.
+  brainProvider: 'auto',          // auto | claude-code | anthropic | gemini | ollama
   model: 'sonnet',                // Claude Code model alias
   effort: 'low',
   agentModel: 'opus',             // model for the brain's background agents
@@ -30,6 +30,8 @@ const DEFAULTS = {
   checkIns: 'sometimes',          // proactive check-ins while awake and quiet: off | sometimes (~3 h) | often (~90 min)            // agents may use Mac apps outside Chrome (Accessibility, mouse, keyboard), after asking      // spoken updates while agents work: off | normal (~35 s) | chatty (~20 s)
   anthropicApiKey: '',
   anthropicModel: 'claude-sonnet-5-5',
+  geminiApiKey: '',
+  geminiModel: 'gemini-flash-latest', // Google's alias for the newest Flash model
   ollamaUrl: 'http://127.0.0.1:11434',
   ollamaModel: 'llama3.2',
 
@@ -99,7 +101,7 @@ function load() {
 }
 
 const ENUMS = {
-  brainProvider: ['auto', 'claude-code', 'anthropic', 'ollama'],
+  brainProvider: ['auto', 'claude-code', 'anthropic', 'gemini', 'ollama'],
   sttEngine: ['apple', 'elevenlabs'],
   appleSpeech: ['instant', 'accurate'],
   ttsEngine: ['kokoro', 'elevenlabs', 'edge', 'native'],
@@ -124,7 +126,7 @@ function sanitize(cfg) {
   }
   const chat = Number(cfg.telegramChatId);
   cfg.telegramChatId = Number.isSafeInteger(chat) ? chat : 0;
-  for (const k of ['honorific', 'model', 'anthropicModel', 'ollamaModel', 'ollamaUrl', 'speechLocale', 'kokoroVoice', 'edgeVoice', 'nativeVoice', 'elevenLabsVoiceId', 'elevenLabsModel']) {
+  for (const k of ['honorific', 'model', 'anthropicModel', 'geminiModel', 'ollamaModel', 'ollamaUrl', 'speechLocale', 'kokoroVoice', 'edgeVoice', 'nativeVoice', 'elevenLabsVoiceId', 'elevenLabsModel']) {
     cfg[k] = typeof cfg[k] === 'string' && cfg[k].trim() ? cfg[k].trim() : DEFAULTS[k];
   }
   if (!/^https?:\/\/[^\s]+$/.test(cfg.ollamaUrl)) cfg.ollamaUrl = DEFAULTS.ollamaUrl;
