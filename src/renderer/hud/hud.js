@@ -205,6 +205,109 @@
   new ResizeObserver(resize).observe(stage);
   resize();
 
+  // ---------- the crew: JARVIS is the main brain inside a loose web of neurons ----------
+  // FRIDAY, EDITH and KAREN are larger nodes in that web; signals run to each of them from the brain along the
+  // shortest chain of neurons. Shown in focus. Placeholders for now; FRIDAY fires while background jobs run.
+  const HUBS = [
+    { id: 'edith', name: 'EDITH', role: 'SAFETY', x: 21, y: -53 },
+    { id: 'karen', name: 'KAREN', role: 'MESSAGES', x: 73, y: 24 },
+    { id: 'friday', name: 'FRIDAY', role: 'JOBS', x: -79, y: -14 },
+  ];
+  const crew = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  crew.id = 'crew';
+  crew.setAttribute('viewBox', '-50 -50 100 100');
+  crew.setAttribute('aria-hidden', 'true');
+  crew.innerHTML = buildCrew();
+  stage.appendChild(crew);
+
+  function buildCrew() {
+    let seed = 23;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const f = (n) => n.toFixed(2);
+    const R0 = 42, IN = 46, RX = 98, RY = 62;
+    const dist = (p, q) => Math.hypot(p.x - q.x, p.y - q.y);
+    const nodes = HUBS.map((h) => ({ ...h, hub: true, r: 1.1 }));
+    const fits = (p, gap) => nodes.every((q) => dist(p, q) > (q.hub ? gap + 3 : gap));
+    // neurons scattered between the reactor and an ellipse, more of them near each hub
+    for (let tries = 0; nodes.length < 40 && tries < 4000; tries++) {
+      const t = rnd() * 2 * Math.PI, c = Math.cos(t), sn = Math.sin(t);
+      const outer = 1 / Math.sqrt((c * c) / (RX * RX) + (sn * sn) / (RY * RY));
+      const r = IN + Math.pow(rnd(), 1.3) * (outer - IN);
+      const p = { x: r * c, y: r * sn, r: 0.28 + rnd() * 0.4 };
+      if (fits(p, 9)) nodes.push(p);
+    }
+    HUBS.forEach((h) => {
+      for (let k = 0, tries = 0; k < 4 && tries < 200; tries++) {
+        const t = rnd() * 2 * Math.PI, r = 4 + rnd() * 7, p = { x: h.x + r * Math.cos(t), y: h.y + r * Math.sin(t), r: 0.35 + rnd() * 0.35 };
+        if (Math.hypot(p.x, p.y) > IN && fits(p, 3.5)) { nodes.push(p); k++; }
+      }
+    });
+    // each node links to its two or three nearest neighbours; hubs to five
+    const edges = new Map(), adj = nodes.map(() => []);
+    nodes.forEach((p, i) => {
+      const k = p.hub ? 4 : 2 + (rnd() < 0.15 ? 1 : 0);
+      nodes.map((q, j) => [j, dist(p, q)]).filter(([j, d]) => j !== i && d < 24).sort((u, v) => u[1] - v[1]).slice(0, k).forEach(([j]) => {
+        const key = i < j ? `${i}-${j}` : `${j}-${i}`;
+        if (!edges.has(key)) { edges.set(key, [i, j]); adj[i].push(j); adj[j].push(i); }
+      });
+    });
+    // neurons close to the reactor take signals straight from the brain
+    const roots = nodes.map((p, i) => i).filter((i) => !nodes[i].hub && Math.hypot(nodes[i].x, nodes[i].y) < 53);
+    const rootPt = (p) => { const a = Math.atan2(p.y, p.x); return { x: R0 * Math.cos(a), y: R0 * Math.sin(a) }; };
+    // shortest chain from the brain to a hub
+    const chain = (goal) => {
+      const prev = new Map(roots.map((i) => [i, -1])), queue = [...roots];
+      while (queue.length) {
+        const i = queue.shift();
+        if (i === goal) break;
+        for (const j of adj[i]) if (!prev.has(j)) { prev.set(j, i); queue.push(j); }
+      }
+      const path = [];
+      for (let i = goal; i !== -1 && i !== undefined; i = prev.get(i)) path.unshift(i);
+      return path;
+    };
+    // a smooth curve through the points (Catmull-Rom as cubic Béziers)
+    const curve = (pts) => {
+      let d = `M${f(pts[0].x)},${f(pts[0].y)}`;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+        d += ` C${f(p1.x + (p2.x - p0.x) / 6)},${f(p1.y + (p2.y - p0.y) / 6)} ${f(p2.x - (p3.x - p1.x) / 6)},${f(p2.y - (p3.y - p1.y) / 6)} ${f(p2.x)},${f(p2.y)}`;
+      }
+      return d;
+    };
+    const fade = (p) => f(Math.max(0.25, 1 - (Math.hypot(p.x, p.y) - IN) / 70));
+
+    let field = '';
+    for (const [i, j] of edges.values()) {
+      const p = nodes[i], q = nodes[j];
+      field += `<line class="syn" x1="${f(p.x)}" y1="${f(p.y)}" x2="${f(q.x)}" y2="${f(q.y)}" stroke-opacity="${fade(p)}" style="--d:${f(rnd() * 3.6)}s"/>`;
+    }
+    roots.forEach((i) => {
+      const p = nodes[i], o = rootPt(p);
+      field += `<line class="axon" x1="${f(o.x)}" y1="${f(o.y)}" x2="${f(p.x)}" y2="${f(p.y)}"/><circle class="term" cx="${f(o.x)}" cy="${f(o.y)}" r="0.45"/>`;
+    });
+    nodes.forEach((p) => { if (!p.hub) field += `<circle class="nrn" cx="${f(p.x)}" cy="${f(p.y)}" r="${f(p.r)}" fill-opacity="${fade(p)}" style="--d:${f(rnd() * 4)}s"/>`; });
+
+    const mates = HUBS.map((h, n) => {
+      const path = chain(n), pts = path.map((i) => nodes[i]);
+      if (pts.length) pts.unshift(rootPt(pts[0]));
+      const d = pts.length > 1 ? curve(pts) : '';
+      const sparks = d ? [0, 1].map((k) => `<circle class="spark" r="0.6"><animateMotion dur="${f(2.4 + pts.length * 0.35)}s" begin="${f(k * 1.3 + rnd())}s" repeatCount="indefinite" path="${d}"/></circle>`).join('') : '';
+      const right = h.x >= 0, lx = h.x + (right ? 5.5 : -5.5), anchor = right ? 'start' : 'end';
+      return `<g class="mate" id="crew-${h.id}" style="--i:${n}">`
+        + (d ? `<path class="fire" d="${d}" style="--d:${f(rnd())}s"/>` : '') + sparks
+        + `<circle class="halo" cx="${f(h.x)}" cy="${f(h.y)}" r="3.4"/><circle class="ring" cx="${f(h.x)}" cy="${f(h.y)}" r="2.1"/><circle class="core" cx="${f(h.x)}" cy="${f(h.y)}" r="1.05"/>`
+        + `<text class="nm" text-anchor="${anchor}" x="${f(lx)}" y="${f(h.y - 0.3)}">${h.name}</text>`
+        + `<text class="rl" text-anchor="${anchor}" x="${f(lx)}" y="${f(h.y + 2.6)}">${h.role} · STANDBY</text></g>`;
+    }).join('');
+    return `<g class="field">${field}</g>${mates}`;
+  }
+  function setCrew(jobs) {
+    const fr = $('crew-friday');
+    fr.classList.toggle('on', jobs > 0);
+    fr.querySelector('.rl').textContent = jobs > 0 ? `JOBS · ${jobs} RUNNING` : 'JOBS · STANDBY';
+  }
+
   // ---------- animation loop ----------
   const lerp = (a, b, t) => a + (b - a) * t;
   let last = performance.now(), spinA = 0, tAcc = 0, nextBolt = 1.5;
@@ -549,6 +652,7 @@
   function setStats(st) {
     Object.assign(stats, st || {});
     const ag = Array.isArray(stats.agents) ? stats.agents : [];
+    setCrew(ag.length);
     $('br-worker').textContent = ag.length ? `${ag.length} JOB${ag.length === 1 ? '' : 'S'} · ${String(ag[0]).toUpperCase().slice(0, 28)}` : 'NO JOBS RUNNING';
     renderServices();
   }
@@ -757,6 +861,8 @@
       if ('hands' in e) lastHands = e.hands;
       setHands(lastHands, document.querySelector('[data-key="screenControl"]').checked);
     }
+    if (e.values && 'autoHide' in e.values) { focus.on = !!e.values.autoHide; armFocus(); }
+    if (e.autoHideMs) { focus.ms = e.autoHideMs; armFocus(); }
     if ('brain' in e) $('brain-settings').hidden = !/^claude code/.test(e.brain || '');
     showTts();
   }
@@ -790,6 +896,28 @@
 
   // ---------- the only control: ACTIVATE/DEACTIVATE (plus Esc = stop, keyboard only) ----------
   document.querySelectorAll('[data-action]').forEach((b) => b.addEventListener('click', () => post({ type: 'action', name: b.dataset.action })));
+  // ---------- focus: HOME slides its panels away after a few idle seconds ----------
+  // Only the reactor and the crew stay. Any mouse movement brings everything back.
+  // Resting the pointer on a panel, an open menu or a focused field keeps it open.
+  const focus = { on: true, ms: 4000, timer: 0, at: null, allowed: !DEMO || /[?&]focus=1/.test(location.search) };
+  const KEEP = '#brand, #lc, #tr, #status, #bl, #br, #panels';
+  function armFocus() {
+    clearTimeout(focus.timer);
+    body.classList.remove('focus');
+    if (!focus.on || !focus.allowed) return;
+    focus.timer = setTimeout(function tryFocus() {
+      const busy = body.dataset.view !== 'cc' || !livePop.hidden || (focus.at && document.elementFromPoint(...focus.at)?.closest(KEEP))
+        || document.activeElement?.matches('input, select, textarea');
+      if (busy) focus.timer = setTimeout(tryFocus, focus.ms);
+      else body.classList.add('focus');
+    }, focus.ms);
+  }
+  document.addEventListener('mousemove', (ev) => { focus.at = [ev.clientX, ev.clientY]; armFocus(); });
+  document.addEventListener('mousedown', armFocus);
+  document.addEventListener('keydown', armFocus);
+  document.documentElement.addEventListener('mouseleave', () => { focus.at = null; });
+  armFocus();
+
   document.addEventListener('keydown', (ev) => { if (ev.key !== 'Escape') return; if (!livePop.hidden) { livePop.hidden = true; return; } post({ type: 'action', name: 'stop' }); });
 
   // ---------- theme: reactor colours follow the CSS theme ----------
@@ -850,7 +978,7 @@
     ] });
     ev({ type: 'settings', brain: 'claude code · sonnet', hands: { ax: true, screen: true }, available: { kokoro: true, edge: true, elevenlabs: false },
       values: { ttsEngine: 'kokoro', kokoroVoice: 'bm_george', kokoroSpeed: 1.05, sttEngine: 'apple', appleSpeech: 'instant', speechLocale: 'en-GB', commandSilenceSeconds: 2, requireEndWord: false,
-        model: 'sonnet', effort: 'low', agentModel: 'opus', progressUpdates: 'normal', morningBriefing: true, checkIns: 'sometimes', screenControl: true, honorific: 'sir', announceSessions: true } });
+        model: 'sonnet', effort: 'low', agentModel: 'opus', progressUpdates: 'normal', morningBriefing: true, checkIns: 'sometimes', screenControl: true, honorific: 'sir', announceSessions: true, autoHide: true } });
     const fake = [
       { name: 'JARVIS brain', kind: 'jarvis', cwd: '~', status: 'working', ago: '2s ago', last: 'using Bash', modified: 11 },
       { name: 'web-app', kind: 'claude', cwd: '~/Projects/web-app', status: 'working', ago: '12s ago', last: 'Running the test suite for the meeting importer; two suites remaining.', modified: 9, terminal: { tty: 'ttys010' } },

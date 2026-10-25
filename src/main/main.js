@@ -201,7 +201,7 @@ ipcMain.handle('setup:save', (e, patch) => {
 // Settings the HUD can change live. Keys, Telegram and the brain provider stay in Setup.
 const HUD_KEYS = ['ttsEngine', 'kokoroVoice', 'kokoroSpeed', 'edgeVoice', 'nativeVoice', 'elevenLabsModel',
   'sttEngine', 'appleSpeech', 'speechLocale', 'commandSilenceSeconds', 'requireEndWord',
-  'model', 'effort', 'agentModel', 'progressUpdates', 'screenControl', 'morningBriefing', 'checkIns', 'honorific', 'announceSessions'];
+  'model', 'effort', 'agentModel', 'progressUpdates', 'screenControl', 'morningBriefing', 'checkIns', 'honorific', 'announceSessions', 'autoHide'];
 
 /** Accessibility and Screen Recording for JARVIS.app, as the screen-control helper sees them. */
 let handsState = null;
@@ -243,6 +243,7 @@ function sendHudSettings() {
   }
   hud.send('settings', {
     values,
+    autoHideMs: Number(process.env.JARVIS_TEST_AUTOHIDE_MS) || 0,
     hands: handsState,
     brain: orch ? orch.brain.label : '',
     available: {

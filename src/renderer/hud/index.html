@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>J.A.R.V.I.S</title>
-<link rel="stylesheet" href="hud.css?v=23">
+<link rel="stylesheet" href="hud.css?v=24">
 <link rel="stylesheet" href="../themes.css">
 <script src="../themes.js"></script>
 <script>(function(){var q=new URLSearchParams(location.search);jarvisTheme.apply(q.get('theme')||undefined,q.get('mode')||undefined);})();</script>
@@ -222,6 +222,9 @@
         <button data-mode-pick="light">LIGHT</button>
         <button data-mode-pick="system">MATCH MACOS</button>
       </div>
+      <ul class="rows form">
+        <li><b>Hide panels when idle</b><label class="tog"><input data-key="autoHide" type="checkbox"><span></span></label></li>
+      </ul>
 
       <h3 class="sub">SYSTEM</h3>
       <ul class="rows">

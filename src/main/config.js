@@ -25,6 +25,7 @@ const DEFAULTS = {
   agentModel: 'opus',             // model for the brain's background agents
   progressUpdates: 'normal',
   screenControl: true,
+  autoHide: true,                 // HOME hides its panels after a few idle seconds, leaving the reactor
   morningBriefing: true,          // briefing on the first "wake up" of the morning
   checkIns: 'sometimes',          // proactive check-ins while awake and quiet: off | sometimes (~3 h) | often (~90 min)            // agents may use Mac apps outside Chrome (Accessibility, mouse, keyboard), after asking      // spoken updates while agents work: off | normal (~35 s) | chatty (~20 s)
   anthropicApiKey: '',
