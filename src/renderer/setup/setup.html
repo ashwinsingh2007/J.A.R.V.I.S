@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'">
+<title>JARVIS Setup</title>
+<link rel="stylesheet" href="../themes.css">
+<link rel="stylesheet" href="setup.css">
+<script src="../themes.js"></script>
+<script src="boot-theme.js"></script>
+</head>
+<body>
+<aside>
+  <div class="logo"><span class="orb"></span><div>J.A.R.V.I.S.<small>SETUP</small></div></div>
+  <ol id="steps">
+    <li data-step="welcome"><b>Welcome</b><small>Name</small></li>
+    <li data-step="look"><b>Appearance</b><small>Theme</small></li>
+    <li data-step="brain"><b>Brain</b><small>What thinks</small></li>
+    <li data-step="ears"><b>Listening</b><small>Speech to text</small></li>
+    <li data-step="voice"><b>Voice</b><small>Text to speech</small></li>
+    <li data-step="extras"><b>Extras</b><small>Optional</small></li>
+    <li data-step="finish"><b>Finish</b><small>Review</small></li>
+  </ol>
+  <div class="foot">Open source · MIT</div>
+</aside>
+
+<main>
+  <div class="scroll">
+
+  <!-- WELCOME -->
+  <section data-step="welcome">
+    <p class="eyebrow">Step 1</p>
+    <h1>Welcome.</h1>
+    <p class="lead">JARVIS is a voice assistant for your Mac. Say <b>“Jarvis, wake up”</b>, then talk. Say <b>“sleep”</b> when you are done.</p>
+    <div class="grid2">
+      <div class="field">
+        <label for="userName">What should JARVIS call you?</label>
+        <input id="userName" placeholder="Your first name (optional)" maxlength="40">
+      </div>
+      <div class="field">
+        <label for="honorific">Form of address</label>
+        <select id="honorific">
+          <option value="sir">sir</option>
+          <option value="ma'am">ma'am</option>
+          <option value="boss">boss</option>
+          <option value="friend">friend</option>
+        </select>
+      </div>
+    </div>
+    <div class="callout">Everything stays on this Mac unless you pick a cloud service. Keys are encrypted with your macOS Keychain.</div>
+  </section>
+
+  <!-- APPEARANCE -->
+  <section data-step="look">
+    <p class="eyebrow">Step 2</p>
+    <h1>Appearance</h1>
+    <p class="lead">Pick a look for the HUD and this window. It changes live.</p>
+    <div class="field">
+      <label>Mode</label>
+      <div class="seg" id="mode-seg">
+        <button data-mode-pick="dark">Dark</button>
+        <button data-mode-pick="light">Light</button>
+        <button data-mode-pick="system">Match macOS</button>
+      </div>
+    </div>
+    <div class="themes" id="theme-grid">
+      <button class="tile" data-theme-pick="jarvis"><div class="pv"><i class="ring"></i><i class="core"></i><em></em><em></em><em></em></div><b>JARVIS</b><small>Holographic blue</small></button>
+      <button class="tile" data-theme-pick="terminal"><div class="pv"><i class="ring"></i><i class="core"></i><em></em><em></em><em></em></div><b>Terminal</b><small>Green phosphor CRT</small></button>
+      <button class="tile" data-theme-pick="neon"><div class="pv"><i class="ring"></i><i class="core"></i><em></em><em></em><em></em></div><b>Neon</b><small>Cyberpunk magenta</small></button>
+      <button class="tile" data-theme-pick="stark"><div class="pv"><i class="ring"></i><i class="core"></i><em></em><em></em><em></em></div><b>Stark</b><small>Red and gold</small></button>
+      <button class="tile" data-theme-pick="minimal"><div class="pv"><i class="ring"></i><i class="core"></i><em></em><em></em><em></em></div><b>Minimal</b><small>Graphite, no glow</small></button>
+    </div>
+  </section>
+
+  <!-- BRAIN -->
+  <section data-step="brain">
+    <p class="eyebrow">Step 3</p>
+    <h1>Brain</h1>
+    <p class="lead"><b>Automatic</b> uses Claude Code if it is installed, then an Anthropic API key, then Ollama.</p>
+    <div class="cards" id="brain-cards">
+      <button class="card" data-brain="auto"><b>Automatic</b><small>Best available, in the order shown.</small><span class="chip" id="auto-pick"></span></button>
+      <button class="card" data-brain="claude-code"><b>Claude Code</b><small>Full agent: steers your sessions, runs background agents in your Chrome, web and files. Uses your Claude plan.</small><span class="chip" id="cc-status"></span></button>
+      <button class="card" data-brain="anthropic"><b>Anthropic API</b><small>Your own API key, pay per use. Smaller, sandboxed tool set.</small><span class="chip" id="api-status"></span></button>
+      <button class="card" data-brain="ollama"><b>Ollama</b><small>Free and fully local. Quality depends on the model.</small><span class="chip" id="ollama-status"></span></button>
+    </div>
+
+    <div class="group" data-for="claude-code">
+      <h3>Claude Code</h3>
+      <div class="grid2">
+        <div class="field"><label for="model">Model</label><select id="model"><option>sonnet</option><option>opus</option><option>haiku</option></select></div>
+        <div class="field"><label for="effort">Effort</label><select id="effort"><option>low</option><option>medium</option><option>high</option></select></div>
+      </div>
+      <p class="note" id="cc-help"></p>
+    </div>
+    <div class="group" data-for="anthropic">
+      <h3>Anthropic API</h3>
+      <div class="field">
+        <div class="lrow"><label for="anthropicApiKey">API key</label><span class="stored" id="anthropicApiKey-stored"></span></div>
+        <div class="ig"><input id="anthropicApiKey" type="password" placeholder="sk-ant-…" autocomplete="off"><button data-test="anthropic">Test</button></div>
+      </div>
+      <div class="field"><label for="anthropicModel">Model</label><input id="anthropicModel" list="anthropic-models"><datalist id="anthropic-models"></datalist></div>
+      <p class="note">Get a key at <a data-href="https://console.anthropic.com/settings/keys">console.anthropic.com</a>.</p>
+    </div>
+    <div class="group" data-for="ollama">
+      <h3>Ollama</h3>
+      <div class="field">
+        <label for="ollamaUrl">Server</label>
+        <div class="ig"><input id="ollamaUrl"><button data-test="ollama">Check</button></div>
+      </div>
+      <div class="field"><label for="ollamaModel">Model</label><input id="ollamaModel" list="ollama-models"><datalist id="ollama-models"></datalist></div>
+      <p class="note">Install from <a data-href="https://ollama.com/download">ollama.com</a>, then run <code>ollama pull llama3.2</code>. Pick a model that supports tools.</p>
+    </div>
+  </section>
+
+  <!-- EARS -->
+  <section data-step="ears">
+    <p class="eyebrow">Step 4</p>
+    <h1>Listening</h1>
+    <p class="lead">How JARVIS turns your voice into text.</p>
+    <div class="cards">
+      <button class="card" data-stt="apple"><b>On-device (Apple)</b><small>Free, private and works offline.</small><span class="chip ok">Recommended</span></button>
+      <button class="card" data-stt="elevenlabs"><b>ElevenLabs Scribe</b><small>Higher accuracy. Audio goes to ElevenLabs only while JARVIS is awake. Paid.</small></button>
+    </div>
+    <div class="group" data-for-stt="elevenlabs">
+      <h3>ElevenLabs</h3>
+      <div class="field">
+        <div class="lrow"><label for="elevenLabsApiKey">API key</label><span class="stored" id="elevenLabsApiKey-stored"></span><span class="chip" id="el-status"></span></div>
+        <div class="ig"><input id="elevenLabsApiKey" type="password" placeholder="sk_…" autocomplete="off"><button data-test="elevenlabs">Test</button></div>
+      </div>
+      <p class="note">While asleep, wake-word detection always stays on this Mac. The same key is used for the ElevenLabs voice.</p>
+    </div>
+    <div class="group open">
+      <h3>Turn-taking</h3>
+      <div class="grid2">
+        <div class="field"><label for="speechLocale">Language</label><select id="speechLocale">
+          <option value="en-US">English (US)</option><option value="en-GB">English (UK)</option><option value="en-IN">English (India)</option>
+          <option value="en-AU">English (Australia)</option><option value="hi-IN">Hindi</option><option value="de-DE">German</option>
+          <option value="fr-FR">French</option><option value="es-ES">Spanish</option>
+        </select></div>
+        <div class="field"><label for="commandSilenceSeconds">Pause before sending</label>
+          <div class="unit"><input id="commandSilenceSeconds" type="number" min="0.5" max="15" step="0.5"><span>seconds</span></div></div>
+        <div class="field"><label for="appleSpeech">On-device recogniser</label><select id="appleSpeech">
+          <option value="instant">Instant: words appear as you speak</option>
+          <option value="accurate">Accurate: updates about once a second</option>
+        </select></div>
+      </div>
+      <label class="switch"><input id="requireEndWord" type="checkbox"><span class="track"></span><span>Only send when I say “over”</span></label>
+    </div>
+    <p class="note">macOS asks for Microphone and Speech Recognition access on first start. <a data-href="x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone">Open privacy settings</a></p>
+  </section>
+
+  <!-- VOICE -->
+  <section data-step="voice">
+    <p class="eyebrow">Step 5</p>
+    <h1>Voice</h1>
+    <p class="lead">How JARVIS sounds.</p>
+    <div class="cards">
+      <button class="card" data-tts="kokoro"><b>Kokoro</b><small>Natural local voice. Free and offline.</small><span class="chip" id="kokoro-status"></span></button>
+      <button class="card" data-tts="elevenlabs"><b>ElevenLabs</b><small>Best quality. Needs an API key. Paid.</small></button>
+      <button class="card" data-tts="edge"><b>Edge neural</b><small>Free Microsoft voices. Needs internet.</small><span class="chip" id="edge-status"></span></button>
+      <button class="card" data-tts="native"><b>macOS voice</b><small>Built in. Always works.</small><span class="chip ok">Always available</span></button>
+    </div>
+    <div class="group" data-for-tts="kokoro">
+      <h3>Kokoro</h3>
+      <div class="grid2">
+        <div class="field"><label for="kokoroVoice">Voice</label><select id="kokoroVoice">
+          <option value="bm_george">George (British male)</option><option value="bm_lewis">Lewis (British male)</option>
+          <option value="bm_daniel">Daniel (British male)</option><option value="bm_fable">Fable (British male)</option>
+          <option value="bf_emma">Emma (British female)</option><option value="am_michael">Michael (American male)</option>
+          <option value="af_heart">Heart (American female)</option>
+        </select></div>
+        <div class="field"><label for="kokoroSpeed">Speed</label><div class="unit"><input id="kokoroSpeed" type="number" min="0.5" max="2" step="0.05"><span>×</span></div></div>
+      </div>
+      <p class="note" id="kokoro-help"></p>
+    </div>
+    <div class="group" data-for-tts="elevenlabs">
+      <h3>ElevenLabs</h3>
+      <div class="field">
+        <div class="lrow"><label for="elevenLabsApiKey2">API key</label><span class="stored" id="elevenLabsApiKey-stored2"></span><span class="chip" id="el2-status"></span></div>
+        <div class="ig"><input id="elevenLabsApiKey2" type="password" placeholder="Same key as Listening" autocomplete="off"><button data-test="elevenlabs2">Load voices</button></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label for="elevenLabsVoiceId">Voice</label><select id="elevenLabsVoiceId"><option value="JBFqnCBsd6RMkjVDRZzb">George</option></select></div>
+        <div class="field"><label for="elevenLabsModel">Model</label><select id="elevenLabsModel"><option value="eleven_flash_v2_5">Flash v2.5 (fastest)</option><option value="eleven_turbo_v2_5">Turbo v2.5</option><option value="eleven_multilingual_v2">Multilingual v2 (best)</option></select></div>
+      </div>
+    </div>
+    <div class="group" data-for-tts="edge">
+      <h3>Edge</h3>
+      <div class="field"><label for="edgeVoice">Voice</label><select id="edgeVoice"><option>en-GB-RyanNeural</option><option>en-GB-ThomasNeural</option><option>en-GB-SoniaNeural</option><option>en-US-GuyNeural</option><option>en-US-JennyNeural</option><option>en-IN-PrabhatNeural</option><option>en-IN-NeerjaNeural</option></select></div>
+    </div>
+    <div class="group" data-for-tts="native">
+      <h3>macOS voice</h3>
+      <div class="field"><label for="nativeVoice">Voice</label><select id="nativeVoice"></select></div>
+    </div>
+    <div class="actions"><button id="test-voice" class="btn">▶ Test voice</button><span class="chip" id="voice-result"></span></div>
+  </section>
+
+  <!-- EXTRAS -->
+  <section data-step="extras">
+    <p class="eyebrow">Step 6</p>
+    <h1>Extras</h1>
+    <p class="lead">Optional. Skip anything you do not need.</p>
+    <div class="group open">
+      <h3>Watch your Claude Code sessions</h3>
+      <p class="note">Adds two hooks to <code>~/.claude/settings.json</code> so JARVIS can tell you when a session finishes or asks for permission. Remove them with <code>scripts/install-hooks.sh --uninstall</code>.</p>
+      <div class="actions"><button id="install-hooks" class="btn">Install hooks</button><span class="chip" id="hooks-status"></span></div>
+      <p class="note" id="iterm-note"></p>
+    </div>
+    <div class="group open">
+      <h3>Telegram</h3>
+      <p class="note">Message JARVIS from your phone. Create a bot with <a data-href="https://t.me/BotFather">@BotFather</a>, paste its token, then send the bot one message: it replies with your chat id.</p>
+      <div class="field">
+        <div class="lrow"><label for="telegramToken">Bot token</label><span class="stored" id="telegramToken-stored"></span><span class="chip" id="tg-status"></span></div>
+        <div class="ig"><input id="telegramToken" type="password" autocomplete="off" placeholder="123456:ABC…"><button data-test="telegram">Test</button></div>
+      </div>
+      <div class="grid2 align-end">
+        <div class="field"><label for="telegramChatId">Chat id</label><input id="telegramChatId" type="number" placeholder="Sent by your bot"></div>
+        <label class="switch"><input id="telegramVoiceReplies" type="checkbox"><span class="track"></span><span>Voice replies</span></label>
+      </div>
+    </div>
+    <div class="group open">
+      <h3>Radio</h3>
+      <div class="field half"><label for="radioCountry">Country for popular stations</label><select id="radioCountry">
+        <option value="IN">India</option><option value="US">United States</option><option value="GB">United Kingdom</option><option value="DE">Germany</option>
+        <option value="FR">France</option><option value="CA">Canada</option><option value="AU">Australia</option><option value="AE">UAE</option>
+      </select></div>
+    </div>
+  </section>
+
+  <!-- FINISH -->
+  <section data-step="finish">
+    <p class="eyebrow">Step 7</p>
+    <h1>Ready.</h1>
+    <ul id="summary" class="summary"></ul>
+    <div class="callout">Say <b>“Jarvis, wake up”</b> to begin. <b>“Sleep”</b> stops listening, <b>“standby”</b> turns the mic off. Come back here any time from the menu bar (◉ → Setup…) or the HUD's SETTINGS tab.</div>
+  </section>
+
+  </div>
+  <nav class="buttons">
+    <button id="back" class="btn">Back</button>
+    <span class="grow"></span>
+    <span id="saved" class="msg"></span>
+    <button id="next" class="btn primary">Next</button>
+  </nav>
+</main>
+<script src="setup.js"></script>
+</body>
+</html>
