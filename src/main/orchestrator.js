@@ -29,6 +29,7 @@ const STATUS_ASKS = new Set(['status', 'status update', "what's the status", 'wh
   'any progress', 'progress', "how's it going", 'hows it going', 'how is it going', "how's it coming", 'how is it coming along', "how's it coming along",
   'are you done', 'is it done', 'are you done yet', 'is it done yet', 'what are you doing', 'where are we', "what's happening", 'update me', 'give me an update']);
 const VOICE = { kind: 'voice' };
+const TYPED = { kind: 'typed' };   // the HUD's input bar: spoken replies only while awake
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const hhmmOf = (iso) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 const nowText = () => new Date().toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -277,6 +278,7 @@ class Orchestrator extends EventEmitter {
       case 'new': this.newConversation(); break;
       case 'fullscreen': this.hud.toggleFullScreen(); break;
       case 'setup': this.emit('open-setup', body.section || ''); break;
+      case 'type': this.handle(String(body.text || '').slice(0, 4000), TYPED); break;
       case 'theme': this.emit('set-theme', { theme: body.theme, themeMode: body.mode }); break;
       case 'settings': if (body.patch && typeof body.patch === 'object') this.emit('settings', body.patch); break;
       case 'memory-forget': if (body.id && this.memory.forget(body.id)) this.brain.reconfigure && this.brain.reconfigure(); break;

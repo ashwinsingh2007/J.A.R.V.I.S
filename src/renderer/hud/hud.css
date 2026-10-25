@@ -439,3 +439,16 @@ body.focus[data-view="cc"] #status .row1 { max-height: 0; opacity: 0; overflow: 
 .setcard b { font: var(--lab) var(--mono); letter-spacing: 0.2em; color: var(--bright); }
 .setcard small { font-size: 0.85em; letter-spacing: 0.08em; color: var(--muted); line-height: 1.4; }
 .setcard em { margin-top: 2px; font-style: normal; font-size: var(--lab); letter-spacing: 0.18em; color: var(--cyan); }
+
+/* ---------- input bar: type to JARVIS, mic inside ---------- */
+#ask { display: flex; align-items: center; gap: 8px; margin: 14px auto 0; width: 100%; max-width: 640px; padding: 5px 6px 5px 6px; border: 1px solid var(--line2); border-radius: 26px; background: rgba(var(--rgb), calc(0.05 * var(--glow) + 0.03)); box-shadow: 0 0 calc(18px * var(--glow)) rgba(var(--rgb), 0.12); transition: border-color .2s, box-shadow .2s, opacity .45s ease, transform .6s cubic-bezier(.2,.7,.2,1); }
+#ask:focus-within { border-color: var(--cyan); box-shadow: 0 0 calc(24px * var(--glow)) rgba(var(--rgb), 0.28); }
+#ask #mic { width: 36px; height: 36px; flex: none; box-shadow: none; }
+#ask-input { flex: 1; min-width: 0; height: 36px; border: 0; outline: 0; background: transparent; color: var(--bright); font: var(--val)/1 var(--font-ui); letter-spacing: 0.01em; -webkit-user-select: text; user-select: text; }
+#ask-input::placeholder { color: var(--faint); }
+#ask kbd { flex: none; font: var(--lab) var(--mono); letter-spacing: 0.1em; color: var(--faint); border: 1px solid var(--hair); border-radius: 5px; padding: 2px 6px; }
+#ask:focus-within kbd { display: none; }
+#ask-send { width: 34px; height: 34px; flex: none; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer; background: var(--cyan); color: var(--bg); transition: opacity .2s, transform .15s; }
+#ask-send:disabled { opacity: 0.25; cursor: default; }
+#ask-send:not(:disabled):hover { transform: scale(1.06); }
+body.focus[data-view="cc"] #ask { opacity: 0; transform: translateY(calc(100% + 2 * var(--my))); pointer-events: none; }
