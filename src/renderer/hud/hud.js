@@ -421,8 +421,25 @@
     $('power').querySelector('b').textContent = disabled ? 'ENABLE JARVIS' : 'DISABLE JARVIS'; $('power').classList.toggle('off', disabled); document.body.classList.toggle('disabled', disabled);
     $('mic').classList.toggle('off', s === 'muted' || disabled); $('mic').title = s === 'muted' ? 'Microphone off — click to unmute' : 'Microphone on — click to mute';
     if (s !== 'booting') bootSignal();
+    armCaptions();
   }
   let disabled = false;
+
+  // Captions clear themselves: new speech replaces the old pair, and both fade after a quiet spell.
+  const CAPTION_MS = 8000;
+  let captionTimer = 0;
+  function armCaptions() {
+    clearTimeout(captionTimer);
+    $('status').classList.remove('quiet');
+    if (state === 'speaking' || state === 'thinking') return;
+    captionTimer = setTimeout(() => {
+      $('status').classList.add('quiet');
+      captionTimer = setTimeout(() => {
+        $('transcript').textContent = ''; $('reply').textContent = ''; $('reply').className = '';
+        $('status').classList.remove('quiet');
+      }, 600);
+    }, CAPTION_MS);
+  }
   function setMode(m) {
     if (m && 'disabled' in m) disabled = !!m.disabled;
     if (m && 'conversation' in m) conversation = !!m.conversation;
@@ -744,12 +761,15 @@
         case 'youtube_presets': ytPresets = e.presets || []; renderStations(); break;
         case 'transcript': {
           const t = $('transcript'); t.textContent = e.text || ''; t.classList.toggle('final', !!e.final);
+          if (e.text && !e.final && $('reply').textContent) { $('reply').textContent = ''; $('reply').className = ''; }
           if (e.final && e.text) { lastFinalTranscript = e.text; lastReply = ''; }
+          armCaptions();
           break;
         }
         case 'reply': {
           const r = $('reply'); r.textContent = unmd(e.text); r.className = e.error ? 'error' : (e.text ? 'live' : '');
           if (e.text) { lastReply = e.text; localHistoryTurn(); }
+          armCaptions();
           break;
         }
         case 'tool': addTool(e.name, e.summary); break;
@@ -896,26 +916,21 @@
 
   // ---------- the only control: ACTIVATE/DEACTIVATE (plus Esc = stop, keyboard only) ----------
   document.querySelectorAll('[data-action]').forEach((b) => b.addEventListener('click', () => post({ type: 'action', name: b.dataset.action })));
-  // ---------- focus: HOME slides its panels away after a few idle seconds ----------
-  // Only the reactor and the crew stay. Any mouse movement brings everything back.
-  // Resting the pointer on a panel, an open menu or a focused field keeps it open.
-  const focus = { on: true, ms: 4000, timer: 0, at: null, allowed: !DEMO || /[?&]focus=1/.test(location.search) };
-  const KEEP = '#brand, #lc, #tr, #status, #bl, #br, #panels';
+  // ---------- full mode: HOME slides its panels away after a few idle seconds ----------
+  // Only the reactor and the crew stay, wherever the pointer is. Any mouse or key activity brings
+  // everything back. An open menu or a field being typed in keeps the panels up.
+  const focus = { on: true, ms: 4000, timer: 0, allowed: !DEMO || /[?&]focus=1/.test(location.search) };
   function armFocus() {
     clearTimeout(focus.timer);
     body.classList.remove('focus');
     if (!focus.on || !focus.allowed) return;
     focus.timer = setTimeout(function tryFocus() {
-      const busy = body.dataset.view !== 'cc' || !livePop.hidden || (focus.at && document.elementFromPoint(...focus.at)?.closest(KEEP))
-        || document.activeElement?.matches('input, select, textarea');
+      const busy = body.dataset.view !== 'cc' || !livePop.hidden || document.activeElement?.matches('input, select, textarea');
       if (busy) focus.timer = setTimeout(tryFocus, focus.ms);
       else body.classList.add('focus');
     }, focus.ms);
   }
-  document.addEventListener('mousemove', (ev) => { focus.at = [ev.clientX, ev.clientY]; armFocus(); });
-  document.addEventListener('mousedown', armFocus);
-  document.addEventListener('keydown', armFocus);
-  document.documentElement.addEventListener('mouseleave', () => { focus.at = null; });
+  for (const type of ['mousemove', 'mousedown', 'wheel', 'keydown']) document.addEventListener(type, armFocus, { passive: true });
   armFocus();
 
   document.addEventListener('keydown', (ev) => { if (ev.key !== 'Escape') return; if (!livePop.hidden) { livePop.hidden = true; return; } post({ type: 'action', name: 'stop' }); });

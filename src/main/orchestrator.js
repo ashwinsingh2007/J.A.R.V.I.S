@@ -6,7 +6,7 @@ const path = require('path');
 const EventEmitter = require('events');
 const C = require('./config');
 const { log, run, clean, cutSources, SOURCES_START, paths, hhmm } = require('./util');
-const { Wake, matches, WAKE_PHRASES, SLEEP_PHRASES, STANDBY_PHRASES } = require('./wake');
+const { Wake, matches, isCommand, WAKE_PHRASES, SLEEP_PHRASES, STANDBY_PHRASES } = require('./wake');
 const Speaker = require('./speaker');
 const Music = require('./music');
 const YouTube = require('./youtube');
@@ -747,7 +747,7 @@ class Orchestrator extends EventEmitter {
     if (has(['music quieter', 'quieter music', 'turn down the music', 'lower the music', 'decrease music volume', 'music volume down', 'music softer'])) return vol(-0.15);
     if (has(['next song', 'next track', 'skip song', 'skip this song'])) return () => { this.music.nextTrack(); done(); };
     if (has(['next station', 'change music', 'change the music', 'next music', 'different music', 'change station'])) return () => { this.music.next(); done(); };
-    if (matches(t, SLEEP_PHRASES)) {
+    if (isCommand(t, SLEEP_PHRASES)) {
       return () => {
         this.speaker.stop();
         this.brain.cancel();
@@ -760,7 +760,7 @@ class Orchestrator extends EventEmitter {
         this.state = this.muted ? 'muted' : 'idle';
       };
     }
-    if (matches(t, STANDBY_PHRASES)) return () => this.setStandby(true);
+    if (isCommand(t, STANDBY_PHRASES)) return () => this.setStandby(true);
     if (t.includes('full screen') || t.includes('fullscreen')) return () => { this.hud.toggleFullScreen(); done(); };
     return null;
   }

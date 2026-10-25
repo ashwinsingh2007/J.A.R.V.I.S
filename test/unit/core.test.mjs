@@ -16,7 +16,7 @@ const C = require('../../src/main/config');
 const util = require('../../src/main/util');
 util.initPaths(ROOT);
 const { SentenceSplitter, systemPrompt, agentPrompt } = require('../../src/main/brain/common');
-const { matches, WAKE_PHRASES } = require('../../src/main/wake');
+const { matches, isCommand, WAKE_PHRASES, SLEEP_PHRASES, STANDBY_PHRASES } = require('../../src/main/wake');
 const { Memory } = require('../../src/main/memory');
 const { Scheduler, nextDue } = require('../../src/main/scheduler');
 
@@ -47,6 +47,13 @@ test('sentence splitter emits whole sentences as text streams in', () => {
 test('wake phrases are recognised', () => {
   assert.ok(matches('jarvis wake up', WAKE_PHRASES));
   assert.ok(!matches('what time is it', WAKE_PHRASES));
+  assert.ok(isCommand('sleep', SLEEP_PHRASES));
+  assert.ok(isCommand('Jarvis, go to sleep now.', SLEEP_PHRASES));
+  assert.ok(isCommand('okay that will be all thank you', SLEEP_PHRASES));
+  assert.ok(!isCommand('enjoy sleep', SLEEP_PHRASES));
+  assert.ok(!isCommand("i couldn't sleep last night", SLEEP_PHRASES));
+  assert.ok(isCommand('jarvis standby', STANDBY_PHRASES));
+  assert.ok(!isCommand('can you mute the music', STANDBY_PHRASES));
 });
 
 test('config sanitising replaces junk with defaults', () => {

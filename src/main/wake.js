@@ -25,6 +25,17 @@ function matches(text, phrases) {
   return phrases.some((p) => t === p || t.startsWith(p + ' ') || t.endsWith(' ' + p));
 }
 
+const FILLER = new Set(['jarvis', 'please', 'now', 'ok', 'okay', 'alright', 'thanks', 'thank', 'you']);
+
+/** True only when the whole utterance is the command, give or take "Jarvis", "please", "now" and the like. */
+function isCommand(text, phrases) {
+  const words = text.toLowerCase().replace(/[^\w\s'-]/g, ' ').split(/\s+/).filter(Boolean);
+  let a = 0, b = words.length;
+  while (a < b && FILLER.has(words[a])) a++;
+  while (b > a && FILLER.has(words[b - 1])) b--;
+  return phrases.includes(words.slice(a, b).join(' '));
+}
+
 function stripEndWord(command, endWords) {
   const t = trimPunct(command.toLowerCase());
   for (const w of endWords) if (t === w || t.endsWith(' ' + w)) return trimPunct(t.slice(0, t.length - w.length));
@@ -198,4 +209,4 @@ class Wake extends EventEmitter {
   }
 }
 
-module.exports = { Wake, matches, WAKE_PHRASES, SLEEP_PHRASES, STANDBY_PHRASES, CONTROL_WORDS, PUNCT };
+module.exports = { Wake, matches, isCommand, WAKE_PHRASES, SLEEP_PHRASES, STANDBY_PHRASES, CONTROL_WORDS, PUNCT };
