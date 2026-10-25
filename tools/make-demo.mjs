@@ -1,7 +1,6 @@
 // Records the demo video: a scripted conversation played through the HUD's
 // demo mode, with JARVIS speaking in the Kokoro voice and the user in a macOS
-// voice. Writes docs/demo/jarvis-demo.mp4 (with sound), a poster frame and a
-// silent GIF for the README.
+// voice. Writes docs/demo/jarvis-demo.mp4 (with sound) and a poster frame.
 //
 //   node tools/make-demo.mjs        (needs ./setup.sh done, Google Chrome and ffmpeg)
 import { chromium } from 'playwright';
@@ -166,7 +165,6 @@ const mp4 = path.join(OUT, 'jarvis-demo.mp4');
 execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-ss', String(offset), '-i', video, '-i', wav, '-t', String(total / 1000),
   '-c:v', 'libx264', '-crf', '24', '-preset', 'slow', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-c:a', 'aac', '-b:a', '128k', mp4]);
 execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-ss', '9', '-i', mp4, '-frames:v', '1', '-q:v', '3', path.join(OUT, 'poster.jpg')]);
-execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', mp4, '-vf', 'fps=6,scale=640:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=64:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle', path.join(OUT, 'jarvis-demo.gif')]);
-for (const f of ['jarvis-demo.mp4', 'poster.jpg', 'jarvis-demo.gif']) console.log(f, (fs.statSync(path.join(OUT, f)).size / 1e6).toFixed(1), 'MB');
+for (const f of ['jarvis-demo.mp4', 'poster.jpg']) console.log(f, (fs.statSync(path.join(OUT, f)).size / 1e6).toFixed(1), 'MB');
 console.log(`length ${(total / 1000).toFixed(1)} s`);
 fs.rmSync(TMP, { recursive: true, force: true });

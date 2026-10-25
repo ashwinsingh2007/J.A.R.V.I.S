@@ -27,11 +27,9 @@ JARVIS runs on Claude Code, the Anthropic API, or a local model through Ollama. 
 
 ## Demo
 
-<p align="center">
-  <a href="https://ashwinsingh2007.github.io/J.A.R.V.I.S/#demo"><img src="docs/demo/jarvis-demo.gif" alt="JARVIS demo: checking Gmail in the background, a reminder, a status update, remembering a birthday and switching themes" width="800"></a>
-</p>
+https://github.com/user-attachments/assets/ac750826-9956-4c2b-b4ac-b4057fe60658
 
-One minute: a Gmail check in the background with spoken progress, a reminder, "what's the status?", the result, a birthday saved to memory, and the five themes. The GIF is silent. [Watch it with sound](https://ashwinsingh2007.github.io/J.A.R.V.I.S/#demo) on the website, or [download the MP4](docs/demo/jarvis-demo.mp4). The HUD is in demo mode with made-up data.
+One minute, with sound: a Gmail check in the background with spoken progress, a reminder, "what's the status?", the result, a birthday saved to memory, and the five themes. The HUD is in demo mode with made-up data. It's also on the [website](https://ashwinsingh2007.github.io/J.A.R.V.I.S/#demo).
 
 ## Features
 
