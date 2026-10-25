@@ -412,7 +412,8 @@
   const STATE_LABEL = { booting: 'BOOTING', idle: 'IDLE', listening: 'LISTENING', thinking: 'THINKING', speaking: 'SPEAKING', error: 'ERROR', muted: 'STANDBY' };
   function setState(s) {
     if (!STATES[s]) return;
-    if (s !== state) flash = 1;
+    const moved = s !== state;
+    if (moved) flash = 1;
     state = s;
     body.dataset.state = s;
     const label = disabled ? 'DISABLED' : (s === 'idle' ? (conversation ? 'AWAKE' : 'ASLEEP') : (STATE_LABEL[s] || s.toUpperCase()));
@@ -421,7 +422,7 @@
     $('power').querySelector('b').textContent = disabled ? 'ENABLE JARVIS' : 'DISABLE JARVIS'; $('power').classList.toggle('off', disabled); document.body.classList.toggle('disabled', disabled);
     $('mic').classList.toggle('off', s === 'muted' || disabled); $('mic').title = s === 'muted' ? 'Microphone off — click to unmute' : 'Microphone on — click to mute';
     if (s !== 'booting') bootSignal();
-    armCaptions();
+    if (moved) armCaptions();
   }
   let disabled = false;
 
@@ -760,16 +761,18 @@
         case 'music_stations': musicCredit = e.credit || ''; setStations(e.stations || []); break;
         case 'youtube_presets': ytPresets = e.presets || []; renderStations(); break;
         case 'transcript': {
-          const t = $('transcript'); t.textContent = e.text || ''; t.classList.toggle('final', !!e.final);
+          const t = $('transcript'), changed = t.textContent !== (e.text || '');
+          t.textContent = e.text || ''; t.classList.toggle('final', !!e.final);
           if (e.text && !e.final && $('reply').textContent) { $('reply').textContent = ''; $('reply').className = ''; }
           if (e.final && e.text) { lastFinalTranscript = e.text; lastReply = ''; }
-          armCaptions();
+          if (changed && e.text) armCaptions();
           break;
         }
         case 'reply': {
-          const r = $('reply'); r.textContent = unmd(e.text); r.className = e.error ? 'error' : (e.text ? 'live' : '');
+          const r = $('reply'), changed = r.textContent !== unmd(e.text);
+          r.textContent = unmd(e.text); r.className = e.error ? 'error' : (e.text ? 'live' : '');
           if (e.text) { lastReply = e.text; localHistoryTurn(); }
-          armCaptions();
+          if (changed && e.text) armCaptions();
           break;
         }
         case 'tool': addTool(e.name, e.summary); break;

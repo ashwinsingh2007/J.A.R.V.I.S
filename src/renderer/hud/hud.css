@@ -428,3 +428,6 @@ body.focus[data-view="cc"] #crew .mate { opacity: 1; transform: none; transition
 /* captions fade after a quiet spell (hud.js armCaptions) */
 #transcript, #reply { transition: opacity .6s ease; }
 #status.quiet #transcript, #status.quiet #reply { opacity: 0; }
+/* full mode keeps only the captions: the mic and the state word fold away */
+#status .row1 { max-height: 120px; transition: max-height .5s ease, opacity .4s ease; }
+body.focus[data-view="cc"] #status .row1 { max-height: 0; opacity: 0; overflow: hidden; pointer-events: none; }
