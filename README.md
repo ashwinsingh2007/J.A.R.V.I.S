@@ -27,7 +27,7 @@ JARVIS runs on Claude Code, the Anthropic API, or a local model through Ollama. 
 
 ## Demo
 
-https://github.com/user-attachments/assets/ac750826-9956-4c2b-b4ac-b4057fe60658
+https://github.com/user-attachments/assets/ad2601b5-fe23-417f-ba83-51ab274bdda3
 
 One minute, with sound: a Gmail check in the background with spoken progress, a reminder, "what's the status?", the result, a birthday saved to memory, and the five themes. The HUD is in demo mode with made-up data. It's also on the [website](https://ashwinsingh2007.github.io/J.A.R.V.I.S/#demo).
 
