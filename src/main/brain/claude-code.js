@@ -16,8 +16,8 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 const EventEmitter = require('events');
 const C = require('../config');
-const { log, env, jsonLines, paths } = require('../util');
-const { SentenceSplitter, systemPrompt, agentPrompt, summarise } = require('./common');
+const { log, env, jsonLines } = require('../util');
+const { SentenceSplitter, systemPrompt, agentPrompt, summarise, claudeSettings, claudeDisallowed } = require('./common');
 
 const ENDED = new Set(['completed', 'failed', 'killed', 'stopped', 'cancelled']);
 
@@ -122,18 +122,6 @@ class ClaudeCodeBrain extends EventEmitter {
     log(`brain: asked '${prompt.slice(0, 80)}' session=${this._sessionId || 'new'}`);
   }
 
-  /** The user's own deny rules and PreToolUse guardrail hooks still apply, plus a few of ours. */
-  settings() {
-    let user = {};
-    try { user = JSON.parse(fs.readFileSync(`${C.HOME}/.claude/settings.json`, 'utf8')); } catch {}
-    const deny = Array.isArray(user.permissions && user.permissions.deny) ? [...user.permissions.deny] : [];
-    // Path rules only take effect as Edit(...); they cover Write as well.
-    deny.push(`Edit(/${C.HOME}/.claude/**)`, `Edit(/${paths.root}/**)`, `Edit(/${C.STATE_DIR}/config.json)`);
-    const out = { permissions: { deny } };
-    if (user.hooks && Array.isArray(user.hooks.PreToolUse)) out.hooks = { PreToolUse: user.hooks.PreToolUse };
-    return JSON.stringify(out);
-  }
-
   agents() {
     return JSON.stringify({
       'jarvis-agent': {
@@ -157,9 +145,9 @@ class ClaudeCodeBrain extends EventEmitter {
       '--agents', this.agents(),
       '--chrome',
       // New terminals only come from the user.
-      '--disallowedTools', `Bash(${paths.scripts}/open-session.sh*),Bash(*open-session.sh*)` + (this.cfg.screenControl ? '' : ',Bash(*hands.sh*),Bash(*jarvis-hands*)'),
+      '--disallowedTools', claudeDisallowed(this.cfg),
       '--setting-sources', '',
-      '--settings', this.settings(),
+      '--settings', claudeSettings(),
     ];
     if (this._sessionId) args.push('--resume', this._sessionId);
     let p;

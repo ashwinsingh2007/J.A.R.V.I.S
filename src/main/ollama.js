@@ -8,10 +8,11 @@ const { which, run, log } = require('./util');
 const DOWNLOAD = 'https://ollama.com/download/Ollama-darwin.zip';
 const APP_DIRS = process.env.JARVIS_TEST_APP_DIR ? [process.env.JARVIS_TEST_APP_DIR] : ['/Applications', path.join(os.homedir(), 'Applications')];
 
-// Models offered for download: small enough for a 16 GB Mac, and able to call tools.
+// Models offered for download: small enough for a 16 GB Mac, fast to answer, and able to call tools
+// without a long "thinking" pass. Tested with JARVIS: Llama 3.2 3B answers in a few seconds and hands
+// heavy jobs to FRIDAY. (Qwen3 8B only called tools reliably with thinking on, at over a minute a reply.)
 const RECOMMENDED = [
-  { id: 'llama3.2', name: 'Llama 3.2 · 3B', size: '2.0 GB', note: 'Fast. Good for everyday questions.' },
-  { id: 'qwen3:8b', name: 'Qwen3 · 8B', size: '5.2 GB', note: 'Smarter and better with tools, a little slower.' },
+  { id: 'llama3.2', name: 'Llama 3.2 · 3B', size: '2.0 GB', note: 'Fast. Good for everyday questions, and hands heavy jobs to FRIDAY.' },
 ];
 
 const base = (url) => String(url || 'http://127.0.0.1:11434').replace(/\/$/, '');

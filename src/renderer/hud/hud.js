@@ -886,7 +886,11 @@
     }
     if (e.values && 'autoHide' in e.values) { focus.on = !!e.values.autoHide; armFocus(); }
     if (e.autoHideMs) { focus.ms = e.autoHideMs; armFocus(); }
-    if ('brain' in e) $('brain-settings').hidden = !/^claude code/.test(e.brain || '');
+    if ('brain' in e) {
+      const cc = /^claude code/.test(e.brain || '');
+      $('brain-settings').hidden = $('effort-row').hidden = !cc;
+      $('worker-row').hidden = cc || !e.workerAvailable;
+    }
     showTts();
   }
   document.querySelectorAll('[data-key]').forEach((el) => el.addEventListener('change', () => {

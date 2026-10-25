@@ -3,7 +3,7 @@
 const $ = (id) => document.getElementById(id);
 const FIRST = new URLSearchParams(location.search).get('first') === '1';
 const STEPS = ['welcome', 'look', 'brain', 'ears', 'voice', 'extras', 'finish'];
-const TEXT = ['userName', 'honorific', 'model', 'effort', 'anthropicModel', 'geminiModel', 'ollamaUrl', 'ollamaModel', 'speechLocale', 'appleSpeech', 'kokoroVoice', 'elevenLabsVoiceId', 'elevenLabsModel', 'edgeVoice', 'nativeVoice', 'radioCountry'];
+const TEXT = ['userName', 'honorific', 'model', 'effort', 'worker', 'agentModel', 'anthropicModel', 'geminiModel', 'ollamaUrl', 'ollamaModel', 'speechLocale', 'appleSpeech', 'kokoroVoice', 'elevenLabsVoiceId', 'elevenLabsModel', 'edgeVoice', 'nativeVoice', 'radioCountry'];
 const NUM = ['commandSilenceSeconds', 'kokoroSpeed', 'telegramChatId'];
 const BOOL = ['requireEndWord', 'telegramVoiceReplies'];
 const SECRET = ['anthropicApiKey', 'geminiApiKey', 'elevenLabsApiKey', 'telegramToken'];
@@ -75,6 +75,20 @@ function bestBrain() {
   if (info.cfg.has_anthropicApiKey) return 'anthropic';
   if (info.cfg.has_geminiApiKey) return 'gemini';
   return 'ollama';
+}
+
+/** FRIDAY runs on Claude Code: as its background agents when it is the brain, or as a separate worker. */
+function renderWorker() {
+  const f = info.found, cc = !!(f.claude.path && f.claude.loggedIn), brainIsCC = choice.brainProvider === 'claude-code';
+  $('worker-field').hidden = brainIsCC;
+  $('worker').disabled = !cc;
+  if (!cc) $('worker').value = 'off';
+  $('agent-field').hidden = !cc || (!brainIsCC && $('worker').value === 'off');
+  $('worker-help').textContent = !cc
+    ? 'FRIDAY runs on Claude Code, which is not set up on this Mac. Without her, JARVIS does short jobs itself and tells you when something needs more.'
+    : brainIsCC ? 'With Claude Code as the brain, FRIDAY runs as its background agents.'
+    : $('worker').value === 'off' ? 'Off: JARVIS does short jobs itself and tells you when something needs more.'
+    : 'FRIDAY uses your Claude plan. JARVIS still asks you before anything that sends, posts, deletes or pays.';
 }
 
 // ---------- Ollama, done for the user ----------
@@ -161,7 +175,7 @@ function select(group, attr, value) {
   document.querySelectorAll(`[data-${attr}]`).forEach((c) => c.classList.toggle('on', c.dataset[attr] === value));
   if (attr === 'brain') {
     document.querySelectorAll('[data-for]').forEach((g) => g.classList.toggle('show', g.dataset.for === value));
-    if (info) updateNext();
+    if (info) { renderWorker(); updateNext(); }
   } else if (attr === 'stt') {
     document.querySelectorAll('[data-for-stt]').forEach((g) => g.classList.toggle('show', g.dataset.forStt === value));
   } else if (attr === 'tts') {
@@ -249,10 +263,13 @@ function gather() {
 function renderSummary() {
   const p = gather();
   const brain = { auto: `Automatic (${autoPick()})`, 'claude-code': `Claude Code · ${p.model}`, anthropic: `Anthropic API · ${p.anthropicModel}`, gemini: `Gemini · ${p.geminiModel}`, ollama: `Ollama · ${p.ollamaModel}` }[p.brainProvider];
+  const cc = info.found.claude.path && info.found.claude.loggedIn;
+  const worker = !cc ? 'off' : p.brainProvider === 'claude-code' ? `background agents · ${p.agentModel}` : p.worker === 'off' ? 'off' : `FRIDAY on Claude Code · ${p.agentModel}`;
   const rows = [
     ['Name', p.userName ? `${p.userName} (“${p.honorific}”)` : `“${p.honorific}”`],
     ['Look', `${choice.theme[0].toUpperCase() + choice.theme.slice(1)} · ${choice.themeMode === 'system' ? 'match macOS' : choice.themeMode}`],
     ['Brain', brain],
+    ['Worker', worker],
     ['Listening', p.sttEngine === 'elevenlabs' ? 'ElevenLabs Scribe (awake), on-device (asleep)' : 'On-device (Apple)'],
     ['Voice', { kokoro: `Kokoro · ${p.kokoroVoice}`, elevenlabs: 'ElevenLabs', edge: `Edge · ${p.edgeVoice}`, native: `macOS · ${p.nativeVoice}` }[p.ttsEngine]],
     ['Telegram', p.telegramToken || info.cfg.has_telegramToken ? 'configured' : 'off'],
@@ -341,6 +358,7 @@ function bind() {
   $('elevenLabsApiKey2').addEventListener('input', () => { $('elevenLabsApiKey').value = $('elevenLabsApiKey2').value; });
   for (const [k, kind] of [['anthropicApiKey', 'anthropic'], ['geminiApiKey', 'gemini']]) $(k).addEventListener('input', () => { delete tested[kind]; updateNext(); });
   $('ol-action').addEventListener('click', () => ollamaDo(ol.installed ? 'start' : 'install'));
+  $('worker').addEventListener('change', renderWorker);
   window.setup.onOllamaProgress((pr) => setBar(pr.pct, pr.phase));
   $('back').addEventListener('click', () => show(step - 1));
   $('next').addEventListener('click', next);

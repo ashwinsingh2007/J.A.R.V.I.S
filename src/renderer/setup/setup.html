@@ -88,7 +88,7 @@
       <h3>Claude Code</h3>
       <p class="note" id="cc-help"></p>
       <div class="grid2" id="cc-fields">
-        <div class="field"><label for="model">Model</label><select id="model"><option>sonnet</option><option>opus</option><option>haiku</option></select></div>
+        <div class="field"><label for="model">JARVIS's model (the voice)</label><select id="model"><option>sonnet</option><option>opus</option><option>haiku</option></select></div>
         <div class="field"><label for="effort">Effort</label><select id="effort"><option>low</option><option>medium</option><option>high</option></select></div>
       </div>
     </div>
@@ -124,6 +124,15 @@
           <div class="ig"><input id="ollamaUrl"><button data-test="ollama">Check</button></div>
         </div>
       </details>
+    </div>
+    <div class="group show" id="worker-group">
+      <h3>FRIDAY, the worker</h3>
+      <p class="note">JARVIS answers you straight away, so its brain can be a smaller, faster model. Long jobs, like reading your email, research or working in your browser, go to FRIDAY. She runs them in the background on a stronger model and reports back. A fast brain with a strong worker feels quick and still gets hard things done.</p>
+      <div class="grid2">
+        <div class="field" id="worker-field"><label for="worker">Worker</label><select id="worker"><option value="claude-code">Claude Code (recommended)</option><option value="off">Off</option></select></div>
+        <div class="field" id="agent-field"><label for="agentModel">FRIDAY's model</label><select id="agentModel"><option value="opus">opus (most capable)</option><option value="sonnet">sonnet</option><option value="haiku">haiku (fastest)</option></select></div>
+      </div>
+      <p class="note" id="worker-help"></p>
     </div>
     <p class="msg brain-msg" id="brain-msg"></p>
   </section>

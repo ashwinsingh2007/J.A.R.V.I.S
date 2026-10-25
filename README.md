@@ -79,7 +79,11 @@ JARVIS uses the best brain it finds, in this order, unless you pick one in Setup
 | Claude Code | The full agent. It reads files, searches the web, steers your other Claude Code sessions in iTerm, and hands long tasks to background agents (Claude Code subagents). A fast voice model answers right away while a stronger work model does the job, and JARVIS gives spoken progress updates in between. | Your Claude subscription |
 | Anthropic API | The same voice and personality with a smaller, sandboxed set of tools: the helper scripts, opening apps and pages, fetching a page, reading a file, memory and reminders. | Pay per use |
 | Gemini | The API brain's voice, personality and tools, running on Google's Gemini models with your own key. | Free tier, then pay per use |
-| Ollama | Local and free. It gets the API brain's tools if the model supports tool calls. | Free |
+| Ollama | Local and free. It gets the API brain's tools if the model supports tool calls, and a shorter prompt suited to small models. Setup can install Ollama and download a model for you. | Free |
+
+### FRIDAY, the worker
+
+JARVIS answers you straight away, so its brain can be a small, fast model, even one running locally through Ollama. Long jobs go to FRIDAY, a worker that runs Claude Code in the background on a stronger model (Opus by default) and reports back: reading your email, research across several pages, anything in your signed-in Chrome. While she works you can keep talking, ask "what's the status?", and JARVIS retells her report in its own words when she's done. With Claude Code as the brain, FRIDAY runs as its background agents; with any other brain she runs as a separate process, as long as Claude Code is installed. You can switch her off or pick her model in Setup and in the HUD's Settings.
 
 ## How it listens and speaks
 

@@ -813,6 +813,55 @@ async function testProactive() {
   await s.app.close();
 }
 
+// JARVIS on a local Ollama brain with FRIDAY, a Claude Code worker on Opus, doing the heavy job.
+// Needs Ollama running with llama3.2 and a signed-in Claude Code; skipped otherwise.
+async function testFriday() {
+  console.log('\nOLLAMA BRAIN + FRIDAY ON OPUS');
+  const tags = await fetch('http://127.0.0.1:11434/api/tags').then((r) => r.json()).catch(() => null);
+  if (!tags || !(tags.models || []).some((m) => m.name.startsWith('llama3.2'))) { console.log('  - skipped: Ollama with llama3.2 is not running'); return; }
+  const state = makeState({ onboarded: true, brainProvider: 'ollama', ollamaModel: 'llama3.2', worker: 'claude-code', agentModel: 'opus', ttsEngine: 'native' });
+  const s = await launch(state, [], { JARVIS_TEST_UPDATE_MS: '15000' });
+  const hud = await windowByUrl(s.app, /hud\/index\.html/, 20000);
+  if (!hud) { check('HUD opens', false); await s.app.close(); return; }
+  check('brain is Ollama', await s.waitLog(/brain: provider ollama/, 10000));
+  check('FRIDAY is the worker, on Opus', await s.waitLog(/brain: worker FRIDAY on Claude Code · opus/, 10000));
+  await hud.waitForFunction(() => document.body.dataset.state !== 'booting', null, { timeout: 15000 }).catch(() => {});
+  let m = s.mark();
+  await s.say('jarvis wake up');
+  await s.waitLog(/conversation mode on/, 8000);
+  await s.waitLog(/synth/, 8000, m);
+  await s.quiet(hud);
+
+  // A small question stays with the local brain
+  m = s.mark();
+  await s.say('what is two plus two over');
+  const small = await s.waitLog(/timing: ollama done ([\d.]+)s/, 60000, m);
+  check('a small question is answered by the local brain', small && !/friday: started/.test(s.log().slice(m)), small && `${small[1]} s`);
+  await s.quiet(hud, 30000);
+
+  // A heavy job goes to FRIDAY
+  m = s.mark();
+  await s.say('please research the current top story on hacker news, read the article, and tell me what it is about over');
+  const started = await s.waitLog(/friday: started '([^']*)'.*model=(\w+)/, 90000, m);
+  check('a heavy job is handed to FRIDAY', started, started && started[1]);
+  check('FRIDAY runs on Opus', started && started[2] === 'opus', started && started[2]);
+  await sleep(4000);
+  check('the HUD shows the job', /1 JOB/.test(await text(hud, '#br-worker')), await text(hud, '#br-worker'));
+  check('FRIDAY lights up in the crew', await hud.evaluate(() => document.getElementById('crew-friday').classList.contains('on')));
+  await s.quiet(hud, 30000);
+  const sm = s.mark();
+  await s.say("what's the status over");
+  const st = await s.waitLog(/status: '(.*)'/, 8000, sm);
+  check('"what\'s the status?" answers from FRIDAY\'s progress', st, st && st[1]);
+  const done = await s.waitLog(/friday: (completed|failed) '([^']*)'/, 300000, m);
+  check('FRIDAY finishes the job', done && done[1] === 'completed', done && done[1]);
+  const told = await s.waitLog(/proactive: \(FRIDAY\)[\s\S]*timing: ollama done/, 90000, m);
+  await sleep(1000);
+  const reply = await text(hud, '#reply');
+  check('JARVIS tells the user the result in its own words', told && reply.length > 20 && !/RESULT/.test(reply), reply.slice(0, 200));
+  await s.app.close();
+}
+
 const which = process.argv[2] || 'all';
 const t0 = Date.now();
 try {
@@ -822,6 +871,7 @@ try {
   if (which === 'themes' || which === 'all') await testThemes();
   if (which === 'voice' || which === 'all') await testVoice();
   if (which === 'proactive' || which === 'all') await testProactive();
+  if (which === 'friday' || which === 'all') await testFriday();
 } catch (e) {
   check('test run crashed', false, e.message.split('\n')[0]);
 }

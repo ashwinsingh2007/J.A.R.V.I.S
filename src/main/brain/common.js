@@ -54,11 +54,15 @@ function agentPrompt(cfg) {
   return fill(text, cfg);
 }
 
-/** System prompt with placeholders filled and the memory file appended. */
-function systemPrompt(cfg, extra = '') {
+/**
+ * System prompt with placeholders filled and the memory file appended.
+ * file: system.md for capable models, local.md (shorter) for small local ones.
+ * worker: keep the parts between <!--worker--> markers (FRIDAY is available).
+ */
+function systemPrompt(cfg, extra = '', { file = 'system.md', worker = false } = {}) {
   let text;
-  try { text = fs.readFileSync(path.join(paths.prompts, 'system.md'), 'utf8'); } catch { text = 'You are JARVIS, a concise spoken assistant.'; }
-  text = fill(text, cfg);
+  try { text = fs.readFileSync(path.join(paths.prompts, file), 'utf8'); } catch { text = 'You are JARVIS, a concise spoken assistant.'; }
+  text = fill(text, cfg).replace(/<!--worker-->([\s\S]*?)<!--\/worker-->\n?/g, (_, inner) => (worker ? inner : ''));
   if (cfg.userName) text += `\n\nThe user's name is ${cfg.userName}.`;
   if (extra) text += '\n\n' + extra;
   const mem = new (require('../memory').Memory)().promptText();
@@ -66,18 +70,36 @@ function systemPrompt(cfg, extra = '') {
   return text;
 }
 
+/** Claude Code settings for the brain and FRIDAY: the user's deny rules and PreToolUse hooks, plus ours. */
+function claudeSettings() {
+  let user = {};
+  try { user = JSON.parse(fs.readFileSync(`${C.HOME}/.claude/settings.json`, 'utf8')); } catch {}
+  const deny = Array.isArray(user.permissions && user.permissions.deny) ? [...user.permissions.deny] : [];
+  // Path rules only take effect as Edit(...); they cover Write as well.
+  deny.push(`Edit(/${C.HOME}/.claude/**)`, `Edit(/${paths.root}/**)`, `Edit(/${C.STATE_DIR}/config.json)`);
+  const out = { permissions: { deny } };
+  if (user.hooks && Array.isArray(user.hooks.PreToolUse)) out.hooks = { PreToolUse: user.hooks.PreToolUse };
+  return JSON.stringify(out);
+}
+
+/** Tools Claude Code may not use: new terminals only come from the user, and screen control only when allowed. */
+function claudeDisallowed(cfg) {
+  return `Bash(${paths.scripts}/open-session.sh*),Bash(*open-session.sh*)` + (cfg.screenControl ? '' : ',Bash(*hands.sh*),Bash(*jarvis-hands*)');
+}
+
 function summarise(name, input = {}) {
   const cut = (s) => String(s || '').slice(0, 90);
   switch (name) {
     case 'Bash': return cut(String(input.command || '').replaceAll(paths.scripts + '/', ''));
-    case 'run_script': return cut(`${input.script || ''} ${(input.args || []).join(' ')}`);
+    case 'run_script': return cut(`${input.script || ''} ${[].concat(input.args || []).join(' ')}`);
     case 'Read': case 'Glob': case 'Grep': case 'read_file': return cut(input.file_path || input.pattern || input.path);
     case 'WebSearch': return cut(input.query);
     case 'WebFetch': case 'web_fetch': return cut(input.url);
     case 'open': return cut(input.target);
     case 'Agent': case 'Task': return cut(`agent: ${input.description || input.prompt || ''}`);
+    case 'delegate': return cut(`agent: ${input.description || input.task || ''}`);
     default: return cut(JSON.stringify(input));
   }
 }
 
-module.exports = { SentenceSplitter, systemPrompt, agentPrompt, summarise };
+module.exports = { SentenceSplitter, systemPrompt, agentPrompt, summarise, claudeSettings, claudeDisallowed };

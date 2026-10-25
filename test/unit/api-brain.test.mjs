@@ -120,3 +120,44 @@ test('brain choice: Gemini comes after Claude Code and the Anthropic API, before
   assert.equal(choose(base, none), 'ollama');
   assert.equal(choose({ ...base, brainProvider: 'gemini', geminiApiKey: 'g' }, cc), 'gemini');
 });
+
+test('a local brain hands a heavy job to FRIDAY, stops there, and retells her report without tools', async (t) => {
+  const EventEmitter = (await import('node:events')).default;
+  const worker = new EventEmitter();
+  const jobs = [];
+  worker.start = (description, task) => { jobs.push({ description, task }); return `Started. FRIDAY is ${description}.`; };
+  const brain = new ApiBrain({ ...C.DEFAULTS, worker: 'claude-code' }, 'ollama', worker);
+  brain.reset();
+  const bodies = [];
+  const nd = (objs) => new Response(objs.map((o) => JSON.stringify(o)).join('\n') + '\n');
+  t.mock.method(globalThis, 'fetch', async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    bodies.push(body);
+    if (bodies.length === 1) return nd([{ message: { role: 'assistant', content: '', tool_calls: [{ function: { name: 'delegate', arguments: { description: 'checking your Gmail', task: 'Check Gmail.' } } }] }, done: true }]);
+    return nd([{ message: { role: 'assistant', content: 'Two emails need a reply, sir.' }, done: true }]);
+  });
+  let done = new Promise((r) => brain.once('done', (text) => r(text)));
+  await brain.ask('check my gmail and tell me what needs a reply');
+  assert.equal(await done, '');
+  assert.equal(bodies.length, 1, 'no second round after the handoff');
+  assert.ok(bodies[0].tools.some((x) => x.function.name === 'delegate'));
+  assert.equal(bodies[0].options.num_ctx, 8192);
+  assert.match(bodies[0].messages[0].content, /HEAVY JOBS/);
+  assert.equal(jobs[0].description, 'checking your Gmail');
+  assert.match(jobs[0].task, /The user's own words: "check my gmail and tell me what needs a reply"/);
+  done = new Promise((r) => brain.once('done', (text) => r(text)));
+  await brain.ask('[FRIDAY REPORT] FRIDAY finished "checking your Gmail".\n\nRESULT (done): two emails need a reply.');
+  assert.equal(await done, 'Two emails need a reply, sir.');
+  assert.equal(bodies[1].tools, undefined, 'retelling a report has no tools');
+});
+
+test('with FRIDAY switched off, a local brain gets no delegate tool and the short prompt has no worker section', async (t) => {
+  const EventEmitter = (await import('node:events')).default;
+  const brain = new ApiBrain({ ...C.DEFAULTS, worker: 'off' }, 'ollama', new EventEmitter());
+  brain.reset();
+  let body;
+  t.mock.method(globalThis, 'fetch', async (url, opts) => { body = JSON.parse(opts.body); return new Response(JSON.stringify({ message: { role: 'assistant', content: 'Four.' }, done: true }) + '\n'); });
+  await brain.ask('what is two plus two');
+  assert.ok(!body.tools.some((x) => x.function.name === 'delegate'));
+  assert.doesNotMatch(body.messages[0].content, /HEAVY JOBS/);
+});
