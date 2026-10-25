@@ -28,19 +28,21 @@ const FALLBACK_PATH = process.platform === 'win32' ? ''
 
 function shellPath() {
   if (process.platform === 'win32') return '';
-  // The user's own shell first: it is the one whose rc files set PATH up.
-  const shells = process.env.SHELL && fs.existsSync(process.env.SHELL)
-    ? [process.env.SHELL, ...SHELLS] : SHELLS;
-  for (const sh of shells) {
-    if (!fs.existsSync(sh)) continue;
+  // Ask the user's own shell and the platform's usual one, and keep the entries from both, in that order.
+  // The user's shell is the one whose rc files usually set PATH up, but on a Mac whose login shell is bash,
+  // tools are often set up for zsh, the default, so stopping at the first answer would miss them.
+  const own = process.env.SHELL && fs.existsSync(process.env.SHELL) ? [process.env.SHELL] : [];
+  const usual = SHELLS.find((sh) => fs.existsSync(sh) && !own.includes(sh));
+  const seen = new Set();
+  for (const sh of [...own, usual].filter(Boolean)) {
     try {
       // Take the last line: a profile is free to print warnings before it is asked.
       const lines = execFileSync(sh, ['-lc', 'printf %s "$PATH"'], { timeout: 8000, encoding: 'utf8' })
         .split('\n').map((s) => s.trim()).filter(Boolean);
-      if (lines.length) return lines[lines.length - 1];
+      if (lines.length) for (const dir of lines[lines.length - 1].split(':')) if (dir) seen.add(dir);
     } catch {}
   }
-  return '';
+  return [...seen].join(':');
 }
 
 let loginPath;               // undefined until the first call
