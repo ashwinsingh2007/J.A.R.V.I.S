@@ -189,15 +189,14 @@
         <li><b>Only send when I say “over”</b><label class="tog"><input data-key="requireEndWord" type="checkbox"><span></span></label></li>
       </ul>
 
-      <div id="brain-settings">
-        <h3 class="sub">BRAIN</h3>
-        <ul class="rows form">
-          <li><b>Voice model</b><select data-key="model"><option>sonnet</option><option>opus</option><option>haiku</option></select></li>
-          <li><b>Effort</b><select data-key="effort"><option>low</option><option>medium</option><option>high</option></select></li>
-          <li><b>Work model</b><select data-key="agentModel"><option>opus</option><option>sonnet</option><option>haiku</option><option value="inherit">same as voice</option></select></li>
-          <li><b>Progress updates</b><select data-key="progressUpdates"><option value="off">off</option><option value="normal">normal</option><option value="chatty">chatty</option></select></li>
-        </ul>
-      </div>
+      <h3 class="sub">BRAIN &amp; WORKER</h3>
+      <ul class="rows form">
+        <li id="brain-settings"><b>Voice model</b><select data-key="model"><option>sonnet</option><option>opus</option><option>haiku</option></select></li>
+        <li id="effort-row"><b>Effort</b><select data-key="effort"><option>low</option><option>medium</option><option>high</option></select></li>
+        <li id="worker-row" hidden><b>FRIDAY takes heavy jobs</b><select data-key="worker"><option value="claude-code">on (Claude Code)</option><option value="off">off</option></select></li>
+        <li><b>Work model</b><select data-key="agentModel"><option>opus</option><option>sonnet</option><option>haiku</option><option value="inherit">same as voice</option></select></li>
+        <li><b>Progress updates</b><select data-key="progressUpdates"><option value="off">off</option><option value="normal">normal</option><option value="chatty">chatty</option></select></li>
+      </ul>
 
       <h3 class="sub">GENERAL</h3>
       <ul class="rows form">

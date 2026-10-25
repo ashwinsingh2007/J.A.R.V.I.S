@@ -49,12 +49,34 @@ const TOOL_NOTE = `In this mode you do not have Bash. Use the tools instead:
 - open opens websites and apps. web_fetch reads a page. read_file reads a file. remember saves a fact.
 - You have no background agents and no Agent tool: ignore TIER 2. Do short jobs yourself with these tools. For anything that needs clicking or typing in a website, say in one sentence that it needs the Claude Code brain.`;
 
+// With FRIDAY available, TIER 2 goes through the delegate tool instead of the Agent tool.
+const DELEGATE = {
+  name: 'delegate',
+  description: "Hand a long or heavy job to FRIDAY, JARVIS's worker, who does it in the background on a stronger model and reports back. FRIDAY can use the user's signed-in Chrome (Gmail, LinkedIn, YouTube…), research across many pages, read and write files and run commands. Use it for anything that needs more than one or two quick tool calls.",
+  schema: {
+    type: 'object',
+    properties: {
+      description: { type: 'string', description: 'What FRIDAY is doing, in plain words with an -ing verb, read aloud in status updates. For example "checking your Gmail".' },
+      task: { type: 'string', description: 'One complete, self-contained instruction. FRIDAY cannot see this conversation, so include every detail. Only say the user confirmed sending, posting, deleting or paying if they did.' },
+    },
+    required: ['description', 'task'],
+  },
+};
+
+const DELEGATE_NOTE = `In this mode you do not have Bash. Use the tools instead:
+- run_script runs the helper scripts described above (give the script name, not the path, and the arguments as a list).
+- open opens websites and apps. web_fetch reads a page. read_file reads a file. remember saves a fact.
+- TIER 2 works through the delegate tool, not the Agent tool. FRIDAY, your worker, takes the job in the background and reports back; you then tell the user the result in your own words. Everything TIER 2 says about agents applies: say ONE sentence of what you are doing as if you do it yourself, then call delegate, then end the turn with two or three words such as "On it." Never wait for FRIDAY.
+- Anything that needs clicking or typing in a website, more than a couple of pages of reading, email, or files outside these tools goes to delegate.
+- Ask the user before delegating anything that sends, posts, deletes, publishes, pays or changes account settings, exactly as the rules above say; when they agree, write "The user confirmed: …" in the task.`;
+
 async function execute(name, input = {}) {
   try {
     switch (name) {
       case 'run_script': {
         if (!SCRIPTS.includes(input.script)) return 'Error: script not allowed.';
-        const args = Array.isArray(input.args) ? input.args.map(String) : [];
+        // Small models sometimes send the arguments as one string; split it the way a shell would, roughly.
+        const args = Array.isArray(input.args) ? input.args.map(String) : typeof input.args === 'string' ? (input.args.match(/"[^"]*"|'[^']*'|\S+/g) || []).map((a) => a.replace(/^(["'])(.*)\1$/, '$2')) : [];
         const file = path.join(paths.scripts, input.script);
         const r = input.script.endsWith('.py') ? await run('/usr/bin/python3', ['-I', file, ...args], { timeout: 60000 }) : await run('/bin/sh', [file, ...args], { timeout: 60000 });
         return (r.out + (r.code !== 0 ? `\n[exit ${r.code}] ${r.err}` : '')).slice(0, 12000) || '(no output)';
@@ -100,4 +122,7 @@ async function execute(name, input = {}) {
   }
 }
 
-module.exports = { SPECS, TOOL_NOTE, execute };
+/** Tool specs and the note for the system prompt, with or without FRIDAY. */
+const forBrain = (hasWorker) => (hasWorker ? { specs: [...SPECS, DELEGATE], note: DELEGATE_NOTE } : { specs: SPECS, note: TOOL_NOTE });
+
+module.exports = { SPECS, TOOL_NOTE, execute, forBrain };

@@ -13,11 +13,16 @@ const MAX_ROUNDS = 8;
 const MAX_HISTORY = 40;
 
 class ApiBrain extends EventEmitter {
-  /** kind: "anthropic" | "gemini" | "ollama" */
-  constructor(cfg, kind) {
+  /** kind: "anthropic" | "gemini" | "ollama"; worker: FRIDAY, for heavy jobs, or null */
+  constructor(cfg, kind, worker = null) {
     super();
     this.cfg = cfg;
     this.kind = kind;
+    this.worker = worker;
+    if (worker) {
+      for (const ev of ['task', 'progress']) worker.on(ev, (x) => this.emit(ev, x));
+      worker.on('result', (r) => this.emit('job-result', r));
+    }
     this.label = { anthropic: `anthropic api · ${cfg.anthropicModel}`, gemini: `gemini · ${cfg.geminiModel}`, ollama: `ollama · ${cfg.ollamaModel}` }[kind];
     this.isBusy = false;
     this.isReady = true;
@@ -28,6 +33,15 @@ class ApiBrain extends EventEmitter {
   }
 
   warmUp() { setTimeout(() => this.emit('ready', 0), 0); }
+
+  /**
+   * Tools and prompt note for this turn: FRIDAY can be switched on and off in Settings. Retelling one of
+   * her reports needs no tools, and a small model given tools there tends to redo the job instead.
+   */
+  get tools() {
+    const t = tools.forBrain(!!this.worker && this.cfg.worker === 'claude-code');
+    return /^\[FRIDAY REPORT\]/.test(this.lastPrompt || '') ? { ...t, specs: [] } : t;
+  }
 
   reset() {
     this.cancel();
@@ -60,6 +74,7 @@ class ApiBrain extends EventEmitter {
     this.dropUnansweredCall();
     const start = this.history.length;
     this.history.push({ role: 'user', content: prompt });
+    this.lastPrompt = prompt;
     log(`brain(${this.kind}): asked '${prompt.slice(0, 80)}'`);
     let final = '';
     try {
@@ -71,9 +86,12 @@ class ApiBrain extends EventEmitter {
         if (!calls.length) break;
         for (const c of calls) this.emit('tool', { name: c.name, summary: summarise(c.name, c.input) });
         const results = [];
-        for (const c of calls) results.push({ call: c, out: await tools.execute(c.name, c.input) });
+        for (const c of calls) results.push({ call: c, out: c.name === 'delegate' && this.worker && this.cfg.worker === 'claude-code' ? this.delegate(c.input) : await tools.execute(c.name, c.input) });
         if (abort.signal.aborted) return;
         this.pushToolResults(results);
+        // Handed to FRIDAY: the user has heard "on it", and the result comes back later. Stop here so the
+        // model doesn't guess at an outcome it can't know yet.
+        if (calls.some((c) => c.name === 'delegate')) { this.history.push(this.closing()); break; }
       }
       if (abort.signal.aborted) return;
       log(`timing: ${this.kind} done ${((Date.now() - t0) / 1000).toFixed(2)}s`);
@@ -100,6 +118,17 @@ class ApiBrain extends EventEmitter {
     if (last && last.role === 'assistant' && (last.tool_calls || (Array.isArray(last.content) && last.content.some((b) => b.type === 'tool_use')))) this.history.pop();
   }
 
+  /** Hand a job to FRIDAY, with the user's own words attached so a vague instruction can't lose the request. */
+  delegate(input = {}) {
+    const words = /^\[(FRIDAY REPORT|BRIEFING|CHECK-IN|SCHEDULED TASK)\]/.test(this.lastPrompt || '') ? '' : `\n\nThe user's own words: "${String(this.lastPrompt || '').slice(0, 1000)}"`;
+    return this.worker.start(input.description, `${String(input.task || '').trim()}${words}`);
+  }
+
+  /** A closing assistant turn after a handoff, so the next question starts on a clean history. */
+  closing() {
+    return this.kind === 'anthropic' ? { role: 'assistant', content: [{ type: 'text', text: 'On it.' }] } : { role: 'assistant', content: 'On it.' };
+  }
+
   friendlyError(e) {
     const m = String(e.message || e);
     const name = { anthropic: 'Anthropic API', gemini: 'Gemini', ollama: 'Ollama' }[this.kind];
@@ -116,13 +145,14 @@ class ApiBrain extends EventEmitter {
       model: this.cfg.anthropicModel,
       max_tokens: 1024,
       stream: true,
-      system: systemPrompt(this.cfg, tools.TOOL_NOTE),
+      system: systemPrompt(this.cfg, this.tools.note),
       messages: this.history,
-      tools: [
-        ...tools.SPECS.map((t) => ({ name: t.name, description: t.description, input_schema: t.schema })),
-        { type: 'web_search_20250305', name: 'web_search', max_uses: 3 },
-      ],
     };
+    // No tools at all on a turn that only retells a report.
+    if (this.tools.specs.length) body.tools = [
+      ...this.tools.specs.map((t) => ({ name: t.name, description: t.description, input_schema: t.schema })),
+      { type: 'web_search_20250305', name: 'web_search', max_uses: 3 },
+    ];
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': this.cfg.anthropicApiKey, 'anthropic-version': '2023-06-01' },
@@ -172,8 +202,8 @@ class ApiBrain extends EventEmitter {
       body: JSON.stringify({
         model: this.cfg.geminiModel,
         stream: true,
-        messages: [{ role: 'system', content: systemPrompt(this.cfg, tools.TOOL_NOTE) }, ...this.history],
-        tools: tools.SPECS.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.schema } })),
+        messages: [{ role: 'system', content: systemPrompt(this.cfg, this.tools.note) }, ...this.history],
+        ...(this.tools.specs.length ? { tools: this.tools.specs.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.schema } })) } : {}),
       }),
       signal,
     });
@@ -210,26 +240,33 @@ class ApiBrain extends EventEmitter {
   // ---------- Ollama ----------
 
   async ollamaRound(signal) {
-    const messages = [{ role: 'system', content: systemPrompt(this.cfg, tools.TOOL_NOTE) }, ...this.history];
+    // Small local models get the short prompt; Ollama's default context window would cut the full one off.
+    const t = this.tools;
+    const messages = [{ role: 'system', content: systemPrompt(this.cfg, '', { file: 'local.md', worker: t.specs.some((x) => x.name === 'delegate') }) }, ...this.history];
     const res = await fetch(`${this.cfg.ollamaUrl.replace(/\/$/, '')}/api/chat`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         model: this.cfg.ollamaModel,
         stream: true,
+        think: false,
+        keep_alive: '30m',
+        options: { num_ctx: 8192 },
         messages,
-        tools: tools.SPECS.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.schema } })),
+        ...(t.specs.length ? { tools: t.specs.map((x) => ({ type: 'function', function: { name: x.name, description: x.description, parameters: x.schema } })) } : {}),
       }),
       signal,
     });
     if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 200)}`);
     let text = '';
+    let held = '';           // a reply that starts with "{" may be a tool call written as text: hold it back
     const calls = [];
     await readNDJSON(res, (obj) => {
       if (obj.error) throw new Error(obj.error);
       const m = obj.message || {};
       if (m.content) {
         text += m.content;
+        if (held || (!text.slice(0, -m.content.length).trim() && m.content.trim().startsWith('{'))) { held += m.content; return; }
         this.emit('delta', m.content);
         this.splitter.push(m.content);
       }
@@ -240,6 +277,13 @@ class ApiBrain extends EventEmitter {
         calls.push({ name: fn.name, input });
       }
     });
+    if (held) {
+      // Small models sometimes write the call as JSON text. Use it if it parses; never read JSON aloud.
+      const call = toolCallFromText(held);
+      if (call) { calls.push(call); text = ''; log(`brain(ollama): tool call written as text: ${call.name}`); }
+      else if (!/^\s*\{\s*"(name|function|parameters|arguments)"/.test(held)) { this.emit('delta', held); this.splitter.push(held); }
+      else { text = ''; log('brain(ollama): dropped a malformed tool call written as text'); }
+    }
     const msg = { role: 'assistant', content: text };
     if (calls.length) msg.tool_calls = calls.map((c) => ({ function: { name: c.name, arguments: c.input } }));
     this.history.push(msg);
@@ -255,6 +299,17 @@ class ApiBrain extends EventEmitter {
       for (const r of results) this.history.push({ role: 'tool', tool_name: r.call.name, content: r.out });
     }
   }
+}
+
+/** {"name": "...", "parameters"|"arguments": {...}} written as plain text → a tool call, or null. */
+function toolCallFromText(s) {
+  try {
+    const o = JSON.parse(s.trim());
+    const name = o.name || (o.function && o.function.name);
+    let input = o.parameters || o.arguments || (o.function && o.function.arguments) || {};
+    if (typeof input === 'string') input = JSON.parse(input);
+    return name && typeof input === 'object' ? { name, input } : null;
+  } catch { return null; }
 }
 
 async function readSSE(res, onEvent) {

@@ -22,7 +22,8 @@ const DEFAULTS = {
   brainProvider: 'auto',          // auto | claude-code | anthropic | gemini | ollama
   model: 'sonnet',                // Claude Code model alias
   effort: 'low',
-  agentModel: 'opus',             // model for the brain's background agents
+  agentModel: 'opus',             // model for the brain's background agents and for FRIDAY
+  worker: 'claude-code',          // FRIDAY, the worker for heavy jobs when the brain isn't Claude Code: claude-code | off
   progressUpdates: 'normal',
   screenControl: true,
   autoHide: true,                 // HOME hides its panels after a few idle seconds, leaving the reactor
@@ -108,6 +109,7 @@ const ENUMS = {
   effort: ['low', 'medium', 'high'],
   agentModel: ['opus', 'sonnet', 'haiku', 'fable', 'inherit'],
   progressUpdates: ['off', 'normal', 'chatty'],
+  worker: ['claude-code', 'off'],
   checkIns: ['off', 'sometimes', 'often'],
   theme: ['jarvis', 'terminal', 'neon', 'stark', 'minimal'],
   themeMode: ['dark', 'light', 'system'],
