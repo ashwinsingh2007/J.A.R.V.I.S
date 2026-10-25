@@ -14,7 +14,6 @@ contextBridge.exposeInMainWorld('setup', {
   open: (url) => ipcRenderer.invoke('setup:open', url),
   finish: () => ipcRenderer.invoke('setup:finish'),
   apply: () => ipcRenderer.invoke('setup:apply'),
-  close: () => ipcRenderer.invoke('setup:close'),
   onGoto: (f) => ipcRenderer.on('goto', (e, s) => f(s)),
   onTheme: (f) => ipcRenderer.on('theme', (e, t) => f(t)),
 });

@@ -783,7 +783,9 @@
         case 'schedule': setSchedule(e.data); break;
         case 'info': Object.assign(info, e); setStats({}); break;
         case 'theme': jarvisTheme.apply(e.theme, e.mode); break;
-        case 'settings': setSettings(e); break;
+        case 'settings': setSettings(e); if (window.jarvisSettings) window.jarvisSettings.event(e); break;
+        case 'open-settings': showView('settings'); if (window.jarvisSettings) window.jarvisSettings.open(e.section || ''); break;
+        default: if (/^cfg-/.test(e.type) && window.jarvisSettings) window.jarvisSettings.event(e);
         case 'boot': bootSignal(); break;
         case 'panel': addPanel(e.title, e.html); break;
         case 'notice': notice(e.text || ''); break;
@@ -839,7 +841,6 @@
   $('mus-yt').addEventListener('click', (ev) => { const b = ev.target.closest('button'); if (b) post({ type: 'action', name: 'youtube-play', id: b.dataset.yt }); });
   $('yt-window').addEventListener('click', () => post({ type: 'action', name: 'youtube-window' }));
   $('yt-stop').addEventListener('click', () => post({ type: 'action', name: 'youtube-stop' }));
-  $('open-setup').addEventListener('click', () => post({ type: 'action', name: 'setup' }));
   // Editable settings: each change is saved and applied by main at once.
   let savedTimer = null, lastHands = null;
   function showTts() {
@@ -887,11 +888,6 @@
     if (e.values && 'autoHide' in e.values) { focus.on = !!e.values.autoHide; armFocus(); }
     if (e.autoHideMs) { focus.ms = e.autoHideMs; armFocus(); }
     renderSetCards(e);
-    if ('brain' in e) {
-      const cc = /^claude code/.test(e.brain || '');
-      $('brain-settings').hidden = $('effort-row').hidden = !cc;
-      $('worker-row').hidden = cc || !e.workerAvailable;
-    }
     showTts();
   }
   // The big choices: what is set now, and a button into the Settings window at that section.
@@ -911,7 +907,8 @@
     $('sc-voice').textContent = { kokoro: `KOKORO · ${up(v.kokoroVoice)}`, elevenlabs: 'ELEVENLABS', edge: `EDGE · ${up(v.edgeVoice)}`, native: `MACOS · ${up(v.nativeVoice)}` }[v.ttsEngine] || up(v.ttsEngine);
     $('sc-extras').textContent = `TELEGRAM ${stats.telegram && stats.telegram !== 'off' ? up(stats.telegram) : 'OFF'}`;
   }
-  document.querySelectorAll('.setcard').forEach((b) => b.addEventListener('click', () => post({ type: 'action', name: 'setup', section: b.dataset.section })));
+  // Each card opens its page inside the Settings box (settings.js).
+  document.querySelectorAll('.setcard').forEach((b) => b.addEventListener('click', () => window.jarvisSettings && window.jarvisSettings.open(b.dataset.section)));
 
   document.querySelectorAll('[data-key]').forEach((el) => el.addEventListener('change', () => {
     const v = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;

@@ -17,7 +17,7 @@ if (process.env.JARVIS_TEST_MUTE) app.commandLine.appendSwitch('mute-audio');
 
 if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
 
-let cfg, hud, orch, audio, tray, telegram, setupWin = null, settingsView = null, found = null, testAudio = null;
+let cfg, hud, orch, audio, tray, telegram, setupWin = null, found = null, testAudio = null;
 const flags = new Set(process.argv.slice(1));
 
 function sidecarPath(real = false) {
@@ -61,6 +61,7 @@ function startJarvis(brains) {
   orch.on('state', updateTrayTitle);
   orch.on('disabled', buildTray);
   orch.on('open-setup', (section) => openSettings(section));
+  hud.on('action', (name, msg) => { if (name.startsWith('cfg:')) hudSettingsAction(name, msg); });
   orch.on('set-theme', (t) => saveTheme(t));
   orch.on('settings', (patch) => saveHudSettings(patch));
   orch.on('hands-permit', permitHands);
@@ -154,51 +155,22 @@ function openSetup(firstRun, section = '') {
   setupWin.on('closed', () => { setupWin = null; if (!hud) app.quit(); });   // setup closed before JARVIS started
 }
 
-/**
- * Settings while JARVIS runs: the Setup screens as a page inside the HUD window, over the HUD, with a
- * Back button. (A separate window is only used for the first run, before the HUD exists.)
- */
+/** Settings while JARVIS runs: the HUD's Settings tab, opened at a section. Setup is only the first run. */
 function openSettings(section = '') {
   if (!hud) return openSetup(false, section);
   hud.show();
-  if (settingsView) { if (section) settingsView.webContents.send('goto', section); settingsView.webContents.focus(); return; }
-  const { WebContentsView } = require('electron');
-  const c = C.load();
-  const view = new WebContentsView({ webPreferences: { preload: path.join(__dirname, '..', 'preload', 'setup.js'), contextIsolation: true, sandbox: true } });
-  view.setBackgroundColor(themeOf(c).background);
-  view.fit = () => { const [width, height] = hud.win.getContentSize(); view.setBounds({ x: 0, y: 0, width, height }); };
-  view.fit();
-  hud.win.on('resize', view.fit);
-  hud.win.contentView.addChildView(view);
-  view.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  view.webContents.on('will-navigate', (e) => e.preventDefault());
-  view.webContents.loadFile(path.join(__dirname, '..', 'renderer', 'setup', 'setup.html'), { query: { first: '0', embedded: '1', section: String(section || ''), theme: c.theme, mode: c.themeMode } });
-  view.webContents.once('did-finish-load', () => view.webContents.focus());
-  // However the page goes away (Back, Escape, a crash), take it off the HUD.
-  view.webContents.once('destroyed', () => { if (settingsView === view) { settingsView = null; if (hud && !hud.win.isDestroyed()) { hud.win.off('resize', view.fit); try { hud.win.contentView.removeChildView(view); } catch {} } } });
-  settingsView = view;
-  log(`settings: opened${section ? ` at ${section}` : ''}`);
+  hud.send('open-settings', { section: String(section || '') });
 }
 
-function closeSettings() {
-  const view = settingsView;
-  if (!view) return;
-  settingsView = null;
-  if (hud && !hud.win.isDestroyed()) { hud.win.off('resize', view.fit); hud.win.contentView.removeChildView(view); hud.win.webContents.focus(); }
-  view.webContents.close();
-  log('settings: closed');
-}
-
-/** The open Setup screens, wherever they are: the first-run window or the Settings page in the HUD. */
-const setupContents = () => (settingsView ? settingsView.webContents : setupWin && !setupWin.isDestroyed() ? setupWin.webContents : null);
+const setupContents = () => (setupWin && !setupWin.isDestroyed() ? setupWin.webContents : null);
 const fromSetup = (e) => !!setupContents() && e.sender === setupContents();
 
 function hooksInstalled() {
   try { return fs.readFileSync(path.join(C.HOME, '.claude', 'settings.json'), 'utf8').includes('hook-event.sh'); } catch { return false; }
 }
 
-ipcMain.handle('setup:get', async (e) => {
-  if (!fromSetup(e)) return null;
+/** What Setup and Settings show: the config with secrets replaced by has_ flags, and what this Mac has. */
+async function setupInfo() {
   const current = C.load();
   found = await require('./brain').detect(current);
   const safe = { ...current };
@@ -217,11 +189,15 @@ ipcMain.handle('setup:get', async (e) => {
     },
     sayVoices,
     running: !!orch,
+    brain: orch ? orch.brain.label : '',
+    workerAvailable: !!(orch && orch.brain.worker) || !!(found && found.claude.path && found.claude.loggedIn),
   };
-});
+}
+ipcMain.handle('setup:get', (e) => (fromSetup(e) ? setupInfo() : null));
 
-ipcMain.handle('setup:save', (e, patch) => {
-  if (!fromSetup(e) || !patch || typeof patch !== 'object') return false;
+/** Store a patch from Setup or Settings: known keys only, junk clamped, an empty secret keeps the stored one. */
+function setupSave(patch) {
+  if (!patch || typeof patch !== 'object') return false;
   const clean = {};
   for (const [k, v] of Object.entries(patch)) {
     if (!(k in C.DEFAULTS)) continue;
@@ -234,7 +210,8 @@ ipcMain.handle('setup:save', (e, patch) => {
   C.save(clean);
   if ('theme' in clean || 'themeMode' in clean) broadcastTheme();
   return true;
-});
+}
+ipcMain.handle('setup:save', (e, patch) => (fromSetup(e) ? setupSave(patch) : false));
 
 // Settings the HUD can change live. Keys, Telegram and the brain provider stay in Setup.
 const HUD_KEYS = ['ttsEngine', 'kokoroVoice', 'kokoroSpeed', 'edgeVoice', 'nativeVoice', 'elevenLabsModel',
@@ -328,12 +305,10 @@ function broadcastTheme() {
   if (sc) sc.send('theme', { theme: c.theme, mode: c.themeMode });
 }
 
-ipcMain.handle('setup:close', (e) => { if (settingsView && e.sender === settingsView.webContents) closeSettings(); return true; });
-
 ipcMain.handle('setup:clear-secret', (e, key) => { if (fromSetup(e) && C.SECRET_KEYS.has(key)) C.save({ [key]: '' }); return true; });
 
-ipcMain.handle('setup:test', async (e, { kind, key }) => {
-  if (!fromSetup(e)) return { ok: false };
+/** Check a key or server: { ok, msg, models | voices }. */
+async function testKey(kind, key) {
   const stored = C.load();
   try {
     if (kind === 'anthropic') {
@@ -363,7 +338,8 @@ ipcMain.handle('setup:test', async (e, { kind, key }) => {
     }
   } catch (err) { return { ok: false, msg: err.message }; }
   return { ok: false };
-});
+}
+ipcMain.handle('setup:test', (e, { kind, key } = {}) => (fromSetup(e) ? testKey(kind, key) : { ok: false }));
 
 // Permissions from Setup (and Settings): check them all, or ask for one. Always the real speech helper,
 // because macOS grants access per app, whatever the tests run as the microphone.
@@ -384,18 +360,17 @@ async function permissionsCall({ action, which } = {}) {
 }
 ipcMain.handle('setup:permissions', (e, opts) => (fromSetup(e) ? permissionsCall(opts) : null));
 
-// Ollama from onboarding: state, start, install the app, download a model. Progress goes to the setup window.
-ipcMain.handle('setup:ollama', async (e, { action, url, model } = {}) => {
-  if (!fromSetup(e)) return { ok: false };
+// Ollama from Setup or Settings: state, start, install the app, download a model, with progress.
+async function ollamaCall({ action, url, model } = {}, progress = () => {}) {
   const ollama = require('./ollama');
-  const progress = (p) => { const sc = setupContents(); if (sc) sc.send('ollama-progress', p); };
   const where = url || C.load().ollamaUrl;
   if (action === 'state') return ollama.state(where);
   if (action === 'start') return ollama.start(where);
   if (action === 'install') return ollama.install(where, progress);
   if (action === 'pull') return ollama.pull(where, model, progress);
   return { ok: false };
-});
+}
+ipcMain.handle('setup:ollama', (e, opts) => (fromSetup(e) ? ollamaCall(opts, (p) => { const sc = setupContents(); if (sc) sc.send('ollama-progress', p); }) : { ok: false }));
 
 ipcMain.handle('setup:test-voice', async (e, patch) => {
   if (!fromSetup(e)) return false;
@@ -408,17 +383,17 @@ ipcMain.handle('setup:test-voice', async (e, patch) => {
   return sp.engine;
 });
 
-ipcMain.handle('setup:install-hooks', async (e) => {
-  if (!fromSetup(e)) return { ok: false };
+async function installHooks() {
   const r = await run('/bin/sh', [path.join(paths.scripts, 'install-hooks.sh')], { timeout: 20000 });
   return { ok: r.code === 0, msg: (r.out + r.err).trim().slice(0, 300) };
-});
+}
+ipcMain.handle('setup:install-hooks', (e) => (fromSetup(e) ? installHooks() : { ok: false }));
 
 ipcMain.handle('setup:open', (e, url) => { if (fromSetup(e) && /^(https:\/\/|x-apple\.systempreferences:)/.test(url)) shell.openExternal(url); });
 
-// Settings window: apply what can change live, and say whether the rest needs a restart.
-ipcMain.handle('setup:apply', (e) => {
-  if (!fromSetup(e) || !orch) return { restart: false };
+/** After a save while running: apply what can change live, and say whether the rest needs a restart. */
+function applySaved() {
+  if (!orch) return { restart: false };
   const fresh = C.load();
   const live = {}, later = [];
   for (const k of Object.keys(fresh)) {
@@ -429,7 +404,31 @@ ipcMain.handle('setup:apply', (e) => {
   if (Object.keys(live).length) saveHudSettings(live);
   log(`settings: applied ${Object.keys(live).join(', ') || 'nothing'} live${later.length ? `; restart needed for ${later.join(', ')}` : ''}`);
   return { restart: later.length > 0, keys: later };
-});
+}
+ipcMain.handle('setup:apply', (e) => (fromSetup(e) ? applySaved() : { restart: false }));
+
+function relaunch() {
+  log('settings: relaunching');
+  app.relaunch({ args: process.argv.slice(1).filter((a) => a !== '--setup') });
+  app.exit(0);
+}
+
+/**
+ * The HUD's Settings tab: each card opens its section inside the Settings box, using the same
+ * functions as Setup. Requests come as cfg:* actions; answers go back as cfg-* events.
+ */
+async function hudSettingsAction(name, msg = {}) {
+  const reply = (type, payload) => hud && hud.send(type, payload);
+  try {
+    if (name === 'cfg:info') reply('cfg-info', await setupInfo());
+    else if (name === 'cfg:test') reply('cfg-test', { kind: msg.kind, ...(await testKey(msg.kind, msg.key)) });
+    else if (name === 'cfg:ollama') reply('cfg-ollama', { action: msg.action, model: msg.model, ...(await ollamaCall(msg, (p) => reply('cfg-ollama-progress', p))) });
+    else if (name === 'cfg:perms') reply('cfg-perms', (await permissionsCall({ action: msg.op, which: msg.which })) || {});
+    else if (name === 'cfg:hooks') reply('cfg-hooks', await installHooks());
+    else if (name === 'cfg:save') { setupSave(msg.patch); reply('cfg-saved', applySaved()); }
+    else if (name === 'cfg:restart') relaunch();
+  } catch (e) { log(`settings: ${name} failed: ${e.message}`); reply('cfg-error', { action: name, msg: e.message }); }
+}
 
 ipcMain.handle('setup:finish', async (e) => {
   if (!fromSetup(e)) return;
@@ -444,7 +443,5 @@ ipcMain.handle('setup:finish', async (e) => {
     if (setupWin) setupWin.close();
     return;
   }
-  log('setup: finished, relaunching');
-  app.relaunch({ args: process.argv.slice(1).filter((a) => a !== '--setup') });
-  app.exit(0);
+  relaunch();
 });

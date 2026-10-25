@@ -363,23 +363,23 @@ async function testValidation() {
   check('valid setup starts JARVIS', hud);
   check('stored ElevenLabs key kept when field left empty', String(s.config().elevenLabsApiKey).startsWith('enc:'));
 
-  // Reopen Setup from the running app: stored keys show as stored, empty field keeps them
+  // Settings in the HUD box: a stored key shows as stored, an empty field keeps it, clamped values stay clamped
   if (hud) {
     await hud.click('#nav a[data-view="settings"]');
-    await hud.click('#open-setup');
-    const w2 = await windowByUrl(s.app, /setup\.html\?first=0/, 8000);
-    check('Setup reopens from the HUD', w2);
-    if (w2) {
-      await w2.waitForSelector('section.on');
-      await w2.click('#steps li[data-step="ears"]');
-      const stored = await text(w2, '#elevenLabsApiKey-stored');
-      check('reopened Setup shows the key as stored', /stored/.test(stored), stored);
-      const before = s.config().elevenLabsApiKey;
-      await w2.click('#next');
-      check('saving with empty key field keeps the key', s.config().elevenLabsApiKey === before);
-      const v = await w2.inputValue('#kokoroSpeed').catch(() => '');
-      check('reopened Setup shows clamped speed', Number(v) <= 2, v);
-    }
+    await hud.click('.setcard[data-section="ears"]');
+    await sleep(800);
+    check('Settings opens Listening inside the box', await hud.isVisible('#set-page .sp[data-page="ears"]'));
+    await hud.click('#sp-back');
+    await hud.click('.setcard[data-section="voice"]');
+    const v = await hud.inputValue('[data-key="kokoroSpeed"]').catch(() => '');
+    check('Settings shows the clamped speed', Number(v) <= 2, v);
+    const before = s.config().elevenLabsApiKey;
+    await hud.click('#sp-back');
+    await hud.click('.setcard[data-section="extras"]');
+    await hud.click('#x-save');
+    await hud.waitForFunction(() => /Saved/.test(document.getElementById('x-msg').textContent), null, { timeout: 8000 }).catch(() => {});
+    check('saving with empty key fields keeps the stored keys', s.config().elevenLabsApiKey === before && String(before).startsWith('enc:'));
+    await hud.click('#sp-back');
   }
   await s.app.close();
 }
@@ -391,40 +391,31 @@ async function testThemes() {
   const hud = await windowByUrl(s.app, /hud\/index\.html/, 20000);
   if (!hud) { check('HUD opens', false); await s.app.close(); return; }
   await hud.waitForFunction(() => document.body.dataset.state === 'idle', null, { timeout: 15000 }).catch(() => {});
+  // Every theme, dark and light, from the HUD's own picker
   await hud.click('#nav a[data-view="settings"]');
-  await hud.click('#open-setup');
-  const w = await windowByUrl(s.app, /setup\.html\?first=0/, 8000);
-  if (!w) { check('Setup opens', false); await s.app.close(); return; }
-  await w.waitForSelector('section.on');
-  await w.click('#steps li[data-step="look"]');
   for (const theme of ['jarvis', 'terminal', 'neon', 'stark', 'minimal']) {
     for (const mode of ['dark', 'light']) {
-      await w.click(`[data-theme-pick="${theme}"]`);
-      await w.click(`[data-mode-pick="${mode}"]`);
-      await sleep(900);
+      await hud.click(`#look-themes [data-theme-pick="${theme}"]`);
+      await hud.click(`#look-modes [data-mode-pick="${mode}"]`);
+      await sleep(700);
       const h = await hud.evaluate(() => [document.documentElement.dataset.theme, document.documentElement.dataset.mode].join('/'));
       check(`HUD follows ${theme}/${mode}`, h === `${theme}/${mode}`, h);
       const bg = await hud.evaluate(() => getComputedStyle(document.body).backgroundColor);
       const light = await hud.evaluate(() => { const m = getComputedStyle(document.body).backgroundColor.match(/\d+/g).map(Number); return (m[0] + m[1] + m[2]) / 3 > 128; });
       check(`HUD background is ${mode} for ${theme}`, light === (mode === 'light'), bg);
-      await shot(w, `theme-setup-${theme}-${mode}`);
+      await shot(hud, `theme-hud-${theme}-${mode}`);
     }
   }
-  for (const step of ['brain', 'ears', 'voice', 'access', 'extras']) {
-    await w.click(`#steps li[data-step="${step}"]`);
-    await sleep(300);
-    await shot(w, `step-${step}-minimal-light`);
+  for (const page of ['brain', 'access', 'voice']) {
+    await hud.click(`.setcard[data-section="${page}"]`);
+    await sleep(1200);
+    await shot(hud, `settings-${page}-minimal-light`);
+    await hud.click('#sp-back');
   }
-  await w.click('#steps li[data-step="look"]');
-  await w.click('[data-mode-pick="system"]');
+  await hud.click('#look-modes [data-mode-pick="system"]');
   await sleep(500);
-  const sys = await w.evaluate(() => document.documentElement.dataset.mode);
+  const sys = await hud.evaluate(() => document.documentElement.dataset.mode);
   check('"Match macOS" resolves to dark or light', sys === 'dark' || sys === 'light', sys);
-
-  // Picker in the HUD's SETTINGS tab: applies live, saves, and Settings follows
-  await w.click('#back-hud');
-  await sleep(600);
-  await hud.click('#nav a[data-view="settings"]');
   await hud.click('#look-themes [data-theme-pick="neon"]');
   await hud.click('#look-modes [data-mode-pick="light"]');
   await sleep(800);
@@ -432,13 +423,6 @@ async function testThemes() {
   check('HUD picker applies the theme', hv === 'neon/light', hv);
   const saved = s.config();
   check('HUD picker saves the theme', saved.theme === 'neon' && saved.themeMode === 'light', `${saved.theme}/${saved.themeMode}`);
-  await hud.click('#open-setup');
-  const w3 = await windowByUrl(s.app, /setup\.html\?first=0/, 8000);
-  await w3.waitForSelector('section.on');
-  const sv = await w3.evaluate(() => [document.documentElement.dataset.theme, document.querySelector('[data-theme-pick].on')?.dataset.themePick].join('/'));
-  check('Settings follows the HUD picker', sv === 'neon/neon', sv);
-  await w3.click('#back-hud');
-  await sleep(500);
   check('HUD picker marks the current choice', await hud.evaluate(() => document.querySelector('#look-themes .on')?.dataset.themePick === 'neon' && document.querySelector('#look-modes .on')?.dataset.modePick === 'light'));
   await shot(hud, 'hud-settings-picker');
   await s.app.close();
@@ -589,46 +573,39 @@ async function testHud() {
   const brainRow = await hud.evaluate(() => document.querySelector('[data-kv="model"]').textContent);
   check('settings shows the brain', /claude code/i.test(settings) && /claude code/i.test(brainRow), brainRow);
   await shot(hud, 'hud-2-settings');
-  await hud.click('#open-setup');
-  const setup = await windowByUrl(s.app, /setup\.html\?first=0/, 8000);
-  check('OPEN SETUP opens the setup window', setup);
-  if (setup) await setup.close();
-  await sleep(500);
-
-  // The big choices: cards show what's set, and open the Settings window at that section
+  // The big choices: cards show what's set; each opens its page inside the Settings box
   check('settings cards show the brain and worker', /CLAUDE CODE.*AGENTS/.test(await text(hud, '#sc-brain')), await text(hud, '#sc-brain'));
   const winsBefore = await s.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length);
   await hud.click('.setcard[data-section="brain"]');
-  const sw = await windowByUrl(s.app, /setup\.html\?first=0&embedded=1&section=brain/, 8000);
-  check('Settings opens inside the HUD window, not a new one', sw && await s.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length) === winsBefore);
-  check('the Brain card opens Settings at the brain', sw && await sw.waitForSelector('section.on[data-step="brain"]', { timeout: 8000 }).then(() => true).catch(() => false));
-  if (sw) {
-    check('Settings mode has a Save button, not a wizard', await sw.textContent('#next') === 'Save' && await sw.isHidden('#back'));
-    check('the brain choices from Setup are all there', await sw.locator('[data-brain]').count() === 4);
-    await sw.click('[data-brain="ollama"]');
-    await sw.waitForTimeout(500);
-    const ollamaReady = !(await sw.isDisabled('#next'));
-    if (ollamaReady) {
-      await sw.click('#next');
-      await sw.waitForFunction(() => /Saved/.test(document.getElementById('saved').textContent), null, { timeout: 8000 }).catch(() => {});
-      check('switching the brain is saved and offers a restart', s.config().brainProvider === 'ollama' && await sw.isVisible('#restart'), await text(sw, '#saved'));
-    } else check('Save waits until Ollama is ready', /Ollama|model/.test(await text(sw, '#brain-msg')), await text(sw, '#brain-msg'));
-    await sw.click('#steps li[data-step="voice"]');
-    await sw.click('[data-tts="edge"]');
-    await sw.click('#next');
-    await sw.waitForFunction(() => /Saved/.test(document.getElementById('saved').textContent), null, { timeout: 8000 }).catch(() => {});
-    check('a voice change applies live', await s.waitLog(/settings: applied ttsEngine/, 5000));
-    // Put things back for the tests that follow.
-    await sw.click('[data-tts="native"]');
-    await sw.click('#steps li[data-step="brain"]');
-    await sw.click('[data-brain="claude-code"]');
-    await sw.click('#next');
-    await sw.waitForTimeout(800);
-    check('Settings has a Back button', await sw.isVisible('#back-hud'));
-    await sw.click('#back-hud');
+  await hud.waitForFunction(() => document.querySelector('#bc-claude-code').textContent, null, { timeout: 10000 }).catch(() => {});
+  check('Brain & worker opens inside the Settings box, no new window', await hud.isVisible('#set-page .sp[data-page="brain"]') && await hud.isHidden('#setcards') && await s.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length) === winsBefore);
+  check('the page has a Back button and a title', await hud.isVisible('#sp-back') && await text(hud, '#sp-title') === 'BRAIN & WORKER');
+  check('all four brains are offered, with their state', await hud.locator('.bcard').count() === 4 && /READY|NOT INSTALLED|SIGN IN/.test(await text(hud, '#bc-claude-code')), await text(hud, '#bc-claude-code'));
+  await hud.click('.bcard[data-b="ollama"]');
+  await hud.waitForFunction(() => /Ollama/.test(document.getElementById('b-ol-text').textContent), null, { timeout: 8000 }).catch(() => {});
+  check('choosing Ollama shows its guided panel', await hud.isVisible('.bpanel[data-for="ollama"]') && /Ollama/.test(await text(hud, '#b-ol-text')), await text(hud, '#b-ol-text'));
+  if (!(await hud.isDisabled('#b-save'))) {
+    await hud.click('#b-save');
+    await hud.waitForFunction(() => /Saved/.test(document.getElementById('b-msg').textContent), null, { timeout: 8000 }).catch(() => {});
+    check('switching the brain is saved and offers a restart', s.config().brainProvider === 'ollama' && await hud.isVisible('#b-restart'), await text(hud, '#b-msg'));
+    await hud.click('.bcard[data-b="claude-code"]');
+    await hud.click('#b-save');
     await sleep(800);
-    check('Back returns to the HUD', !s.app.windows().some((w) => /embedded=1/.test(w.url())));
-  }
+  } else check('Save waits until Ollama is ready', /Ollama|model/.test(await text(hud, '#b-msg')), await text(hud, '#b-msg'));
+  await hud.click('.bcard[data-b="gemini"]');
+  await hud.fill('#b-gemini-key', 'AIza-random-1234567890');
+  check('a typed key must pass TEST before Save', await hud.isDisabled('#b-save'));
+  await hud.click('[data-btest="gemini"]');
+  await hud.waitForFunction(() => /rejected/.test(document.getElementById('b-msg').textContent), null, { timeout: 15000 }).catch(() => {});
+  check('a made-up Gemini key is rejected', /rejected/.test(await text(hud, '#b-msg')), await text(hud, '#b-msg'));
+  await hud.fill('#b-gemini-key', '');
+  await hud.click('#sp-back');
+  check('Back returns to the cards', await hud.isVisible('#setcards') && await hud.isHidden('#set-page'));
+  await hud.click('.setcard[data-section="access"]');
+  await hud.waitForFunction(() => document.querySelector('#hud-perms li[data-perm="mic"] .chip').textContent, null, { timeout: 10000 }).catch(() => {});
+  check('Access lists the permissions with their state', /ALLOWED|NOT YET|NOT ALLOWED/.test(await text(hud, '#hud-perms li[data-perm="mic"] .chip')), await text(hud, '#hud-perms li[data-perm="mic"] .chip'));
+  await shot(hud, 'hud-settings-access');
+  await hud.click('#sp-back');
 
   // Music tab
   await hud.click('#nav a[data-view="music"]');
@@ -700,6 +677,7 @@ async function testHud() {
   await sleep(500);
   check('junk pause is clamped', s.config().commandSilenceSeconds === 0.5, s.config().commandSilenceSeconds);
   check('clamped value shown back in the HUD', await hud.evaluate(() => document.querySelector('[data-key="commandSilenceSeconds"]').value) === '0.5');
+  await hud.click('.setcard[data-section="ears"]');
   await hud.click('.tog:has([data-key="requireEndWord"])');
   await sleep(500);
   check('"over" toggle saved', s.config().requireEndWord === true);
@@ -714,12 +692,19 @@ async function testHud() {
   check('voice engine switches live', await s.waitLog(/settings: applied ttsEngine/, 5000, m) && s.config().ttsEngine === 'edge');
   check('edge voice row shows', await hud.evaluate(() => !document.querySelector('[data-tts="edge"]').hidden && document.querySelector('[data-tts="native"]').hidden));
   await setField('ttsEngine', 'native');
+  await hud.click('#sp-back');
+  await hud.click('.setcard[data-section="voice"]');
   await hud.click('#test-voice');
   check('test voice speaks', await s.waitLog(/native synth/, 8000, m));
-  await setField('model', 'haiku');
-  await sleep(500);
+  await hud.click('#sp-back');
+  await hud.click('.setcard[data-section="brain"]');
+  await hud.waitForFunction(() => !document.getElementById('b-save').disabled, null, { timeout: 8000 }).catch(() => {});
+  await hud.selectOption('#b-model', 'haiku');
+  await hud.click('#b-save');
+  await sleep(800);
   check('brain model saved', s.config().model === 'haiku');
   check('brain label updates', await s.waitLog(/settings: applied model/, 3000, m));
+  await hud.click('#sp-back');
   await hud.waitForFunction(() => document.getElementById('hands-state').textContent !== 'checking…', null, { timeout: 8000 }).catch(() => {});
   const hs = await text(hud, '#hands-state');
   check('screen access status shown', /allowed|needs/.test(hs), hs);
