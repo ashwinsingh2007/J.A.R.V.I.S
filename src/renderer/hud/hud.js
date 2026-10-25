@@ -825,21 +825,39 @@
     ev({ type: 'youtube_presets', presets: [ { id: 'lofigirl', name: 'Lofi Girl', note: '24/7 lofi hip-hop live' }, { id: 'cafebgm', name: 'Cafe Music BGM', note: 'jazz & bossa café live' } ] });
     ev({ type: 'music', playing: true, source: 'radio', id: 'lofi', name: 'Lofi Beats', note: 'chill lo-fi instrumentals · radio', title: 'Kupla - Valentine', volume: 24 });
     ev({ type: 'info', claude: '2.1.309 (Claude Code)', model: 'opus', voice: 'kokoro bm_george' });
-    ev({ type: 'stats', turns: 22, toolCalls: 14, memories: 38, sessionsActive: 2, brainModel: 'opus', effort: 'low', brainReady: true, tts: 'kokoro bm_george', stt: 'apple on-device', telegram: '@my_jarvis_bot', agents: ['Read today\'s Gmail'] });
+    ev({ type: 'stats', turns: 22, toolCalls: 14, memories: 38, sessionsActive: 2, brainModel: 'opus', effort: 'low', brainReady: true, tts: 'kokoro bm_george', stt: 'apple on-device', telegram: '@my_jarvis_bot', agents: ['checking your Gmail'] });
     ev({ type: 'system', cpu: 36, ram: 72, ramUsedGB: 12.5, ramTotalGB: 17.2, disk: 89, diskFreeGB: 24, battery: 70, charging: true, uptime: '4d 20h', host: 'macbook' });
     ev({ type: 'history', data: [
-      { t: '09:30', you: 'what are my sessions doing', jarvis: 'Two sessions are working, sir: fireflies is running its tests and the content creator is mid-build. Calai and Downloads are idle.' },
+      { t: '09:30', you: 'what are my sessions doing', jarvis: 'Two are busy, sir. The web app is running its tests and the API server is mid-build. The blog and the docs are idle.' },
       { t: '10:12', you: 'open netflix in chrome', jarvis: 'Netflix is open in Chrome.' },
-      { t: '11:02', you: 'check my gmail for today', jarvis: 'An agent is on it, sir. I will tell you when it has read today\'s mail.' },
-      { t: '11:18', you: 'tell nurture to run the tests', jarvis: 'Sent to Nurture.' },
+      { t: '11:02', you: 'check my gmail for today', jarvis: 'Opening your inbox now. I\'ll tell you what needs a reply.' },
+      { t: '11:06', you: '(agent)', jarvis: 'Three new emails. Only the one from your landlord needs a reply today.' },
+      { t: '11:18', you: 'remind me at five to call the bank', jarvis: 'Done. I\'ll remind you at five.' },
     ] });
+    ev({ type: 'memory', data: [
+      { id: 'm1', text: 'Prefers lo-fi music while working.', topic: 'preference', added: '2026-10-21T09:12' },
+      { id: 'm2', text: 'Lives in Bengaluru and works from home on Fridays.', topic: 'place', added: '2026-10-22T18:40' },
+      { id: 'm3', text: 'Sister is called Priya; her birthday is on 14 November.', topic: 'person', added: '2026-10-23T20:05' },
+      { id: 'm4', text: '"The web app" means the project in ~/Projects/web-app.', topic: 'project', added: '2026-10-24T11:30' },
+      { id: 'm5', text: 'Goes for a run most mornings around seven.', topic: 'routine', added: '2026-10-24T07:55' },
+    ] });
+    const at = (h, m, d = 0) => { const x = new Date(); x.setDate(x.getDate() + d); x.setHours(h, m, 0, 0); const p = (n) => String(n).padStart(2, '0'); return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())}T${p(h)}:${p(m)}`; };
+    ev({ type: 'schedule', data: [
+      { id: 'r1', kind: 'reminder', text: 'Call the bank about the card.', due: at(17, 0), repeat: null },
+      { id: 'r2', kind: 'task', text: 'Check the AI news and tell me only what is new.', due: at(8, 0, 1), repeat: 'daily' },
+      { id: 'r3', kind: 'task', text: 'Summarise my inbox and tell me what needs a reply.', due: at(9, 0, 1), repeat: 'weekdays' },
+      { id: 'r4', kind: 'reminder', text: 'Order a birthday gift for Priya.', due: at(10, 0, 5), repeat: null },
+    ] });
+    ev({ type: 'settings', brain: 'claude code · sonnet', hands: { ax: true, screen: true }, available: { kokoro: true, edge: true, elevenlabs: false },
+      values: { ttsEngine: 'kokoro', kokoroVoice: 'bm_george', kokoroSpeed: 1.05, sttEngine: 'apple', appleSpeech: 'instant', speechLocale: 'en-GB', commandSilenceSeconds: 2, requireEndWord: false,
+        model: 'sonnet', effort: 'low', agentModel: 'opus', progressUpdates: 'normal', morningBriefing: true, checkIns: 'sometimes', screenControl: true, honorific: 'sir', announceSessions: true } });
     const fake = [
       { name: 'JARVIS brain', kind: 'jarvis', cwd: '~', status: 'working', ago: '2s ago', last: 'using Bash', modified: 11 },
-      { name: 'fireflies', kind: 'claude', cwd: '~/Projects/personal/fireflies', status: 'working', ago: '12s ago', last: 'Running the test suite for the meeting importer; two suites remaining.', modified: 9, terminal: { tty: 'ttys010' } },
-      { name: 'calai', kind: 'claude', cwd: '~/Projects/personal/calai', status: 'idle', ago: '5m ago', last: 'Okay, we will leave the food photos out. Nothing was changed.', modified: 8, terminal: { tty: 'ttys009' } },
-      { name: 'AI-Content-Creator', kind: 'claude', cwd: '~/Projects/AI-Content-Creator', status: 'working', ago: '41s ago', last: 'using Bash', modified: 7 },
-      { name: 'Downloads', kind: 'claude', cwd: '~/Downloads', status: 'idle', ago: '17m ago', last: 'The MC Next session checked the event build timeline and estimated seven to eight days.', modified: 6 },
-      { name: 'jarvis-electron', kind: 'claude', cwd: '~/Projects/personal/jarvis-electron', status: 'done', ago: '2h ago', last: 'Build complete.', modified: 4 },
+      { name: 'web-app', kind: 'claude', cwd: '~/Projects/web-app', status: 'working', ago: '12s ago', last: 'Running the test suite for the meeting importer; two suites remaining.', modified: 9, terminal: { tty: 'ttys010' } },
+      { name: 'blog', kind: 'claude', cwd: '~/Projects/blog', status: 'idle', ago: '5m ago', last: 'Okay, we will leave the photos out of this post. Nothing was changed.', modified: 8, terminal: { tty: 'ttys009' } },
+      { name: 'api-server', kind: 'claude', cwd: '~/Projects/api-server', status: 'working', ago: '41s ago', last: 'using Bash', modified: 7 },
+      { name: 'docs', kind: 'claude', cwd: '~/Projects/docs', status: 'idle', ago: '17m ago', last: 'The release notes are ready for review.', modified: 6 },
+      { name: 'mobile-app', kind: 'claude', cwd: '~/Projects/mobile-app', status: 'done', ago: '2h ago', last: 'Build complete.', modified: 4 },
     ];
     setTimeout(() => { ev({ type: 'boot', ok: true }); ev({ type: 'sessions', data: fake }); }, 900);
     const tailEntries = [
@@ -855,16 +873,16 @@
       { t: '19:57:31', kind: 'assistant', text: 'All importer tests pass now. The fix keeps quoted display names intact when splitting attendees.' },
     ];
     let tailN = 4;
-    setInterval(() => { tailN = Math.min(tailEntries.length, tailN + 1); ev({ type: 'session_tail', name: 'fireflies', cwd: '~/Projects/personal/fireflies', status: tailN < tailEntries.length ? 'working' : 'idle', ago: '12s ago', kind: 'jarvis', pinned: tailN > 6, entries: tailEntries.slice(0, tailN) }); }, 1500);
-    const tools = [['Bash', 'sessions.sh'], ['Read', '~/.claude/projects/…/transcript.jsonl'], ['WebSearch', 'kokoro onnx british voices'], ['Bash', 'send.sh fireflies "run the tests"'], ['Bash', 'mac.sh screenshot'], ['Agent', 'agent: Read today\'s Gmail']];
+    setInterval(() => { tailN = Math.min(tailEntries.length, tailN + 1); ev({ type: 'session_tail', name: 'web-app', cwd: '~/Projects/web-app', status: tailN < tailEntries.length ? 'working' : 'idle', ago: '12s ago', kind: 'jarvis', pinned: tailN > 6, entries: tailEntries.slice(0, tailN) }); }, 1500);
+    const tools = [['Bash', 'sessions.sh'], ['Read', '~/.claude/projects/…/transcript.jsonl'], ['WebSearch', 'kokoro onnx british voices'], ['Bash', 'send.sh web-app "run the tests"'], ['Bash', 'mac.sh screenshot'], ['Agent', 'agent: checking your Gmail']];
     const cycle = ['idle', 'listening', 'thinking', 'speaking'];
     let i = 0;
     setInterval(() => {
       const s = cycle[i++ % cycle.length]; ev({ type: 'state', state: s });
       if (s === 'listening') ev({ type: 'transcript', text: 'jarvis, what are my sessions doing', final: false });
       if (s === 'thinking') { ev({ type: 'transcript', text: 'what are my sessions doing', final: true }); ev({ type: 'reply', text: '' }); const t = tools[(i >> 1) % tools.length]; ev({ type: 'tool', name: t[0], summary: t[1] }); }
-      if (s === 'speaking') ev({ type: 'reply', text: 'Two sessions are working, sir: fireflies is running its tests and the content creator is mid-build. Calai and Downloads are idle.' });
-      if (i % 7 === 0) ev({ type: 'notice', text: 'The fireflies session has finished. All tests pass.' });
+      if (s === 'speaking') ev({ type: 'reply', text: 'Two are busy, sir. The web app is running its tests and the API server is mid-build. The blog and the docs are idle.' });
+      if (i % 7 === 0) ev({ type: 'notice', text: 'The web-app session has finished. All tests pass.' });
       if (i % 8 === 4) ev({ type: 'mode', conversation: true }); if (i % 8 === 0) ev({ type: 'mode', conversation: false });
       ev({ type: 'system', cpu: 20 + Math.random() * 30, ram: 68 + Math.random() * 8, ramUsedGB: 12.5, ramTotalGB: 17.2, disk: 89, diskFreeGB: 24, battery: 70, charging: true, uptime: '4d 20h', host: 'macbook' });
     }, 3000);

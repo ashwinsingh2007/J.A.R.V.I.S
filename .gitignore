@@ -8,3 +8,4 @@ resources/jarvis-ears
 native/ears/.build/
 .DS_Store
 resources/jarvis-hands
+__pycache__/
