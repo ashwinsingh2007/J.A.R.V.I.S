@@ -185,3 +185,28 @@ nav.buttons { display: flex; align-items: center; gap: 14px; padding: 16px 56px;
 .msg { font-size: 13px; color: var(--muted); }
 .msg.bad { color: var(--bad); }
 .msg.ok { color: var(--ok); }
+
+/* ---------- brain: guided Ollama ---------- */
+[hidden] { display: none !important; }
+.brain-msg { margin-top: 16px; min-height: 1.4em; }
+.bar { margin-top: 16px; }
+.bar > div { height: 6px; border-radius: 3px; background: var(--field-bg); border: 1px solid var(--line); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--cyan); box-shadow: 0 0 calc(10px * var(--glow)) rgba(var(--rgb), 0.6); transition: width .25s ease; }
+.bar span { display: block; margin-top: 6px; font-size: 12px; color: var(--muted); }
+.models { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
+.models:empty { display: none; }
+.models li { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--field-bg); }
+.models li.ready { cursor: pointer; }
+.models li.ready:hover { border-color: var(--line2); }
+.models li.on { border-color: var(--cyan); box-shadow: 0 0 0 1px var(--cyan) inset; }
+.models li > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.models li b { font-size: 14px; font-weight: 600; }
+.models li small { font-size: 12.5px; color: var(--muted); }
+.models li em { font-style: normal; font-size: 12px; color: var(--ok); }
+.models li .btn { height: 32px; padding: 0 14px; font-size: 12.5px; }
+.models .dot { width: 14px; height: 14px; flex: none; border-radius: 50%; border: 1.5px solid var(--line2); }
+.models li.on .dot { border-color: var(--cyan); background: radial-gradient(circle, var(--cyan) 0 3.5px, transparent 4.5px); }
+.models li:not(.ready) .dot { border-style: dashed; }
+.adv { margin-top: 16px; }
+.adv summary { cursor: pointer; font-size: 12.5px; color: var(--muted); }
+.adv summary:hover { color: var(--text); }

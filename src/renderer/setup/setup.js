@@ -9,6 +9,9 @@ const BOOL = ['requireEndWord', 'telegramVoiceReplies'];
 const SECRET = ['anthropicApiKey', 'geminiApiKey', 'elevenLabsApiKey', 'telegramToken'];
 
 let info = null;
+let ol = { installed: false, running: false, models: [], recommended: [] };   // Ollama, as main reports it
+let olBusy = '';                       // '', 'install', 'start' or a model being downloaded
+const tested = {};                     // anthropic / gemini: the typed key passed Test
 let step = 0;
 let furthest = 0;   // first run: steps up to here can be revisited by clicking
 const choice = { brainProvider: 'auto', sttEngine: 'apple', ttsEngine: 'kokoro', theme: 'jarvis', themeMode: 'dark' };
@@ -29,13 +32,136 @@ function show(i) {
   $('back').disabled = step === 0;
   $('next').textContent = step === STEPS.length - 1 ? (FIRST ? 'Start JARVIS' : 'Save & restart') : 'Next';
   if (STEPS[step] === 'finish') renderSummary();
+  updateNext();
+}
+
+/** The Brain step only lets you on once the chosen brain works. */
+function updateNext() {
+  const why = STEPS[step] === 'brain' ? brainProblem() : null;
+  $('next').disabled = !!why;
+  status($('brain-msg'), why || '', why ? '' : 'ok');
+}
+
+/** Why the chosen brain can't be used yet, or null when it's ready. */
+function brainProblem() {
+  const f = info.found, b = choice.brainProvider;
+  if (b === 'claude-code') {
+    if (!f.claude.path) return 'Claude Code is not installed on this Mac. Pick Ollama for a free brain, or install Claude Code.';
+    if (!f.claude.loggedIn) return 'Claude Code needs you to sign in once: run claude in Terminal.';
+    return null;
+  }
+  if (b === 'ollama') {
+    if (olBusy) return 'Working on it…';
+    if (!ol.installed) return 'Install Ollama to continue.';
+    if (!ol.running) return 'Start Ollama to continue.';
+    if (!hasModel($('ollamaModel').value)) return 'Download a model to continue.';
+    return null;
+  }
+  if (b === 'anthropic' || b === 'gemini') {
+    const key = b === 'anthropic' ? 'anthropicApiKey' : 'geminiApiKey';
+    const typed = $(key).value.trim();
+    if (!typed && !info.cfg[`has_${key}`]) return `Paste your ${b === 'anthropic' ? 'Anthropic' : 'Gemini'} API key, then press Test.`;
+    if (typed && tested[b] === false) return 'That key was rejected. Check it and press Test again.';
+    if (typed && !tested[b]) return 'Press Test to check the key.';
+    return null;
+  }
+  return null;
+}
+
+/** The best brain this Mac can use right now. */
+function bestBrain() {
+  const f = info.found;
+  if (f.claude.path && f.claude.loggedIn) return 'claude-code';
+  if (info.cfg.has_anthropicApiKey) return 'anthropic';
+  if (info.cfg.has_geminiApiKey) return 'gemini';
+  return 'ollama';
+}
+
+// ---------- Ollama, done for the user ----------
+
+const hasModel = (m) => !!m && ol.models.some((x) => x === m || x.startsWith(m + ':') || m === x.replace(/:latest$/, ''));
+
+function renderOllama() {
+  const text = $('ol-text'), btn = $('ol-action');
+  $('ol-actions').hidden = ol.running || !!olBusy && olBusy !== 'install' && olBusy !== 'start';
+  btn.disabled = !!olBusy;
+  if (!ol.installed) {
+    text.textContent = 'Ollama is not on this Mac yet. JARVIS can download it from ollama.com and set it up for you.';
+    btn.textContent = olBusy === 'install' ? 'Installing…' : 'Install Ollama';
+  } else if (!ol.running) {
+    text.textContent = 'Ollama is installed but not running.';
+    btn.textContent = olBusy === 'start' ? 'Starting…' : 'Start Ollama';
+  } else {
+    text.textContent = ol.models.length ? 'Ollama is running. Choose the model JARVIS should think with.' : 'Ollama is running. Download a model to think with; it only downloads once.';
+  }
+  // Installed models first, then recommended ones that aren't here yet.
+  const rows = [];
+  if (ol.running) {
+    for (const m of ol.models) {
+      const rec = ol.recommended.find((r) => m === r.id || m.startsWith(r.id + ':'));
+      rows.push({ id: m.replace(/:latest$/, ''), name: rec ? rec.name : m, note: rec ? rec.note : 'Installed', installed: true });
+    }
+    for (const r of ol.recommended) if (!hasModel(r.id)) rows.push({ ...r, installed: false });
+  }
+  const cur = $('ollamaModel').value;
+  if (ol.running && !hasModel(cur)) { const first = rows.find((r) => r.installed); $('ollamaModel').value = first ? first.id : ''; }
+  const ul = $('ol-models');
+  ul.innerHTML = '';
+  for (const r of rows) {
+    const li = document.createElement('li');
+    li.className = r.installed ? 'ready' : '';
+    li.classList.toggle('on', r.installed && hasModel($('ollamaModel').value) && (r.id === $('ollamaModel').value || r.id === $('ollamaModel').value.replace(/:latest$/, '')));
+    li.innerHTML = '<span class="dot"></span><div><b></b><small></small></div><em></em>';
+    li.querySelector('b').textContent = r.name;
+    li.querySelector('small').textContent = r.note + (r.size && !r.installed ? ` · ${r.size}` : '');
+    const em = li.querySelector('em');
+    if (r.installed) { em.textContent = 'Ready'; li.addEventListener('click', () => { $('ollamaModel').value = r.id; renderOllama(); updateNext(); }); }
+    else {
+      const b = document.createElement('button');
+      b.className = 'btn'; b.textContent = olBusy === r.id ? 'Downloading…' : 'Download'; b.disabled = !!olBusy;
+      b.addEventListener('click', () => ollamaDo('pull', r.id));
+      em.appendChild(b);
+    }
+    ul.appendChild(li);
+  }
+  const chip = $('ollama-status');
+  if (!ol.installed) status(chip, '— not installed', '');
+  else if (!ol.running) status(chip, '! installed · not running', 'warn');
+  else if (!ol.models.length) status(chip, '! running · no models yet', 'warn');
+  else status(chip, `✓ ready · ${ol.models.length} model${ol.models.length === 1 ? '' : 's'}`, 'ok');
+}
+
+async function refreshOllama() {
+  ol = await window.setup.ollama('state', { url: $('ollamaUrl').value.trim() });
+  info.found.ollama = { running: ol.running, models: ol.models };
+  renderOllama();
+  updateNext();
+}
+
+async function ollamaDo(action, model) {
+  olBusy = action === 'pull' ? model : action;
+  $('ol-bar').hidden = action === 'start';
+  setBar(0, action === 'install' ? 'Downloading Ollama' : `Downloading ${model}`);
+  renderOllama(); updateNext();
+  const r = await window.setup.ollama(action, { url: $('ollamaUrl').value.trim(), model });
+  olBusy = '';
+  $('ol-bar').hidden = true;
+  if (action === 'pull' && r.ok) $('ollamaModel').value = model;
+  await refreshOllama();
+  if (!r.ok) status($('brain-msg'), r.msg || 'That did not work.', 'bad');
+}
+
+function setBar(pct, phase) {
+  $('ol-bar').querySelector('i').style.width = `${Math.max(0, Math.min(100, pct))}%`;
+  $('ol-phase').textContent = pct ? `${phase} · ${pct}%` : phase;
 }
 
 function select(group, attr, value) {
   choice[group] = value;
   document.querySelectorAll(`[data-${attr}]`).forEach((c) => c.classList.toggle('on', c.dataset[attr] === value));
   if (attr === 'brain') {
-    document.querySelectorAll('[data-for]').forEach((g) => g.classList.toggle('show', value === 'auto' || g.dataset.for === value));
+    document.querySelectorAll('[data-for]').forEach((g) => g.classList.toggle('show', g.dataset.for === value));
+    if (info) updateNext();
   } else if (attr === 'stt') {
     document.querySelectorAll('[data-for-stt]').forEach((g) => g.classList.toggle('show', g.dataset.forStt === value));
   } else if (attr === 'tts') {
@@ -68,14 +194,12 @@ function autoPick() {
 function renderDetection() {
   const f = info.found;
   const cc = $('cc-status');
-  if (!f.claude.path) { status(cc, '✗ not installed', 'bad'); $('cc-help').innerHTML = 'Install: <code>npm install -g @anthropic-ai/claude-code</code>, then run <code>claude</code> once to sign in.'; }
-  else if (!f.claude.loggedIn) { status(cc, `! ${f.claude.version} · not signed in`, 'warn'); $('cc-help').innerHTML = 'Run <code>claude</code> in Terminal once and sign in.'; }
-  else { status(cc, `✓ ${f.claude.version}`, 'ok'); $('cc-help').textContent = 'Runs without permission prompts and hands long tasks to background agents. It asks before anything that sends, posts, deletes or pays.'; }
+  if (!f.claude.path) { status(cc, '— not installed', ''); $('cc-help').innerHTML = 'Claude Code is not installed. To use it, run <code>npm install -g @anthropic-ai/claude-code</code> in Terminal, then <code>claude</code> once to sign in, and reopen Setup.'; }
+  else if (!f.claude.loggedIn) { status(cc, '! not signed in', 'warn'); $('cc-help').innerHTML = 'Run <code>claude</code> in Terminal once and sign in, then reopen Setup.'; }
+  else { status(cc, `✓ ready · ${f.claude.version.replace(/\s*\(Claude Code\)/i, '')}`, 'ok'); $('cc-help').textContent = 'Runs without permission prompts and hands long tasks to background agents. It asks before anything that sends, posts, deletes or pays.'; }
+  $('cc-fields').hidden = !(f.claude.path && f.claude.loggedIn);
   status($('api-status'), info.cfg.has_anthropicApiKey ? '✓ key stored' : '— no key', info.cfg.has_anthropicApiKey ? 'ok' : '');
   status($('gemini-status'), info.cfg.has_geminiApiKey ? '✓ key stored' : '— no key', info.cfg.has_geminiApiKey ? 'ok' : '');
-  status($('ollama-status'), f.ollama.running ? `✓ running · ${f.ollama.models.length} models` : '— not running', f.ollama.running ? 'ok' : '');
-  fillList('ollama-models', f.ollama.models);
-  status($('auto-pick'), `→ ${autoPick()}`, 'ok');
   const i = info.installed;
   status($('kokoro-status'), i.kokoro ? '✓ installed' : '! run ./setup.sh', i.kokoro ? 'ok' : 'warn');
   $('kokoro-help').innerHTML = i.kokoro ? '' : 'Kokoro needs Python and a 330 MB model. Run <code>./setup.sh</code> in the JARVIS folder, or pick another voice.';
@@ -103,7 +227,7 @@ function load() {
   const nv = $('nativeVoice');
   const opts = [...nv.options].map((o) => o.value);
   nv.value = opts.find((v) => v === c.nativeVoice) || opts.find((v) => v.startsWith(c.nativeVoice || 'Daniel')) || opts.find((v) => /UK/.test(v)) || opts[0] || '';
-  select('brainProvider', 'brain', c.brainProvider || 'auto');
+  select('brainProvider', 'brain', !c.brainProvider || c.brainProvider === 'auto' ? bestBrain() : c.brainProvider);
   select('sttEngine', 'stt', c.sttEngine === 'elevenlabs' ? 'elevenlabs' : 'apple');
   select('ttsEngine', 'tts', c.ttsEngine || 'kokoro');
   pickTheme(c.theme || 'jarvis', c.themeMode || 'dark');
@@ -141,6 +265,8 @@ function renderSummary() {
 function problem() {
   const p = gather();
   const f = info.found;
+  const why = brainProblem();
+  if (why) return why;
   if (p.brainProvider === 'claude-code' && !f.claude.path) return 'Claude Code is not installed. Pick another brain or install it.';
   if (p.brainProvider === 'anthropic' && !p.anthropicApiKey && !info.cfg.has_anthropicApiKey) return 'Enter an Anthropic API key.';
   if (p.brainProvider === 'gemini' && !p.geminiApiKey && !info.cfg.has_geminiApiKey) return 'Enter a Gemini API key.';
@@ -181,10 +307,11 @@ async function test(kind) {
   const out = $(statusId);
   status(out, 'testing…');
   const r = await window.setup.test(kind === 'elevenlabs2' ? 'elevenlabs' : kind, $(field).value.trim());
-  if (!r.ok) { status(out, `✗ ${r.msg || 'failed'}`, 'bad'); return; }
+  if (kind === 'anthropic' || kind === 'gemini') tested[kind] = !!r.ok;
+  if (kind === 'ollama') { await refreshOllama(); if (!r.ok) status(out, '✗ not reachable', 'bad'); return; }
+  if (!r.ok) { status(out, `✗ ${r.msg || 'failed'}`, 'bad'); updateNext(); return; }
   if (kind === 'anthropic') { status(out, '✓ key works', 'ok'); fillList('anthropic-models', r.models || []); }
   else if (kind === 'gemini') { status(out, '✓ key works', 'ok'); fillList('gemini-models', ['gemini-flash-latest', ...(r.models || [])]); }
-  else if (kind === 'ollama') { status(out, `✓ running · ${r.models.length} models`, 'ok'); fillList('ollama-models', r.models); info.found.ollama = { running: true, models: r.models }; }
   else if (kind === 'telegram') status(out, `✓ ${r.msg}`, 'ok');
   else {
     status(out, `✓ ${r.voices.length} voices`, 'ok');
@@ -194,7 +321,7 @@ async function test(kind) {
     for (const v of r.voices) sel.add(new Option(v.name, v.id));
     sel.value = r.voices.some((v) => v.id === keep) ? keep : (r.voices[0] || {}).id;
   }
-  status($('auto-pick'), `→ ${autoPick()}`, 'ok');
+  updateNext();
 }
 
 function bind() {
@@ -212,7 +339,9 @@ function bind() {
   // One ElevenLabs key, two fields.
   $('elevenLabsApiKey').addEventListener('input', () => { $('elevenLabsApiKey2').value = $('elevenLabsApiKey').value; });
   $('elevenLabsApiKey2').addEventListener('input', () => { $('elevenLabsApiKey').value = $('elevenLabsApiKey2').value; });
-  for (const k of ['anthropicApiKey', 'geminiApiKey']) $(k).addEventListener('input', () => status($('auto-pick'), `→ ${autoPick()}`, 'ok'));
+  for (const [k, kind] of [['anthropicApiKey', 'anthropic'], ['geminiApiKey', 'gemini']]) $(k).addEventListener('input', () => { delete tested[kind]; updateNext(); });
+  $('ol-action').addEventListener('click', () => ollamaDo(ol.installed ? 'start' : 'install'));
+  window.setup.onOllamaProgress((pr) => setBar(pr.pct, pr.phase));
   $('back').addEventListener('click', () => show(step - 1));
   $('next').addEventListener('click', next);
   $('test-voice').addEventListener('click', async () => {
@@ -232,5 +361,6 @@ function bind() {
   renderDetection();
   load();
   bind();
+  await refreshOllama();
   show(0);
 })();

@@ -135,8 +135,7 @@ async function testOnboarding() {
   // Brain: detection shown
   const cc = await text(w, '#cc-status');
   check('Claude Code detection shown', /✓|✗|!/.test(cc), cc);
-  const auto = await text(w, '#auto-pick');
-  check('Automatic shows what it will pick', auto.startsWith('→'), auto);
+  check('a ready brain is picked by default', await w.locator('[data-brain].on').count() === 1 && !(await w.isDisabled('#next')));
 
   // Brain: random Anthropic key must be rejected
   await w.click('[data-brain="anthropic"]');
@@ -147,15 +146,21 @@ async function testOnboarding() {
   await w.waitForFunction(() => !/testing/.test(document.getElementById('api-status').textContent), null, { timeout: 15000 }).catch(() => {});
   const apiStatus = await text(w, '#api-status');
   check('random Anthropic key is rejected', /✗/.test(apiStatus), apiStatus);
+  check('Next stays disabled with a rejected key', await w.isDisabled('#next'));
+  check('the Brain step says why', /rejected/.test(await text(w, '#brain-msg')), await text(w, '#brain-msg'));
   await w.fill('#anthropicModel', 'claude-random-999');
 
   // Brain: Ollama on a dead port
   await w.click('[data-brain="ollama"]');
+  await w.click('.adv summary');
   await w.fill('#ollamaUrl', 'http://127.0.0.1:9');
   await w.click('[data-test="ollama"]');
   await w.waitForFunction(() => !/testing/.test(document.getElementById('ollama-status').textContent), null, { timeout: 10000 }).catch(() => {});
   const ol = await text(w, '#ollama-status');
-  check('Ollama on a dead port reports failure', /✗|not running/.test(ol), ol);
+  check('Ollama on a dead port reports failure', /✗|not running|not installed/.test(ol), ol);
+  check('Ollama offers to start or install itself', /Start Ollama|Install Ollama/.test(await text(w, '#ol-action')), await text(w, '#ol-action'));
+  check('Next stays disabled until Ollama works', await w.isDisabled('#next'));
+  await w.fill('#ollamaUrl', 'http://127.0.0.1:11434');
   // Brain: Gemini with a made-up key
   await w.click('[data-brain="gemini"]');
   check('Gemini settings group visible', await w.isVisible('[data-for="gemini"]'));
@@ -165,7 +170,8 @@ async function testOnboarding() {
   const gm = await text(w, '#gemini-status');
   check('random Gemini key is rejected', /✗/.test(gm), gm);
   await w.fill('#geminiApiKey', '');
-  await w.click('[data-brain="anthropic"]');
+  await w.click('[data-brain="claude-code"]');
+  check('Claude Code, installed here, lets you on', !(await w.isDisabled('#next')), await text(w, '#brain-msg'));
   await shot(w, 'onb-1-brain');
   await w.click('#next');
 
@@ -230,7 +236,7 @@ async function testOnboarding() {
   check('Next goes to Finish', await w.isVisible('section.on[data-step="finish"]'));
   const summary = await text(w, '#summary');
   check('summary shows the name', summary.includes('Tester 42'), summary.slice(0, 120));
-  check('summary shows the chosen brain', summary.includes('Anthropic API'));
+  check('summary shows the chosen brain', summary.includes('Claude Code'));
   check('summary shows Telegram configured', summary.includes('configured'));
   await shot(w, 'onb-5-finish');
 
@@ -238,7 +244,7 @@ async function testOnboarding() {
   const c = s.config();
   check('name saved', c.userName === 'Tester 42');
   check('honorific saved', c.honorific === 'boss');
-  check('brain saved', c.brainProvider === 'anthropic');
+  check('brain saved', c.brainProvider === 'claude-code');
   check('stt saved', c.sttEngine === 'elevenlabs');
   check('silence saved as a number', c.commandSilenceSeconds === 4.5);
   check('requireEndWord saved', c.requireEndWord === true);
@@ -257,25 +263,32 @@ async function testOnboarding() {
   check('onboarded flag saved', s.config().onboarded === true);
   if (hud) {
     const brainLine = await s.waitLog(/brain: provider (\S+)/, 10000);
-    check('brain provider is the chosen one', brainLine && brainLine[1] === 'anthropic', brainLine && brainLine[1]);
-    await hud.waitForFunction(() => document.body.dataset.state !== 'booting', null, { timeout: 15000 }).catch(() => {});
-    const w0 = s.mark();
-    await s.say('jarvis wake up');
-    await s.waitLog(/conversation mode on/, 8000);
-    await s.waitLog(/synth/, 8000, w0);        // "Yes, sir?" has started; wait for it to end
-    await s.quiet(hud);
-    const m = s.mark();
-    await s.say('what is the capital of france over');
-    const err = await s.waitLog(/brain error: (.*)/, 20000, m);
-    const tgStop = await s.waitLog(/telegram: token rejected/, 3000);
+    check('brain provider is the chosen one', brainLine && brainLine[1] === 'claude-code', brainLine && brainLine[1]);
+    const tgStop = await s.waitLog(/telegram: token rejected/, 8000);
     check('bad Telegram token stops polling (no API hammering)', tgStop && (s.log().match(/getUpdates: Unauthorized/g) || []).length <= 1);
-    check('random API key gives a clear error', err && /rejected|401/.test(err[1]), err && err[1]);
-    await sleep(500);
-    const reply = await text(hud, '#reply');
-    check('error is shown on the HUD', /Anthropic|rejected|key/i.test(reply), reply.slice(0, 100));
     await shot(hud, 'onb-6-hud-after');
   }
   await s.app.close();
+
+  // A key that stops working after setup gives a clear spoken and on-screen error
+  const k = await launch(makeState({ onboarded: true, brainProvider: 'anthropic', anthropicApiKey: 'sk-ant-random-1234567890', ttsEngine: 'native' }));
+  const hud2 = await windowByUrl(k.app, /hud\/index\.html/, 20000);
+  if (hud2) {
+    await hud2.waitForFunction(() => document.body.dataset.state !== 'booting', null, { timeout: 15000 }).catch(() => {});
+    const w0 = k.mark();
+    await k.say('jarvis wake up');
+    await k.waitLog(/conversation mode on/, 8000);
+    await k.waitLog(/synth/, 8000, w0);
+    await k.quiet(hud2);
+    const m = k.mark();
+    await k.say('what is the capital of france over');
+    const err = await k.waitLog(/brain\(anthropic\) error: (.*)/, 20000, m);
+    check('random API key gives a clear error', err && /401|x-api-key|authentication/.test(err[1]), err && err[1]);
+    await sleep(800);
+    const reply = await text(hud2, '#reply');
+    check('error is shown on the HUD', /Anthropic|rejected|key/i.test(reply), reply.slice(0, 100));
+  } else check('HUD for the bad-key run', false);
+  await k.app.close();
 }
 
 
@@ -291,9 +304,12 @@ async function testValidation() {
   await w.fill('#userName', '   ');
   await w.click('#next');
   await w.click('#next');            // Appearance: keep default
-  // Brain: Anthropic with NO key
+  // Brain: Anthropic with NO key is refused on the spot
   await w.click('[data-brain="anthropic"]');
   await w.fill('#anthropicModel', '');
+  check('refuses Anthropic brain without a key', await w.isDisabled('#next') && /Anthropic API key/.test(await text(w, '#brain-msg')), await text(w, '#brain-msg'));
+  check('no HUD started while setup is invalid', !(await windowByUrl(s.app, /hud\/index\.html/, 1500)));
+  await w.click('[data-brain="claude-code"]');
   await w.click('#next');
   // Listening: ElevenLabs with no key, negative silence
   await w.click('[data-stt="elevenlabs"]');
@@ -307,20 +323,10 @@ async function testValidation() {
   await setNum('#telegramChatId', 'abc');
   await w.click('#next');
 
-  // Finish must refuse: no Anthropic key
+  // Finish must refuse: ElevenLabs listening without a key
   await w.click('#next');
   await sleep(500);
-  let msg = await text(w, '#saved');
-  check('refuses Anthropic brain without a key', /Anthropic API key/.test(msg), msg);
-  check('no HUD started while setup is invalid', !(await windowByUrl(s.app, /hud\/index\.html/, 1500)));
-
-  // Fix brain → next problem: ElevenLabs key
-  await w.click('#steps li[data-step="brain"]');
-  await w.click('[data-brain="claude-code"]');
-  await w.click('#steps li[data-step="finish"]');
-  await w.click('#next');
-  await sleep(500);
-  msg = await text(w, '#saved');
+  const msg = await text(w, '#saved');
   check('refuses ElevenLabs listening without a key', /ElevenLabs API key/.test(msg), msg);
 
   // Junk numbers were clamped when saved

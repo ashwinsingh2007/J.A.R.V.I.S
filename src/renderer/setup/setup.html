@@ -76,22 +76,21 @@
   <section data-step="brain">
     <p class="eyebrow">Step 3</p>
     <h1>Brain</h1>
-    <p class="lead"><b>Automatic</b> uses Claude Code if it is installed, then an Anthropic or Gemini API key, then Ollama.</p>
+    <p class="lead">This is what JARVIS thinks with. Pick one and get it working here; you can change it later.</p>
     <div class="cards" id="brain-cards">
-      <button class="card" data-brain="auto"><b>Automatic</b><small>Best available, in the order shown.</small><span class="chip" id="auto-pick"></span></button>
-      <button class="card" data-brain="claude-code"><b>Claude Code</b><small>Full agent: steers your sessions, runs background agents in your Chrome, web and files. Uses your Claude plan.</small><span class="chip" id="cc-status"></span></button>
-      <button class="card" data-brain="anthropic"><b>Anthropic API</b><small>Your own API key, pay per use. Smaller, sandboxed tool set.</small><span class="chip" id="api-status"></span></button>
+      <button class="card" data-brain="claude-code"><b>Claude Code</b><small>The most capable. Steers your coding sessions, works in your Chrome and runs long jobs in the background. Uses your Claude plan.</small><span class="chip" id="cc-status"></span></button>
+      <button class="card" data-brain="ollama"><b>Ollama</b><small>Free and private: the model runs on this Mac. Best for everyday questions and quick tasks.</small><span class="chip" id="ollama-status"></span></button>
       <button class="card" data-brain="gemini"><b>Gemini</b><small>Google's models with your own key. Has a free tier. Smaller, sandboxed tool set.</small><span class="chip" id="gemini-status"></span></button>
-      <button class="card" data-brain="ollama"><b>Ollama</b><small>Free and fully local. Quality depends on the model.</small><span class="chip" id="ollama-status"></span></button>
+      <button class="card" data-brain="anthropic"><b>Anthropic API</b><small>Claude with your own API key, pay per use. Smaller, sandboxed tool set.</small><span class="chip" id="api-status"></span></button>
     </div>
 
     <div class="group" data-for="claude-code">
       <h3>Claude Code</h3>
-      <div class="grid2">
+      <p class="note" id="cc-help"></p>
+      <div class="grid2" id="cc-fields">
         <div class="field"><label for="model">Model</label><select id="model"><option>sonnet</option><option>opus</option><option>haiku</option></select></div>
         <div class="field"><label for="effort">Effort</label><select id="effort"><option>low</option><option>medium</option><option>high</option></select></div>
       </div>
-      <p class="note" id="cc-help"></p>
     </div>
     <div class="group" data-for="anthropic">
       <h3>Anthropic API</h3>
@@ -113,13 +112,20 @@
     </div>
     <div class="group" data-for="ollama">
       <h3>Ollama</h3>
-      <div class="field">
-        <label for="ollamaUrl">Server</label>
-        <div class="ig"><input id="ollamaUrl"><button data-test="ollama">Check</button></div>
-      </div>
-      <div class="field"><label for="ollamaModel">Model</label><input id="ollamaModel" list="ollama-models"><datalist id="ollama-models"></datalist></div>
-      <p class="note">Install from <a data-href="https://ollama.com/download">ollama.com</a>, then run <code>ollama pull llama3.2</code>. Pick a model that supports tools.</p>
+      <p class="note" id="ol-text"></p>
+      <div class="actions" id="ol-actions"><button class="btn primary" id="ol-action"></button></div>
+      <div class="bar" id="ol-bar" hidden><div><i></i></div><span id="ol-phase"></span></div>
+      <ul class="models" id="ol-models"></ul>
+      <input id="ollamaModel" type="hidden">
+      <details class="adv">
+        <summary>Advanced</summary>
+        <div class="field">
+          <label for="ollamaUrl">Server</label>
+          <div class="ig"><input id="ollamaUrl"><button data-test="ollama">Check</button></div>
+        </div>
+      </details>
     </div>
+    <p class="msg brain-msg" id="brain-msg"></p>
   </section>
 
   <!-- EARS -->

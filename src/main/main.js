@@ -323,6 +323,19 @@ ipcMain.handle('setup:test', async (e, { kind, key }) => {
   return { ok: false };
 });
 
+// Ollama from onboarding: state, start, install the app, download a model. Progress goes to the setup window.
+ipcMain.handle('setup:ollama', async (e, { action, url, model } = {}) => {
+  if (!fromSetup(e)) return { ok: false };
+  const ollama = require('./ollama');
+  const progress = (p) => { if (setupWin && !setupWin.isDestroyed()) setupWin.webContents.send('ollama-progress', p); };
+  const where = url || C.load().ollamaUrl;
+  if (action === 'state') return ollama.state(where);
+  if (action === 'start') return ollama.start(where);
+  if (action === 'install') return ollama.install(where, progress);
+  if (action === 'pull') return ollama.pull(where, model, progress);
+  return { ok: false };
+});
+
 ipcMain.handle('setup:test-voice', async (e, patch) => {
   if (!fromSetup(e)) return false;
   const Speaker = require('./speaker');
