@@ -20,7 +20,6 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 /* ---------- brand + nav chips (all views) ---------- */
 #brand { position: fixed; left: var(--mx); top: var(--my); z-index: 10; }
 #brand .word { font-size: clamp(15px, 1.15vw, 20px); letter-spacing: 0.3em; color: var(--bright); text-shadow: 0 0 14px rgba(var(--rgb), calc(0.5 * var(--glow))); }
-#brand .word .sub { margin-left: 10px; font-size: var(--lab); letter-spacing: 0.22em; color: var(--muted); text-shadow: none; }
 #brand .word2 { margin-top: 4px; font-size: var(--lab); letter-spacing: 0.22em; color: var(--faint); }
 #nav { display: flex; gap: 8px; margin-top: 12px; }
 #nav a { font-size: var(--lab); letter-spacing: 0.18em; color: var(--faint); border: 1px solid var(--hair); padding: 4px 10px; cursor: pointer; white-space: nowrap; }
