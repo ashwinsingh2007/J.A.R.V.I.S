@@ -225,9 +225,6 @@ nav.buttons { display: flex; align-items: center; gap: 14px; padding: 16px 56px;
 body.settings .eyebrow, body.settings #back { display: none; }
 body.settings #steps li { cursor: pointer; }
 
-/* ---------- settings inside the HUD: a way back ---------- */
-.back-hud { align-self: flex-start; margin: -8px 0 22px; height: 34px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line2); background: transparent; color: var(--cyan); font: 600 12.5px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer; transition: background .15s, border-color .15s; }
-.back-hud:hover { border-color: var(--cyan); background: rgba(var(--rgb), 0.1); }
 /* settings: a plain section menu, not numbered onboarding steps */
 body.settings ol::before, body.settings ol li::before { display: none; }
 body.settings ol li { padding: 9px 14px; border-left: 2px solid transparent; border-radius: 0 8px 8px 0; }
