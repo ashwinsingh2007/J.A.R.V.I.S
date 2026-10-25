@@ -156,6 +156,15 @@ async function testOnboarding() {
   await w.waitForFunction(() => !/testing/.test(document.getElementById('ollama-status').textContent), null, { timeout: 10000 }).catch(() => {});
   const ol = await text(w, '#ollama-status');
   check('Ollama on a dead port reports failure', /✗|not running/.test(ol), ol);
+  // Brain: Gemini with a made-up key
+  await w.click('[data-brain="gemini"]');
+  check('Gemini settings group visible', await w.isVisible('[data-for="gemini"]'));
+  await w.fill('#geminiApiKey', 'AIza-random-1234567890');
+  await w.click('[data-test="gemini"]');
+  await w.waitForFunction(() => !/testing/.test(document.getElementById('gemini-status').textContent), null, { timeout: 15000 }).catch(() => {});
+  const gm = await text(w, '#gemini-status');
+  check('random Gemini key is rejected', /✗/.test(gm), gm);
+  await w.fill('#geminiApiKey', '');
   await w.click('[data-brain="anthropic"]');
   await shot(w, 'onb-1-brain');
   await w.click('#next');

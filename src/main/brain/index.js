@@ -1,13 +1,13 @@
 // Picks the brain: Claude Code if installed and signed in, else the Anthropic
-// API if a key is set, else a local Ollama model. "brainProvider" in the config
-// forces one.
+// API if a key is set, else Gemini if a key is set, else a local Ollama model.
+// "brainProvider" in the config forces one.
 const { which, run, log } = require('../util');
 const ClaudeCodeBrain = require('./claude-code');
 const ApiBrain = require('./api-brain');
 
 /** What is available on this Mac. Used by onboarding and at start-up. */
 async function detect(cfg) {
-  const out = { claude: { path: null, version: '', loggedIn: false }, anthropic: { key: !!cfg.anthropicApiKey }, ollama: { running: false, models: [] } };
+  const out = { claude: { path: null, version: '', loggedIn: false }, anthropic: { key: !!cfg.anthropicApiKey }, gemini: { key: !!cfg.geminiApiKey }, ollama: { running: false, models: [] } };
   const claude = which('claude');
   if (claude) {
     out.claude.path = claude;
@@ -30,8 +30,11 @@ function choose(cfg, found) {
   if (want === 'anthropic' || (want === 'auto' && cfg.anthropicApiKey)) {
     if (cfg.anthropicApiKey) return 'anthropic';
   }
+  if (want === 'gemini' || (want === 'auto' && cfg.geminiApiKey)) {
+    if (cfg.geminiApiKey) return 'gemini';
+  }
   if (want === 'ollama' || want === 'auto') return 'ollama';
-  return found.claude.path ? 'claude-code' : (cfg.anthropicApiKey ? 'anthropic' : 'ollama');
+  return found.claude.path ? 'claude-code' : cfg.anthropicApiKey ? 'anthropic' : cfg.geminiApiKey ? 'gemini' : 'ollama';
 }
 
 function create(cfg, found) {

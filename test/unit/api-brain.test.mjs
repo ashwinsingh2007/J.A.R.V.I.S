@@ -78,3 +78,45 @@ test('a request that fails after a tool round leaves a history the API accepts',
   assertToolUseAnswered(sent[2]);
   assert.deepEqual(sent[2], [{ role: 'user', content: 'try again' }]);
 });
+
+test('the Gemini brain runs a tool call and speaks the answer', async (t) => {
+  const brain = new ApiBrain({ ...C.DEFAULTS, geminiApiKey: 'test-key' }, 'gemini');
+  brain.reset();
+  const sent = [];
+  const chunks = (list) => new Response(list.map((c) => `data: ${JSON.stringify(c)}\n\n`).join('') + 'data: [DONE]\n\n');
+  t.mock.method(globalThis, 'fetch', async (url, opts) => {
+    if (String(url).startsWith('https://example.com')) return new Response('Example Domain', { headers: { 'content-type': 'text/plain' } });
+    assert.match(String(url), /generativelanguage\.googleapis\.com\/v1beta\/openai\/chat\/completions/);
+    assert.equal(opts.headers.authorization, 'Bearer test-key');
+    const body = JSON.parse(opts.body);
+    sent.push(body);
+    if (sent.length === 1) return chunks([
+      { choices: [{ delta: { tool_calls: [{ index: 0, id: 'c1', type: 'function', function: { name: 'web_fetch', arguments: '{"url":' } }] } }] },
+      { choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: '"https://example.com"}' } }] } }] },
+    ]);
+    return chunks([{ choices: [{ delta: { content: 'It is the example page, sir.' } }] }]);
+  });
+  const done = new Promise((r) => brain.once('done', (text, isError) => r({ text, isError })));
+  await brain.ask('what is on example.com?');
+  assert.deepEqual(await done, { text: 'It is the example page, sir.', isError: false });
+  assert.equal(sent[0].model, 'gemini-flash-latest');
+  assert.equal(sent[0].messages[0].role, 'system');
+  assert.ok(sent[0].tools.some((x) => x.function.name === 'web_fetch'));
+  const second = sent[1].messages.slice(1);
+  assert.deepEqual(second.map((m) => m.role), ['user', 'assistant', 'tool']);
+  assert.equal(second[1].tool_calls[0].function.arguments, '{"url":"https://example.com"}');
+  assert.equal(second[2].tool_call_id, 'c1');
+  assert.match(second[2].content, /Example Domain/);
+});
+
+test('brain choice: Gemini comes after Claude Code and the Anthropic API, before Ollama', () => {
+  const { choose } = require('../../src/main/brain');
+  const none = { claude: { path: null, loggedIn: false } };
+  const cc = { claude: { path: '/x/claude', loggedIn: true } };
+  const base = { ...C.DEFAULTS, brainProvider: 'auto' };
+  assert.equal(choose({ ...base, geminiApiKey: 'g' }, none), 'gemini');
+  assert.equal(choose({ ...base, geminiApiKey: 'g', anthropicApiKey: 'a' }, none), 'anthropic');
+  assert.equal(choose({ ...base, geminiApiKey: 'g' }, cc), 'claude-code');
+  assert.equal(choose(base, none), 'ollama');
+  assert.equal(choose({ ...base, brainProvider: 'gemini', geminiApiKey: 'g' }, cc), 'gemini');
+});

@@ -1,5 +1,5 @@
-// Brain providers without Claude Code: the Anthropic Messages API and Ollama.
-// Both run the same loop: stream a reply, run any tool calls, feed results
+// Brain providers without Claude Code: the Anthropic Messages API, Gemini (through
+// its OpenAI-compatible endpoint) and Ollama. All run the same loop: stream a reply, run any tool calls, feed results
 // back, repeat (max 8 rounds). History is kept in ~/.jarvis/<provider>-history.json.
 const fs = require('fs');
 const path = require('path');
@@ -13,12 +13,12 @@ const MAX_ROUNDS = 8;
 const MAX_HISTORY = 40;
 
 class ApiBrain extends EventEmitter {
-  /** kind: "anthropic" | "ollama" */
+  /** kind: "anthropic" | "gemini" | "ollama" */
   constructor(cfg, kind) {
     super();
     this.cfg = cfg;
     this.kind = kind;
-    this.label = kind === 'anthropic' ? `anthropic api · ${cfg.anthropicModel}` : `ollama · ${cfg.ollamaModel}`;
+    this.label = { anthropic: `anthropic api · ${cfg.anthropicModel}`, gemini: `gemini · ${cfg.geminiModel}`, ollama: `ollama · ${cfg.ollamaModel}` }[kind];
     this.isBusy = false;
     this.isReady = true;
     this.abort = null;
@@ -64,7 +64,8 @@ class ApiBrain extends EventEmitter {
     let final = '';
     try {
       for (let round = 0; round < MAX_ROUNDS; round++) {
-        const { text, calls } = this.kind === 'anthropic' ? await this.anthropicRound(abort.signal) : await this.ollamaRound(abort.signal);
+        const round = { anthropic: this.anthropicRound, gemini: this.openaiRound, ollama: this.ollamaRound }[this.kind];
+        const { text, calls } = await round.call(this, abort.signal);
         if (text) final += (final ? ' ' : '') + text;
         this.splitter.flush(true);
         if (!calls.length) break;
@@ -101,9 +102,11 @@ class ApiBrain extends EventEmitter {
 
   friendlyError(e) {
     const m = String(e.message || e);
+    const name = { anthropic: 'Anthropic API', gemini: 'Gemini', ollama: 'Ollama' }[this.kind];
     if (this.kind === 'ollama' && /ECONNREFUSED|fetch failed/i.test(m)) return 'Ollama is not running. Start the Ollama app and try again.';
-    if (/401|invalid x-api-key|authentication/i.test(m)) return 'The Anthropic API key was rejected. Check it in Settings.';
-    return `The ${this.kind === 'ollama' ? 'Ollama' : 'Anthropic API'} request failed: ${m.slice(0, 160)}`;
+    if (/^(400|401|403)\b.*(api.?key|unauthenticated|permission)|invalid x-api-key|authentication/i.test(m)) return `The ${name} key was rejected. Check it in Setup.`;
+    if (/^429\b/.test(m)) return `${name} says too many requests. Wait a moment and try again.`;
+    return `The ${name} request failed: ${m.slice(0, 160)}`;
   }
 
   // ---------- Anthropic ----------
@@ -160,6 +163,50 @@ class ApiBrain extends EventEmitter {
     return { text, calls };
   }
 
+  // ---------- Gemini (OpenAI-compatible chat completions) ----------
+
+  async openaiRound(signal) {
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${this.cfg.geminiApiKey}` },
+      body: JSON.stringify({
+        model: this.cfg.geminiModel,
+        stream: true,
+        messages: [{ role: 'system', content: systemPrompt(this.cfg, tools.TOOL_NOTE) }, ...this.history],
+        tools: tools.SPECS.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.schema } })),
+      }),
+      signal,
+    });
+    if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 200)}`);
+    let text = '';
+    const parts = [];     // tool calls rebuilt from the stream, by index
+    await readSSE(res, (ev) => {
+      if (ev.error) throw new Error(ev.error.message || JSON.stringify(ev.error));
+      const d = (ev.choices && ev.choices[0] && ev.choices[0].delta) || {};
+      if (d.content) {
+        text += d.content;
+        this.emit('delta', d.content);
+        this.splitter.push(d.content);
+      }
+      for (const tc of d.tool_calls || []) {
+        const i = tc.index ?? parts.length;
+        const p = parts[i] || (parts[i] = { id: '', name: '', args: '' });
+        if (tc.id) p.id = tc.id;
+        if (tc.function && tc.function.name) p.name += tc.function.name;
+        if (tc.function && tc.function.arguments) p.args += tc.function.arguments;
+      }
+    });
+    const calls = parts.filter(Boolean).map((p, i) => {
+      let input = {};
+      try { input = p.args ? JSON.parse(p.args) : {}; } catch {}
+      return { id: p.id || `call_${Date.now()}_${i}`, name: p.name, input };
+    });
+    const msg = { role: 'assistant', content: text || null };
+    if (calls.length) msg.tool_calls = calls.map((c) => ({ id: c.id, type: 'function', function: { name: c.name, arguments: JSON.stringify(c.input) } }));
+    this.history.push(msg);
+    return { text, calls };
+  }
+
   // ---------- Ollama ----------
 
   async ollamaRound(signal) {
@@ -202,6 +249,8 @@ class ApiBrain extends EventEmitter {
   pushToolResults(results) {
     if (this.kind === 'anthropic') {
       this.history.push({ role: 'user', content: results.map((r) => ({ type: 'tool_result', tool_use_id: r.call.id, content: r.out })) });
+    } else if (this.kind === 'gemini') {
+      for (const r of results) this.history.push({ role: 'tool', tool_call_id: r.call.id, content: r.out });
     } else {
       for (const r of results) this.history.push({ role: 'tool', tool_name: r.call.name, content: r.out });
     }

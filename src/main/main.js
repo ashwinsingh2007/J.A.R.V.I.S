@@ -299,6 +299,12 @@ ipcMain.handle('setup:test', async (e, { kind, key }) => {
       if (!r.ok) return { ok: false, msg: `HTTP ${r.status}` };
       return { ok: true, models: ((await r.json()).data || []).map((m) => m.id) };
     }
+    if (kind === 'gemini') {
+      const r = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/models', { headers: { authorization: `Bearer ${key || stored.geminiApiKey}` }, signal: AbortSignal.timeout(10000) });
+      if (!r.ok) return { ok: false, msg: `HTTP ${r.status}` };
+      const ids = ((await r.json()).data || []).map((m) => String(m.id).replace(/^models\//, ''));
+      return { ok: true, models: ids.filter((id) => /^gemini/.test(id) && !/embedding|image|tts|audio|live/.test(id)) };
+    }
     if (kind === 'elevenlabs') {
       const r = await fetch('https://api.elevenlabs.io/v1/voices', { headers: { 'xi-api-key': key || stored.elevenLabsApiKey }, signal: AbortSignal.timeout(10000) });
       if (!r.ok) return { ok: false, msg: `HTTP ${r.status}` };
