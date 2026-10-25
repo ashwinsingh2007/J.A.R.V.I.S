@@ -2,21 +2,21 @@
   <img src="docs/icon.png" width="112" alt="JARVIS icon">
 </p>
 
-<h1 align="center">JARVIS</h1>
+<h1 align="center">J.A.R.V.I.S.</h1>
 
 <p align="center">An open-source AI voice assistant for your Mac, in the spirit of Iron Man's JARVIS. Say "Jarvis, wake up", talk naturally, and it answers out loud, remembers what matters to you, and does real work in the background.</p>
 
 <p align="center">
-  <a href="https://github.com/ashwinsingh2007/jarvis-voice-assistant/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/ashwinsingh2007/jarvis-voice-assistant/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/ashwinsingh2007/J.A.R.V.I.S/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/ashwinsingh2007/J.A.R.V.I.S/actions/workflows/ci.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-39c3ff"></a>
   <img alt="Platform: macOS" src="https://img.shields.io/badge/platform-macOS-111">
   <img alt="Brain: Claude Code · Claude API · Ollama" src="https://img.shields.io/badge/brain-Claude%20Code%20%C2%B7%20Claude%20API%20%C2%B7%20Ollama-1b4d73">
   <img alt="Status: early" src="https://img.shields.io/badge/status-early%20preview-f4aa1c">
-  <a href="https://github.com/ashwinsingh2007/jarvis-voice-assistant/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/ashwinsingh2007/jarvis-voice-assistant?style=flat&color=f4aa1c"></a>
+  <a href="https://github.com/ashwinsingh2007/J.A.R.V.I.S/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/ashwinsingh2007/J.A.R.V.I.S?style=flat&color=f4aa1c"></a>
 </p>
 
 <p align="center">
-  <a href="#install"><b>Install</b></a> · <a href="#using-it">What to say</a> · <a href="SECURITY.md">Security</a> · <a href="CONTRIBUTING.md">Contribute</a> · <a href="https://github.com/ashwinsingh2007/jarvis-voice-assistant/discussions">Discussions</a>
+  <a href="#install"><b>Install</b></a> · <a href="#using-it">What to say</a> · <a href="SECURITY.md">Security</a> · <a href="CONTRIBUTING.md">Contribute</a> · <a href="https://github.com/ashwinsingh2007/J.A.R.V.I.S/discussions">Discussions</a>
 </p>
 
 JARVIS is a hands-free AI agent powered by **Claude Code**, the **Anthropic API (Claude)** or a **local LLM through Ollama**. It reads your email in your own Chrome, runs your Claude Code sessions, does research in the background, uses your Mac apps, plays radio and YouTube, and takes messages from your phone over **Telegram**. Wake word and speech recognition run on your Mac, and the default voice (**Kokoro**) is a local neural voice. Think of it as a smarter, more private Siri alternative, built with Electron and Swift.
@@ -97,7 +97,7 @@ Echo cancellation keeps JARVIS from hearing itself. "Disable" in the HUD fully r
 ## Install
 
 ```sh
-git clone https://github.com/ashwinsingh2007/jarvis-voice-assistant.git jarvis && cd jarvis
+git clone https://github.com/ashwinsingh2007/J.A.R.V.I.S.git jarvis && cd jarvis
 ./setup.sh        # npm packages, Swift speech helper, Python voices, Kokoro model, music
 ./build.sh        # makes JARVIS.app in this folder
 open JARVIS.app

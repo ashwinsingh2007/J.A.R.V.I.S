@@ -19,7 +19,7 @@ JARVIS hears your voice, reads your sessions and remembers facts about you, so p
 You need macOS 14 or later, Node.js 20+, Xcode command line tools, and optionally Python 3.10+ (for the Kokoro and Edge voices) and [Claude Code](https://docs.claude.com/en/docs/claude-code).
 
 ```bash
-git clone https://github.com/ashwinsingh2007/jarvis-voice-assistant.git jarvis
+git clone https://github.com/ashwinsingh2007/J.A.R.V.I.S.git jarvis
 cd jarvis
 ./setup.sh      # npm packages, Swift helpers, Python voices, Kokoro model
 npm start       # run from source
