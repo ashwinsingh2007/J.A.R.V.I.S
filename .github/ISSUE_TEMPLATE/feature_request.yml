@@ -1,0 +1,27 @@
+name: Feature request
+description: Suggest something JARVIS should do.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The task or situation, before the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like JARVIS to do or say?
+      description: An example exchange helps ("You: … / JARVIS: …").
+    validations:
+      required: true
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Does it need data to leave your Mac, or new permissions?
+      description: For example a new online service, or control of another app. Say what and why, or "no".
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: How do you do it today?

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security problem
+    url: https://github.com/ashwinsingh2007/jarvis-voice-assistant/security/advisories/new
+    about: Report vulnerabilities privately, not as a public issue.
+  - name: Ask a question or share an idea
+    url: https://github.com/ashwinsingh2007/jarvis-voice-assistant/discussions
+    about: Setup help, how-tos, and show-and-tell.
