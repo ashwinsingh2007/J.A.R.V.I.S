@@ -390,13 +390,12 @@ body.disabled #stage, body.disabled canvas { opacity: 0.35; filter: grayscale(0.
 
 /* ---------- focus: idle HOME keeps only the reactor and the crew ---------- */
 #stage { transition: top .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); }
-#brand, #lc, #tr, #status, #bl, #br, #panels { transition: transform .6s cubic-bezier(.2,.7,.2,1), opacity .45s ease; }
+#brand, #lc, #tr, #bl, #br, #panels { transition: transform .6s cubic-bezier(.2,.7,.2,1), opacity .45s ease; }
 body.focus[data-view="cc"] #lc, body.focus[data-view="cc"] #bl { transform: translateX(calc(-100% - 2 * var(--mx))); opacity: 0; pointer-events: none; }
 body.focus[data-view="cc"] #tr, body.focus[data-view="cc"] #br { transform: translateX(calc(100% + 2 * var(--mx))); opacity: 0; pointer-events: none; }
 body.focus[data-view="cc"] #brand { transform: translateY(calc(-100% - 2 * var(--my))); opacity: 0; pointer-events: none; }
-body.focus[data-view="cc"] #status { transform: translate(-50%, calc(100% + 2 * var(--my))); opacity: 0; pointer-events: none; }
 body.focus[data-view="cc"] #panels { opacity: 0; pointer-events: none; }
-body.focus[data-view="cc"] #stage { top: 50%; transform: translate(-50%, -50%) scale(1.08); }
+body.focus[data-view="cc"] #stage { transform: translate(-50%, -50%) scale(1.05); }
 
 /* the crew around the reactor */
 #crew { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 1; opacity: 0; }
@@ -425,3 +424,7 @@ body.focus[data-view="cc"] #crew .mate { opacity: 1; transform: none; transition
 @keyframes synfire { 0%, 100% { opacity: 0.16; } 45% { opacity: 0.24; } 55% { opacity: 0.7; } }
 @keyframes nrnfire { 0%, 100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 1; transform: scale(1.5); } }
 @media (prefers-reduced-motion: reduce) { #crew *, #stage, #brand, #lc, #tr, #status, #bl, #br { animation: none !important; transition-duration: .01s !important; } }
+
+/* captions fade after a quiet spell (hud.js armCaptions) */
+#transcript, #reply { transition: opacity .6s ease; }
+#status.quiet #transcript, #status.quiet #reply { opacity: 0; }
