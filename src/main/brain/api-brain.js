@@ -57,6 +57,8 @@ class ApiBrain extends EventEmitter {
     this.isBusy = true;
     this.splitter.reset();
     const t0 = Date.now();
+    this.dropUnansweredCall();
+    const start = this.history.length;
     this.history.push({ role: 'user', content: prompt });
     log(`brain(${this.kind}): asked '${prompt.slice(0, 80)}'`);
     let final = '';
@@ -82,10 +84,19 @@ class ApiBrain extends EventEmitter {
       if (abort.signal.aborted) return;
       this.isBusy = false;
       this.abort = null;
-      this.history.pop();
+      this.history.length = start;   // forget the whole failed turn, tool rounds included
       log(`brain(${this.kind}) error: ${e.message || e}`);
       this.emit('done', this.friendlyError(e), true);
     }
+  }
+
+  /**
+   * A turn cancelled while its tools ran ends on a tool call with no result.
+   * The API rejects that history, so drop the call before the next question.
+   */
+  dropUnansweredCall() {
+    const last = this.history[this.history.length - 1];
+    if (last && last.role === 'assistant' && (last.tool_calls || (Array.isArray(last.content) && last.content.some((b) => b.type === 'tool_use')))) this.history.pop();
   }
 
   friendlyError(e) {
