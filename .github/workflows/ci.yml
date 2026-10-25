@@ -9,8 +9,15 @@ permissions:
   contents: read
 
 jobs:
+  # The syntax check and the unit tests need no Electron, no microphone and no
+  # display, so they run on every platform JARVIS is meant to reach.
   check:
-    runs-on: ubuntu-latest
+    strategy:
+      # Let each OS report on its own, so one failure doesn't hide the others.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

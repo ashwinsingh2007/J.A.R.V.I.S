@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { PYTHON } from '../python.mjs';
 
 const STATE = fs.mkdtempSync(path.join(os.tmpdir(), 'jarvis-unit-'));
 process.env.JARVIS_STATE_DIR = STATE;
@@ -107,7 +108,7 @@ test('memory moves old memory.md facts, adds, forgets and keeps a journal', () =
   assert.match(m.readJournal(0), /You: what is the time/);
 });
 
-const py = (script, ...args) => spawnSync('python3', ['-I', path.join(ROOT, 'scripts', script), ...args], { env: { ...process.env, JARVIS_STATE_DIR: STATE }, encoding: 'utf8' });
+const py = (script, ...args) => spawnSync(PYTHON, ['-I', path.join(ROOT, 'scripts', script), ...args], { env: { ...process.env, JARVIS_STATE_DIR: STATE }, encoding: 'utf8' });
 
 test('memory.py, the brain\'s memory tool', () => {
   assert.match(py('memory.py', 'add', '--topic', 'person', "Ravi is the user's brother.").stdout, /remembered/);
