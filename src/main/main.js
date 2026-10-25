@@ -17,7 +17,7 @@ if (process.env.JARVIS_TEST_MUTE) app.commandLine.appendSwitch('mute-audio');
 
 if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
 
-let cfg, hud, orch, audio, tray, telegram, setupWin = null, found = null, testAudio = null;
+let cfg, hud, orch, audio, tray, telegram, setupWin = null, settingsView = null, found = null, testAudio = null;
 const flags = new Set(process.argv.slice(1));
 
 function sidecarPath(real = false) {
@@ -60,7 +60,7 @@ function startJarvis(brains) {
   buildTray();
   orch.on('state', updateTrayTitle);
   orch.on('disabled', buildTray);
-  orch.on('open-setup', (section) => openSetup(false, section));
+  orch.on('open-setup', (section) => openSettings(section));
   orch.on('set-theme', (t) => saveTheme(t));
   orch.on('settings', (patch) => saveHudSettings(patch));
   orch.on('hands-permit', permitHands);
@@ -111,7 +111,7 @@ function buildTray() {
     { label: `Brain: ${orch ? orch.brain.label : '—'}`, enabled: false },
     { label: `Telegram: ${cfg.telegramToken ? (telegram ? telegram.status : 'connecting…') : 'not configured'}`, enabled: false },
     { type: 'separator' },
-    { label: 'Settings…', click: () => openSetup(false) },
+    { label: 'Settings…', click: () => openSettings() },
     { label: 'Open Log', click: () => shell.openPath(C.LOG_FILE) },
     { label: 'Quit JARVIS', accelerator: 'Cmd+Q', click: () => app.quit() },
   ]);
@@ -120,7 +120,7 @@ function buildTray() {
 
 function appMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate([
-    { role: 'appMenu', submenu: [{ role: 'about' }, { label: 'Settings…', click: () => openSetup(false) }, { type: 'separator' }, { role: 'hide' }, { role: 'hideOthers' }, { type: 'separator' }, { role: 'quit' }] },
+    { role: 'appMenu', submenu: [{ role: 'about' }, { label: 'Settings…', click: () => openSettings() }, { type: 'separator' }, { role: 'hide' }, { role: 'hideOthers' }, { type: 'separator' }, { role: 'quit' }] },
     { role: 'editMenu' },
     { label: 'View', submenu: [{ role: 'reload' }, { role: 'toggleDevTools' }, { type: 'separator' }, { role: 'togglefullscreen' }] },
     { role: 'windowMenu' },
@@ -154,7 +154,44 @@ function openSetup(firstRun, section = '') {
   setupWin.on('closed', () => { setupWin = null; if (!hud) app.quit(); });   // setup closed before JARVIS started
 }
 
-const fromSetup = (e) => setupWin && e.sender === setupWin.webContents;
+/**
+ * Settings while JARVIS runs: the Setup screens as a page inside the HUD window, over the HUD, with a
+ * Back button. (A separate window is only used for the first run, before the HUD exists.)
+ */
+function openSettings(section = '') {
+  if (!hud) return openSetup(false, section);
+  hud.show();
+  if (settingsView) { if (section) settingsView.webContents.send('goto', section); settingsView.webContents.focus(); return; }
+  const { WebContentsView } = require('electron');
+  const c = C.load();
+  const view = new WebContentsView({ webPreferences: { preload: path.join(__dirname, '..', 'preload', 'setup.js'), contextIsolation: true, sandbox: true } });
+  view.setBackgroundColor(themeOf(c).background);
+  view.fit = () => { const [width, height] = hud.win.getContentSize(); view.setBounds({ x: 0, y: 0, width, height }); };
+  view.fit();
+  hud.win.on('resize', view.fit);
+  hud.win.contentView.addChildView(view);
+  view.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  view.webContents.on('will-navigate', (e) => e.preventDefault());
+  view.webContents.loadFile(path.join(__dirname, '..', 'renderer', 'setup', 'setup.html'), { query: { first: '0', embedded: '1', section: String(section || ''), theme: c.theme, mode: c.themeMode } });
+  view.webContents.once('did-finish-load', () => view.webContents.focus());
+  // However the page goes away (Back, Escape, a crash), take it off the HUD.
+  view.webContents.once('destroyed', () => { if (settingsView === view) { settingsView = null; if (hud && !hud.win.isDestroyed()) { hud.win.off('resize', view.fit); try { hud.win.contentView.removeChildView(view); } catch {} } } });
+  settingsView = view;
+  log(`settings: opened${section ? ` at ${section}` : ''}`);
+}
+
+function closeSettings() {
+  const view = settingsView;
+  if (!view) return;
+  settingsView = null;
+  if (hud && !hud.win.isDestroyed()) { hud.win.off('resize', view.fit); hud.win.contentView.removeChildView(view); hud.win.webContents.focus(); }
+  view.webContents.close();
+  log('settings: closed');
+}
+
+/** The open Setup screens, wherever they are: the first-run window or the Settings page in the HUD. */
+const setupContents = () => (settingsView ? settingsView.webContents : setupWin && !setupWin.isDestroyed() ? setupWin.webContents : null);
+const fromSetup = (e) => !!setupContents() && e.sender === setupContents();
 
 function hooksInstalled() {
   try { return fs.readFileSync(path.join(C.HOME, '.claude', 'settings.json'), 'utf8').includes('hook-event.sh'); } catch { return false; }
@@ -287,8 +324,11 @@ function broadcastTheme() {
   const c = C.load();
   nativeTheme.themeSource = c.themeMode;
   if (hud) hud.send('theme', { theme: c.theme, mode: c.themeMode });
-  if (setupWin && !setupWin.isDestroyed()) setupWin.webContents.send('theme', { theme: c.theme, mode: c.themeMode });
+  const sc = setupContents();
+  if (sc) sc.send('theme', { theme: c.theme, mode: c.themeMode });
 }
+
+ipcMain.handle('setup:close', (e) => { if (settingsView && e.sender === settingsView.webContents) closeSettings(); return true; });
 
 ipcMain.handle('setup:clear-secret', (e, key) => { if (fromSetup(e) && C.SECRET_KEYS.has(key)) C.save({ [key]: '' }); return true; });
 
@@ -348,7 +388,7 @@ ipcMain.handle('setup:permissions', (e, opts) => (fromSetup(e) ? permissionsCall
 ipcMain.handle('setup:ollama', async (e, { action, url, model } = {}) => {
   if (!fromSetup(e)) return { ok: false };
   const ollama = require('./ollama');
-  const progress = (p) => { if (setupWin && !setupWin.isDestroyed()) setupWin.webContents.send('ollama-progress', p); };
+  const progress = (p) => { const sc = setupContents(); if (sc) sc.send('ollama-progress', p); };
   const where = url || C.load().ollamaUrl;
   if (action === 'state') return ollama.state(where);
   if (action === 'start') return ollama.start(where);

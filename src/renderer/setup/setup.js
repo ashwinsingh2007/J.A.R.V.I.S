@@ -4,6 +4,8 @@ const $ = (id) => document.getElementById(id);
 const FIRST = new URLSearchParams(location.search).get('first') === '1';
 // After the first run the same screens are the Settings window: free navigation and a Save button.
 const SECTION = new URLSearchParams(location.search).get('section') || '';
+// Shown as a page inside the HUD window, with a way back.
+const EMBEDDED = new URLSearchParams(location.search).get('embedded') === '1';
 const STEPS = ['welcome', 'look', 'brain', 'ears', 'voice', 'access', 'extras', 'finish'];
 const TEXT = ['userName', 'honorific', 'model', 'effort', 'worker', 'agentModel', 'anthropicModel', 'geminiModel', 'ollamaUrl', 'ollamaModel', 'speechLocale', 'appleSpeech', 'kokoroVoice', 'elevenLabsVoiceId', 'elevenLabsModel', 'edgeVoice', 'nativeVoice', 'radioCountry'];
 const NUM = ['commandSilenceSeconds', 'kokoroSpeed', 'telegramChatId'];
@@ -438,6 +440,12 @@ function bind() {
     $('logo-sub').textContent = 'SETTINGS';
     document.querySelector('#steps li[data-step="finish"] b').textContent = 'Summary';
     document.querySelector('#steps li[data-step="welcome"] b').textContent = 'You';
+  }
+  if (EMBEDDED) {
+    document.body.classList.add('embedded');
+    $('back-hud').hidden = false;
+    $('back-hud').addEventListener('click', () => window.setup.close());
+    document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && !document.activeElement.matches('input, select, textarea')) window.setup.close(); });
   }
   show(Math.max(0, STEPS.indexOf(SECTION)));
 })();

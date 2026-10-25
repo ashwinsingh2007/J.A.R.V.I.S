@@ -397,7 +397,6 @@ async function testThemes() {
   if (!w) { check('Setup opens', false); await s.app.close(); return; }
   await w.waitForSelector('section.on');
   await w.click('#steps li[data-step="look"]');
-  await hud.click('#nav a[data-view="cc"]');
   for (const theme of ['jarvis', 'terminal', 'neon', 'stark', 'minimal']) {
     for (const mode of ['dark', 'light']) {
       await w.click(`[data-theme-pick="${theme}"]`);
@@ -408,11 +407,10 @@ async function testThemes() {
       const bg = await hud.evaluate(() => getComputedStyle(document.body).backgroundColor);
       const light = await hud.evaluate(() => { const m = getComputedStyle(document.body).backgroundColor.match(/\d+/g).map(Number); return (m[0] + m[1] + m[2]) / 3 > 128; });
       check(`HUD background is ${mode} for ${theme}`, light === (mode === 'light'), bg);
-      await shot(hud, `theme-hud-${theme}-${mode}`);
       await shot(w, `theme-setup-${theme}-${mode}`);
     }
   }
-  for (const step of ['brain', 'ears', 'voice', 'extras', 'finish']) {
+  for (const step of ['brain', 'ears', 'voice', 'access', 'extras']) {
     await w.click(`#steps li[data-step="${step}"]`);
     await sleep(300);
     await shot(w, `step-${step}-minimal-light`);
@@ -423,7 +421,9 @@ async function testThemes() {
   const sys = await w.evaluate(() => document.documentElement.dataset.mode);
   check('"Match macOS" resolves to dark or light', sys === 'dark' || sys === 'light', sys);
 
-  // Picker in the HUD's SETTINGS tab: applies live, saves, and the open Setup follows
+  // Picker in the HUD's SETTINGS tab: applies live, saves, and Settings follows
+  await w.click('#back-hud');
+  await sleep(600);
   await hud.click('#nav a[data-view="settings"]');
   await hud.click('#look-themes [data-theme-pick="neon"]');
   await hud.click('#look-modes [data-mode-pick="light"]');
@@ -432,8 +432,13 @@ async function testThemes() {
   check('HUD picker applies the theme', hv === 'neon/light', hv);
   const saved = s.config();
   check('HUD picker saves the theme', saved.theme === 'neon' && saved.themeMode === 'light', `${saved.theme}/${saved.themeMode}`);
-  const sv = await w.evaluate(() => [document.documentElement.dataset.theme, document.querySelector('[data-theme-pick].on')?.dataset.themePick].join('/'));
-  check('open Setup follows the HUD picker', sv === 'neon/neon', sv);
+  await hud.click('#open-setup');
+  const w3 = await windowByUrl(s.app, /setup\.html\?first=0/, 8000);
+  await w3.waitForSelector('section.on');
+  const sv = await w3.evaluate(() => [document.documentElement.dataset.theme, document.querySelector('[data-theme-pick].on')?.dataset.themePick].join('/'));
+  check('Settings follows the HUD picker', sv === 'neon/neon', sv);
+  await w3.click('#back-hud');
+  await sleep(500);
   check('HUD picker marks the current choice', await hud.evaluate(() => document.querySelector('#look-themes .on')?.dataset.themePick === 'neon' && document.querySelector('#look-modes .on')?.dataset.modePick === 'light'));
   await shot(hud, 'hud-settings-picker');
   await s.app.close();
@@ -592,8 +597,10 @@ async function testHud() {
 
   // The big choices: cards show what's set, and open the Settings window at that section
   check('settings cards show the brain and worker', /CLAUDE CODE.*AGENTS/.test(await text(hud, '#sc-brain')), await text(hud, '#sc-brain'));
+  const winsBefore = await s.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length);
   await hud.click('.setcard[data-section="brain"]');
-  const sw = await windowByUrl(s.app, /setup\.html\?first=0&section=brain/, 8000);
+  const sw = await windowByUrl(s.app, /setup\.html\?first=0&embedded=1&section=brain/, 8000);
+  check('Settings opens inside the HUD window, not a new one', sw && await s.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length) === winsBefore);
   check('the Brain card opens Settings at the brain', sw && await sw.waitForSelector('section.on[data-step="brain"]', { timeout: 8000 }).then(() => true).catch(() => false));
   if (sw) {
     check('Settings mode has a Save button, not a wizard', await sw.textContent('#next') === 'Save' && await sw.isHidden('#back'));
@@ -617,7 +624,10 @@ async function testHud() {
     await sw.click('[data-brain="claude-code"]');
     await sw.click('#next');
     await sw.waitForTimeout(800);
-    await sw.close();
+    check('Settings has a Back button', await sw.isVisible('#back-hud'));
+    await sw.click('#back-hud');
+    await sleep(800);
+    check('Back returns to the HUD', !s.app.windows().some((w) => /embedded=1/.test(w.url())));
   }
 
   // Music tab
