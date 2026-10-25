@@ -18,6 +18,7 @@
     <li data-step="brain"><b>Brain</b><small>What thinks</small></li>
     <li data-step="ears"><b>Listening</b><small>Speech to text</small></li>
     <li data-step="voice"><b>Voice</b><small>Text to speech</small></li>
+    <li data-step="access"><b>Access</b><small>Permissions</small></li>
     <li data-step="extras"><b>Extras</b><small>Optional</small></li>
     <li data-step="finish"><b>Finish</b><small>Review</small></li>
   </ol>
@@ -220,9 +221,25 @@
     <div class="actions"><button id="test-voice" class="btn">▶ Test voice</button><span class="chip" id="voice-result"></span></div>
   </section>
 
+  <!-- ACCESS -->
+  <section data-step="access">
+    <p class="eyebrow">Step 6</p>
+    <h1>Access</h1>
+    <p class="lead">macOS asks you to allow each thing JARVIS does. Grant them here once, so nothing interrupts you later.</p>
+    <ul class="perms" id="perms">
+      <li data-perm="mic"><span class="chip"></span><div><b>Microphone</b><small>To hear you. Needed.</small></div><button class="btn"></button></li>
+      <li data-perm="speech"><span class="chip"></span><div><b>Speech recognition</b><small>To turn what you say into text, on this Mac. Needed.</small></div><button class="btn"></button></li>
+      <li data-perm="notifications"><span class="chip"></span><div><b>Notifications</b><small>For reminders when the HUD is closed. macOS shows its question with the first one.</small></div><button class="btn"></button></li>
+      <li data-perm="ax"><span class="chip"></span><div><b>Accessibility</b><small>To read and use other apps when you ask, like Notes or Finder. Optional.</small></div><button class="btn"></button></li>
+      <li data-perm="screen"><span class="chip"></span><div><b>Screen Recording</b><small>To look at a window when a job needs it. Optional.</small></div><button class="btn"></button></li>
+      <li data-perm="iterm"><span class="chip"></span><div><b>Control iTerm</b><small>To read and type into your Claude Code sessions. Optional.</small></div><button class="btn"></button></li>
+    </ul>
+    <p class="note">If you said "Don't Allow" before, the button opens the right page in System Settings. Turn JARVIS on there and come back.</p>
+  </section>
+
   <!-- EXTRAS -->
   <section data-step="extras">
-    <p class="eyebrow">Step 6</p>
+    <p class="eyebrow">Step 7</p>
     <h1>Extras</h1>
     <p class="lead">Optional. Skip anything you do not need.</p>
     <div class="group open">
@@ -254,7 +271,7 @@
 
   <!-- FINISH -->
   <section data-step="finish">
-    <p class="eyebrow">Step 7</p>
+    <p class="eyebrow">Step 8</p>
     <h1>Ready.</h1>
     <ul id="summary" class="summary"></ul>
     <div class="callout">Say <b>“Jarvis, wake up”</b> to begin. <b>“Sleep”</b> stops listening, <b>“standby”</b> turns the mic off. Come back here any time from the menu bar (◉ → Setup…) or the HUD's SETTINGS tab.</div>

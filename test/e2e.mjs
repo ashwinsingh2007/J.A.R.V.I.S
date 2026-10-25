@@ -215,6 +215,18 @@ async function testOnboarding() {
   await shot(w, 'onb-3-voice');
   await w.click('#next');
 
+  // Access: every permission listed with its state; the real ones are already granted on this Mac
+  check('Next goes to Access', await w.isVisible('section.on[data-step="access"]'));
+  await w.waitForFunction(() => [...document.querySelectorAll('#perms li[data-perm="mic"] .chip')].some((c) => c.textContent), null, { timeout: 15000 }).catch(() => {});
+  const permRows = await w.$$eval('#perms li', (ls) => ls.map((l) => `${l.dataset.perm}=${l.querySelector('.chip').textContent}`));
+  check('Access lists the six permissions', permRows.length === 6, permRows.join(' | '));
+  check('microphone and speech states are shown', permRows.slice(0, 2).every((r) => /=(✓ allowed|not yet|✗ not allowed)/.test(r)), permRows.slice(0, 2).join(' | '));
+  await w.click('#perms li[data-perm="notifications"] button');
+  await w.waitForFunction(() => /test sent/.test(document.querySelector('#perms li[data-perm="notifications"] .chip').textContent), null, { timeout: 8000 }).catch(() => {});
+  check('notifications: a test is sent', /test sent/.test(await text(w, '#perms li[data-perm="notifications"] .chip')));
+  await shot(w, 'onb-4-access');
+  await w.click('#next');
+
   // Extras
   check('Next goes to Extras', await w.isVisible('section.on[data-step="extras"]'));
   await w.fill('#telegramToken', '123456:random-token');
@@ -228,7 +240,7 @@ async function testOnboarding() {
 
   // Back keeps values
   await w.click('#back');
-  check('Back returns to Voice', await w.isVisible('section.on[data-step="voice"]'));
+  check('Back returns to Access', await w.isVisible('section.on[data-step="access"]'));
   await w.click('#next');
   await w.click('#next');
 
@@ -319,6 +331,7 @@ async function testValidation() {
   await w.click('[data-tts="kokoro"]');
   await w.fill('#kokoroSpeed', '99');
   await w.click('#next');
+  await w.click('#next');            // Access: nothing to change
   // Extras: letters in chat id
   await setNum('#telegramChatId', 'abc');
   await w.click('#next');

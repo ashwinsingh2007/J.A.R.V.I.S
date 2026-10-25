@@ -210,3 +210,13 @@ nav.buttons { display: flex; align-items: center; gap: 14px; padding: 16px 56px;
 .adv { margin-top: 16px; }
 .adv summary { cursor: pointer; font-size: 12.5px; color: var(--muted); }
 .adv summary:hover { color: var(--text); }
+
+/* ---------- access: permissions ---------- */
+.perms { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 10px; max-width: 760px; }
+.perms li { display: flex; align-items: center; gap: 16px; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel-bg); }
+.perms li > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.perms li b { font-size: 14.5px; font-weight: 600; }
+.perms li small { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+.perms li .chip { flex: none; min-width: 108px; justify-content: center; text-align: center; }
+.perms li .btn { flex: none; height: 34px; padding: 0 16px; font-size: 13px; }
+.perms li.done { border-color: color-mix(in srgb, var(--ok) 35%, var(--line)); }

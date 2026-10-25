@@ -20,8 +20,8 @@ if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
 let cfg, hud, orch, audio, tray, telegram, setupWin = null, found = null, testAudio = null;
 const flags = new Set(process.argv.slice(1));
 
-function sidecarPath() {
-  if (process.env.JARVIS_EARS_BIN) return process.env.JARVIS_EARS_BIN;
+function sidecarPath(real = false) {
+  if (process.env.JARVIS_EARS_BIN && !real) return process.env.JARVIS_EARS_BIN;
   const candidates = [path.join(process.resourcesPath || '', 'jarvis-ears'), path.join(paths.root, 'resources', 'jarvis-ears')];
   return candidates.find((p) => fs.existsSync(p)) || candidates[1];
 }
@@ -323,6 +323,25 @@ ipcMain.handle('setup:test', async (e, { kind, key }) => {
   } catch (err) { return { ok: false, msg: err.message }; }
   return { ok: false };
 });
+
+// Permissions from Setup (and Settings): check them all, or ask for one. Always the real speech helper,
+// because macOS grants access per app, whatever the tests run as the microphone.
+async function permissionsCall({ action, which } = {}) {
+  const perms = require('./permissions');
+  const earsBin = sidecarPath(true);
+  if (action === 'ask') {
+    const s = await perms.ask(which, {
+      earsBin,
+      openPane: (pane) => shell.openExternal(`x-apple.systempreferences:com.apple.preference.security?${pane}`),
+      // Tests skip the real banner: it sits over the screen and catches the mouse.
+      notify: (title, body) => { if (process.env.JARVIS_TEST_MUTE) { log(`notify (test): ${title}: ${body}`); return; } try { new Notification({ title, body }).show(); } catch {} },
+    });
+    if (which === 'ax' || which === 'screen') checkHands().then(sendHudSettings);
+    return s;
+  }
+  return perms.state(earsBin);
+}
+ipcMain.handle('setup:permissions', (e, opts) => (fromSetup(e) ? permissionsCall(opts) : null));
 
 // Ollama from onboarding: state, start, install the app, download a model. Progress goes to the setup window.
 ipcMain.handle('setup:ollama', async (e, { action, url, model } = {}) => {

@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('setup', {
   installHooks: () => ipcRenderer.invoke('setup:install-hooks'),
   ollama: (action, opts = {}) => ipcRenderer.invoke('setup:ollama', { action, ...opts }),
   onOllamaProgress: (f) => ipcRenderer.on('ollama-progress', (e, p) => f(p)),
+  permissions: (action, which) => ipcRenderer.invoke('setup:permissions', { action, which }),
   open: (url) => ipcRenderer.invoke('setup:open', url),
   finish: () => ipcRenderer.invoke('setup:finish'),
   onTheme: (f) => ipcRenderer.on('theme', (e, t) => f(t)),
