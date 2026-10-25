@@ -15,18 +15,60 @@ function log(msg) {
 }
 
 // PATH as a login shell sees it, so `claude`, `ollama`, `ffmpeg` installed via
-// nvm / Homebrew are found when the app is launched from Finder.
-let loginPath = null;
-function env(extra = {}) {
-  if (loginPath === null) {
-    try { loginPath = execFileSync('/bin/zsh', ['-lc', 'echo -n $PATH'], { timeout: 8000 }).toString(); } catch { loginPath = ''; }
-    if (!loginPath) loginPath = '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin';
+// nvm, Homebrew or apt are found when the app is launched from Finder or a
+// desktop entry, where the inherited PATH is a bare system one.
+// Windows hands GUI processes the complete user PATH from the registry, so
+// there is nothing to recover and no shell to ask.
+const SHELLS = process.platform === 'darwin'
+  ? ['/bin/zsh', '/bin/bash', '/bin/sh']
+  : ['/bin/bash', '/bin/sh'];
+const FALLBACK_PATH = process.platform === 'win32' ? ''
+  : process.platform === 'darwin' ? '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin'
+  : '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
+
+function shellPath() {
+  if (process.platform === 'win32') return '';
+  // The user's own shell first: it is the one whose rc files set PATH up.
+  const shells = process.env.SHELL && fs.existsSync(process.env.SHELL)
+    ? [process.env.SHELL, ...SHELLS] : SHELLS;
+  for (const sh of shells) {
+    if (!fs.existsSync(sh)) continue;
+    try {
+      // Take the last line: a profile is free to print warnings before it is asked.
+      const lines = execFileSync(sh, ['-lc', 'printf %s "$PATH"'], { timeout: 8000, encoding: 'utf8' })
+        .split('\n').map((s) => s.trim()).filter(Boolean);
+      if (lines.length) return lines[lines.length - 1];
+    } catch {}
   }
-  return { ...process.env, PATH: loginPath, ...extra };
+  return '';
 }
 
+let loginPath;               // undefined until the first call
+function env(extra = {}) {
+  if (loginPath === undefined) loginPath = shellPath() || FALLBACK_PATH;
+  // An empty value means "leave the inherited PATH alone".
+  return { ...process.env, ...(loginPath ? { PATH: loginPath } : {}), ...extra };
+}
+
+/** Absolute path to `name` on PATH, or null. Done in-process: there is no
+ *  `/usr/bin/env which` to lean on, and Windows has no `which` either. */
 function which(name) {
-  try { return execFileSync('/usr/bin/env', ['which', name], { env: env(), timeout: 5000 }).toString().trim() || null; } catch { return null; }
+  if (!name) return null;
+  const candidates = process.platform === 'win32' && !path.extname(name)
+    ? [name, ...(process.env.PATHEXT || '.EXE;.CMD;.BAT;.COM').split(';').filter(Boolean).map((e) => name + e)]
+    : [name];
+  for (const dir of String(env().PATH || '').split(path.delimiter).filter(Boolean)) {
+    for (const c of candidates) {
+      const p = path.join(dir, c);
+      try {
+        if (!fs.statSync(p).isFile()) continue;
+        // POSIX behaves like `which`: the file has to be runnable by us.
+        if (process.platform !== 'win32') fs.accessSync(p, fs.constants.X_OK);
+        return p;
+      } catch {}
+    }
+  }
+  return null;
 }
 
 /** Run a command, resolve {out, err, code}. Never rejects. */
@@ -90,14 +132,16 @@ function cutSources(text) {
 const SOURCES_START = /^\W*(?:sources?|references?|citations?|further reading|links?)\b\s*(?:\*\*)?\s*:/i;
 
 const paths = {};
+// A venv keeps its launchers in bin/ on macOS and Linux, Scripts/ on Windows.
+const VENV_BIN = process.platform === 'win32' ? 'Scripts' : 'bin';
 function initPaths(appDir) {
   paths.root = C.findProjectRoot(appDir);
   paths.scripts = path.join(paths.root, 'scripts');
   paths.prompts = path.join(paths.root, 'prompts');
   paths.models = path.join(paths.root, 'models');
   paths.music = path.join(paths.root, 'music');
-  paths.python = path.join(paths.root, '.venv', 'bin', 'python3');
-  paths.edgeTTS = path.join(paths.root, '.venv', 'bin', 'edge-tts');
+  paths.python = path.join(paths.root, '.venv', VENV_BIN, process.platform === 'win32' ? 'python.exe' : 'python3');
+  paths.edgeTTS = path.join(paths.root, '.venv', VENV_BIN, process.platform === 'win32' ? 'edge-tts.exe' : 'edge-tts');
   return paths;
 }
 
