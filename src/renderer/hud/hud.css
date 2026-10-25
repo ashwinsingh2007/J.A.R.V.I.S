@@ -1,4 +1,4 @@
-/* J.A.R.V.I.S. — classic blue HUD: text readouts, hairlines, one status block */
+/* J.A.R.V.I.S — classic blue HUD: text readouts, hairlines, one status block */
 :root {
   --accent: var(--cyan);
   --sans: var(--font-ui);

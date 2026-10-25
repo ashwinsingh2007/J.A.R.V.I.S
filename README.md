@@ -2,7 +2,7 @@
   <img src="docs/icon.png" width="112" alt="JARVIS icon">
 </p>
 
-<h1 align="center">J.A.R.V.I.S.</h1>
+<h1 align="center">J.A.R.V.I.S</h1>
 
 <p align="center">A voice assistant for your Mac, inspired by Iron Man's JARVIS. Say "Jarvis, wake up" and talk to it. It answers out loud, remembers things about you and can take on longer jobs while you carry on.</p>
 

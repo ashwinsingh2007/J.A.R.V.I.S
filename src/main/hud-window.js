@@ -26,7 +26,7 @@ class HudWindow extends EventEmitter {
     this.win = new BrowserWindow({
       ...bounds,
       minWidth: 1000, minHeight: 650,
-      title: 'J.A.R.V.I.S.',
+      title: 'J.A.R.V.I.S',
       backgroundColor: theme.background || '#03050d',
       show: false,
       webPreferences: { preload: path.join(__dirname, '..', 'preload', 'hud.js'), contextIsolation: true, sandbox: true, backgroundThrottling: false },
