@@ -40,7 +40,7 @@
     "ears": "sh native/build-ears.sh",
     "pack": "sh build.sh",
     "check": "node test/check.mjs",
-    "test": "node --test 'test/unit/*.test.mjs'",
+    "test": "node --test \"test/unit/*.test.mjs\"",
     "test:e2e": "node test/e2e.mjs all"
   },
   "devDependencies": {
