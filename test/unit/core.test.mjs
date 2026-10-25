@@ -79,6 +79,10 @@ test('wake phrases are recognised', () => {
   assert.ok(isCommand('okay that will be all thank you', SLEEP_PHRASES));
   assert.ok(!isCommand('enjoy sleep', SLEEP_PHRASES));
   assert.ok(!isCommand("i couldn't sleep last night", SLEEP_PHRASES));
+  assert.ok(!isCommand("i couldn't sleep", SLEEP_PHRASES));
+  assert.ok(isCommand("wait don't do anything and also go to sleep", SLEEP_PHRASES));
+  assert.ok(isCommand("why didn't you go to sleep", SLEEP_PHRASES));
+  assert.ok(isCommand('jarvis go to sleep now please', SLEEP_PHRASES));
   assert.ok(isCommand('jarvis standby', STANDBY_PHRASES));
   assert.ok(!isCommand('can you mute the music', STANDBY_PHRASES));
 });

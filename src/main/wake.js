@@ -27,13 +27,18 @@ function matches(text, phrases) {
 
 const FILLER = new Set(['jarvis', 'please', 'now', 'ok', 'okay', 'alright', 'thanks', 'thank', 'you']);
 
-/** True only when the whole utterance is the command, give or take "Jarvis", "please", "now" and the like. */
+/**
+ * Is this utterance the command? The whole utterance can be the phrase, give or take "Jarvis", "please",
+ * "now" and the like. A phrase of two or more words also counts at the end of a sentence ("…and go to
+ * sleep"), but a single word only counts on its own, so "I couldn't sleep" doesn't put JARVIS to sleep.
+ */
 function isCommand(text, phrases) {
   const words = text.toLowerCase().replace(/[^\w\s'-]/g, ' ').split(/\s+/).filter(Boolean);
   let a = 0, b = words.length;
   while (a < b && FILLER.has(words[a])) a++;
   while (b > a && FILLER.has(words[b - 1])) b--;
-  return phrases.includes(words.slice(a, b).join(' '));
+  const core = words.slice(a, b).join(' ');
+  return phrases.some((p) => core === p || (p.includes(' ') && core.endsWith(' ' + p) && b - a <= 16));
 }
 
 function stripEndWord(command, endWords) {
