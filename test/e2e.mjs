@@ -45,6 +45,7 @@ async function launch(state, args = [], extraEnv = {}) {
       JARVIS_FAKE_SPEECH: speech,
       JARVIS_FAKE_EARS_LOG: earsLog,
       JARVIS_TEST_UPDATE_MS: '8000',
+      JARVIS_TEST_AUTOHIDE_MS: '600000',   // keep panels up while Playwright drives the HUD
       ...extraEnv,
     },
     timeout: 30000,
@@ -658,6 +659,32 @@ async function testHud() {
   check('"use apps outside Chrome" can be switched off', s.config().screenControl === false && await s.waitLog(/settings: applied screenControl/, 3000, m));
   check('screen access row hides when off', await hud.evaluate(() => document.getElementById('hands-row').hidden));
   await shot(hud, 'hud-settings-form');
+
+  // Idle HOME hides the panels and shows the crew; moving the mouse brings them back
+  await hud.click('#nav a[data-view="cc"]');
+  await hud.evaluate(() => window.hud.event({ type: 'settings', autoHideMs: 1200 }));
+  const isFocus = () => hud.evaluate(() => document.body.classList.contains('focus'));
+  const word = await hud.evaluate(() => { const r = document.querySelector('#brand .word').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+  await hud.mouse.move(word[0], word[1]);
+  await sleep(2400);
+  check('mouse on the header keeps the panels up', !(await isFocus()));
+  const mid = await hud.evaluate(() => { const r = document.getElementById('stage').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+  await hud.mouse.move(mid[0], mid[1]);
+  await sleep(2400);
+  check('idle HOME hides the panels', await isFocus());
+  check('crew shows FRIDAY, EDITH and KAREN', await hud.evaluate(() => ['friday', 'edith', 'karen'].every((id) => getComputedStyle(document.getElementById('crew-' + id)).opacity === '1')));
+  await shot(hud, 'hud-focus');
+  await hud.mouse.move(mid[0] + 30, mid[1] + 20);
+  await sleep(300);
+  check('moving the mouse brings the panels back', !(await isFocus()));
+  await hud.click('#nav a[data-view="settings"]');
+  await hud.click('label:has([data-key="autoHide"])');
+  await sleep(600);
+  check('"hide panels when idle" can be switched off', s.config().autoHide === false && await s.waitLog(/settings: applied autoHide/, 3000, m));
+  await hud.click('#nav a[data-view="cc"]');
+  await hud.mouse.move(mid[0], mid[1]);
+  await sleep(2400);
+  check('with it off, HOME stays put', !(await isFocus()));
 
   // Close hides, app keeps running
   await hud.evaluate(() => window.close());
