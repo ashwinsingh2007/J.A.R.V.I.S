@@ -2,7 +2,7 @@
 // lets the user choose brain, ears and voice, saves to ~/.jarvis/config.json.
 const $ = (id) => document.getElementById(id);
 const FIRST = new URLSearchParams(location.search).get('first') === '1';
-const STEPS = ['welcome', 'look', 'brain', 'ears', 'voice', 'extras', 'finish'];
+const STEPS = ['welcome', 'look', 'brain', 'ears', 'voice', 'access', 'extras', 'finish'];
 const TEXT = ['userName', 'honorific', 'model', 'effort', 'worker', 'agentModel', 'anthropicModel', 'geminiModel', 'ollamaUrl', 'ollamaModel', 'speechLocale', 'appleSpeech', 'kokoroVoice', 'elevenLabsVoiceId', 'elevenLabsModel', 'edgeVoice', 'nativeVoice', 'radioCountry'];
 const NUM = ['commandSilenceSeconds', 'kokoroSpeed', 'telegramChatId'];
 const BOOL = ['requireEndWord', 'telegramVoiceReplies'];
@@ -32,7 +32,35 @@ function show(i) {
   $('back').disabled = step === 0;
   $('next').textContent = step === STEPS.length - 1 ? (FIRST ? 'Start JARVIS' : 'Save & restart') : 'Next';
   if (STEPS[step] === 'finish') renderSummary();
+  if (STEPS[step] === 'access') refreshPerms();
+  else if (STEPS[step] !== 'finish') status($('saved'), '');
   updateNext();
+}
+
+// ---------- permissions ----------
+
+let perms = {};
+let notified = false;
+const PERM_TEXT = { allowed: ['✓ allowed', 'ok'], 'not-asked': ['not yet', 'warn'], denied: ['✗ not allowed', 'bad'], unknown: ['—', ''], absent: ['not installed', ''] };
+
+function renderPerms() {
+  document.querySelectorAll('#perms li').forEach((li) => {
+    const k = li.dataset.perm;
+    const st = k === 'notifications' ? (notified ? 'allowed' : 'not-asked') : perms[k] || 'unknown';
+    const [label, cls] = k === 'notifications' && notified ? ['✓ test sent', 'ok'] : PERM_TEXT[st] || PERM_TEXT.unknown;
+    status(li.querySelector('.chip'), label, cls);
+    const btn = li.querySelector('button');
+    btn.hidden = st === 'allowed' || st === 'absent';
+    btn.textContent = st === 'denied' ? 'Open Settings' : k === 'notifications' ? 'Send a test' : 'Allow';
+    li.classList.toggle('done', st === 'allowed');
+  });
+  const missing = ['mic', 'speech'].filter((k) => perms[k] && perms[k] !== 'allowed');
+  if (STEPS[step] === 'access') status($('saved'), missing.length ? 'JARVIS cannot hear you until the microphone and speech recognition are allowed.' : '', missing.length ? 'bad' : '');
+}
+
+async function refreshPerms() {
+  perms = (await window.setup.permissions('state')) || {};
+  renderPerms();
 }
 
 /** The Brain step only lets you on once the chosen brain works. */
@@ -359,6 +387,16 @@ function bind() {
   for (const [k, kind] of [['anthropicApiKey', 'anthropic'], ['geminiApiKey', 'gemini']]) $(k).addEventListener('input', () => { delete tested[kind]; updateNext(); });
   $('ol-action').addEventListener('click', () => ollamaDo(ol.installed ? 'start' : 'install'));
   $('worker').addEventListener('change', renderWorker);
+  document.querySelectorAll('#perms li').forEach((li) => li.querySelector('button').addEventListener('click', async (ev) => {
+    const b = ev.currentTarget;
+    b.disabled = true; b.textContent = 'Asking…';
+    if (li.dataset.perm === 'notifications') notified = true;
+    perms = (await window.setup.permissions('ask', li.dataset.perm)) || perms;
+    b.disabled = false;
+    renderPerms();
+  }));
+  // Back from System Settings: show what changed.
+  window.addEventListener('focus', () => { if (STEPS[step] === 'access') refreshPerms(); });
   window.setup.onOllamaProgress((pr) => setBar(pr.pct, pr.phase));
   $('back').addEventListener('click', () => show(step - 1));
   $('next').addEventListener('click', next);

@@ -40,6 +40,23 @@ do {
     }
 }
 
+// `jarvis-ears --permissions [--prompt]`: print microphone and speech-recognition access as JSON and exit.
+// With --prompt, ask macOS to show its dialogs first. Setup uses this to check and ask on demand.
+if CommandLine.arguments.contains("--permissions") {
+    func word(_ a: AVAuthorizationStatus) -> String { a == .authorized ? "allowed" : a == .notDetermined ? "not-asked" : "denied" }
+    func word(_ s: SFSpeechRecognizerAuthorizationStatus) -> String { s == .authorized ? "allowed" : s == .notDetermined ? "not-asked" : "denied" }
+    let report = {
+        let out: [String: Any] = ["mic": word(AVCaptureDevice.authorizationStatus(for: .audio)), "speech": word(SFSpeechRecognizer.authorizationStatus())]
+        if let d = try? JSONSerialization.data(withJSONObject: out) { FileHandle.standardOutput.write(d); FileHandle.standardOutput.write(Data([0x0A])) }
+        exit(0)
+    }
+    if CommandLine.arguments.contains("--prompt") {
+        AVCaptureDevice.requestAccess(for: .audio) { _ in SFSpeechRecognizer.requestAuthorization { _ in report() } }
+        RunLoop.main.run()
+    }
+    report()
+}
+
 // MARK: audio devices (CoreAudio)
 
 enum AudioDevices {
