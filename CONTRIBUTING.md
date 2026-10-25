@@ -57,7 +57,7 @@ Then:
 
 - Keep each pull request to one change. Small ones get reviewed faster.
 - Add or update a unit test for logic in `src/main` (parsing, scheduling, memory, text cleaning).
-- Prompt changes matter as much as code. If you edit `prompts/`, describe what JARVIS said before and after.
+- If you edit `prompts/`, describe what JARVIS said before and after the change.
 - Never weaken a safety rule: spoken confirmation before sending, posting, deleting or paying; the untrusted-content guard; the deny rules for JARVIS's own files.
 - If your change sends any new data off the Mac, say so in the pull request and update the privacy section of the README and SECURITY.md.
 

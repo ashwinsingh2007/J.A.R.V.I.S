@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>J.A.R.V.I.S. · an open-source voice assistant for your Mac</title>
+<meta name="description" content="J.A.R.V.I.S. is a free, open-source AI voice assistant for macOS, inspired by Iron Man's JARVIS. Wake word, local speech, a British butler's voice, memory, reminders and morning briefings, running on Claude Code, the Claude API or local Ollama models.">
+<meta name="theme-color" content="#02050c">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="J.A.R.V.I.S.">
+<meta property="og:title" content="J.A.R.V.I.S.: an open-source voice assistant for your Mac">
+<meta property="og:description" content="Say “Jarvis, wake up” and talk. It answers out loud, remembers what matters to you and works in the background.">
+<meta property="og:url" content="https://ashwinsingh2007.github.io/J.A.R.V.I.S/">
+<meta property="og:image" content="https://ashwinsingh2007.github.io/J.A.R.V.I.S/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="J.A.R.V.I.S.: an open-source voice assistant for your Mac">
+<meta name="twitter:description" content="Say “Jarvis, wake up” and talk. It answers out loud, remembers what matters to you and works in the background.">
+<meta name="twitter:image" content="https://ashwinsingh2007.github.io/J.A.R.V.I.S/social-preview.png">
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="canonical" href="https://ashwinsingh2007.github.io/J.A.R.V.I.S/">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"J.A.R.V.I.S.","operatingSystem":"macOS","applicationCategory":"UtilitiesApplication","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"license":"https://opensource.org/licenses/MIT","url":"https://ashwinsingh2007.github.io/J.A.R.V.I.S/","codeRepository":"https://github.com/ashwinsingh2007/J.A.R.V.I.S","description":"An open-source AI voice assistant for macOS with a wake word, local speech, memory, reminders and background jobs, running on Claude Code, the Claude API or Ollama."}
+</script>
+<style>
+  :root {
+    --bg: #02050c; --panel: rgba(6, 18, 36, 0.55); --line: rgba(57, 195, 255, 0.22); --line2: rgba(57, 195, 255, 0.45);
+    --accent: #39c3ff; --text: #cfe9ff; --muted: #8fb0cc; --faint: #5a7d9c; --bright: #eef9ff; --green: #7dffb3; --amber: #ffb347;
+    --mono: Menlo, "SF Mono", ui-monospace, monospace; --sans: -apple-system, "SF Pro Text", "Helvetica Neue", Inter, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+  body::before { content: ""; position: fixed; inset: 0; background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(20, 80, 150, 0.35), transparent 70%); pointer-events: none; z-index: -1; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { width: min(1120px, 100% - 32px); margin: 0 auto; }
+  .lab { font: 500 12px var(--mono); letter-spacing: 0.28em; text-transform: uppercase; color: var(--faint); }
+
+  nav { position: sticky; top: 0; z-index: 10; backdrop-filter: blur(12px); background: rgba(2, 5, 12, 0.72); border-bottom: 1px solid var(--line); }
+  nav .wrap { display: flex; align-items: center; gap: 22px; height: 60px; }
+  nav .brand { display: flex; align-items: center; gap: 10px; font: 600 15px var(--mono); letter-spacing: 0.3em; color: var(--bright); margin-right: auto; }
+  nav .brand img { width: 26px; height: 26px; }
+  nav a.l { font: 13px var(--mono); letter-spacing: 0.12em; color: var(--muted); }
+  nav a.gh { font: 600 13px var(--mono); letter-spacing: 0.12em; border: 1px solid var(--line2); padding: 7px 14px; color: var(--accent); }
+  @media (max-width: 760px) { nav a.l { display: none; } }
+
+  header.hero { text-align: center; padding: 84px 0 40px; }
+  .hero h1 { font: 600 clamp(42px, 8vw, 84px)/1.05 var(--mono); letter-spacing: 0.18em; margin: 18px 0 18px; color: var(--bright); text-shadow: 0 0 28px rgba(57, 195, 255, 0.45); }
+  @media (max-width: 520px) { .hero h1 { font-size: 34px; letter-spacing: 0.1em; } }
+  .hero p.sub { font-size: clamp(18px, 2.4vw, 22px); color: var(--muted); max-width: 720px; margin: 0 auto; }
+  .cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin: 34px 0 10px; }
+  .btn { font: 600 14px var(--mono); letter-spacing: 0.14em; padding: 13px 22px; border: 1px solid var(--accent); color: var(--bg); background: var(--accent); }
+  .btn.ghost { background: transparent; color: var(--accent); }
+  .btn:hover { text-decoration: none; filter: brightness(1.1); }
+  .small { font-size: 14px; color: var(--faint); }
+  .video { margin: 44px auto 0; width: min(1040px, 100%); border: 1px solid var(--line2); box-shadow: 0 0 80px rgba(57, 195, 255, 0.18); background: #000; }
+  .video video { display: block; width: 100%; height: auto; }
+
+  section { padding: 84px 0 0; }
+  section h2 { font: 600 clamp(26px, 3.6vw, 36px)/1.2 var(--sans); color: var(--bright); margin: 10px 0 14px; }
+  section > .wrap > p.lead { color: var(--muted); max-width: 760px; margin: 0 0 34px; font-size: 18px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .card { border: 1px solid var(--line); background: var(--panel); padding: 22px 22px 20px; }
+  .card h3 { margin: 0 0 8px; font: 600 15px var(--mono); letter-spacing: 0.06em; color: var(--bright); }
+  .card p { margin: 0; color: var(--muted); font-size: 15.5px; }
+  .card .say { display: block; margin-top: 12px; font: 13px var(--mono); color: var(--green); }
+
+  .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 18px; }
+  @media (max-width: 520px) { .shots { grid-template-columns: 1fr; } }
+  figure { margin: 0; border: 1px solid var(--line); background: var(--panel); }
+  figure img { display: block; width: 100%; height: auto; }
+  figcaption { padding: 12px 16px; font-size: 14.5px; color: var(--muted); }
+
+  .flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0; border: 1px solid var(--line); }
+  .flow div { padding: 22px; border-right: 1px solid var(--line); background: var(--panel); }
+  .flow div:last-child { border-right: 0; }
+  .flow b { display: block; font: 600 13px var(--mono); letter-spacing: 0.16em; color: var(--accent); margin-bottom: 8px; }
+  .flow span { color: var(--muted); font-size: 15px; }
+  @media (max-width: 900px) { .flow div { border-right: 0; border-bottom: 1px solid var(--line); } }
+
+  table { width: 100%; border-collapse: collapse; font-size: 15.5px; }
+  th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font: 500 12px var(--mono); letter-spacing: 0.2em; color: var(--faint); text-transform: uppercase; }
+  td:first-child { color: var(--bright); white-space: nowrap; }
+  td { color: var(--muted); }
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); background: var(--panel); }
+
+  pre { margin: 0; padding: 18px 20px; background: #030914; border: 1px solid var(--line); overflow-x: auto; font: 14px/1.7 var(--mono); color: var(--text); }
+  pre .c { color: var(--faint); }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+  .two > * { min-width: 0; }
+  @media (max-width: 860px) { .two { grid-template-columns: 1fr; } }
+  ul.ticks { list-style: none; padding: 0; margin: 0; }
+  ul.ticks li { padding: 9px 0 9px 26px; border-bottom: 1px solid var(--line); position: relative; color: var(--muted); font-size: 15.5px; }
+  ul.ticks li::before { content: "◆"; position: absolute; left: 0; top: 9px; color: var(--accent); font-size: 11px; }
+
+  details { border-bottom: 1px solid var(--line); padding: 16px 4px; }
+  summary { cursor: pointer; color: var(--bright); font-weight: 600; list-style: none; }
+  summary::before { content: "+"; display: inline-block; width: 22px; color: var(--accent); font-family: var(--mono); }
+  details[open] summary::before { content: "−"; }
+  details p { margin: 10px 0 0 22px; color: var(--muted); }
+
+  footer { margin-top: 100px; padding: 34px 0 50px; border-top: 1px solid var(--line); color: var(--faint); font-size: 14px; }
+  footer .wrap { display: flex; gap: 20px; flex-wrap: wrap; justify-content: space-between; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="#"><img src="icon.png" alt="">J.A.R.V.I.S.</a>
+    <a class="l" href="#features">Features</a>
+    <a class="l" href="#inside">Inside</a>
+    <a class="l" href="#privacy">Privacy</a>
+    <a class="l" href="#contribute">Contribute</a>
+    <a class="l" href="#faq">FAQ</a>
+    <a class="gh" href="https://github.com/ashwinsingh2007/J.A.R.V.I.S">GITHUB</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="lab">Open source · macOS · MIT</div>
+    <h1>J.A.R.V.I.S.</h1>
+    <p class="sub">A voice assistant for your Mac, inspired by Iron Man's JARVIS. Say “Jarvis, wake up” and talk to it. It answers out loud, remembers things about you and takes on longer jobs while you carry on.</p>
+    <div class="cta">
+      <a class="btn" href="https://github.com/ashwinsingh2007/J.A.R.V.I.S#install">GET IT ON GITHUB</a>
+      <a class="btn ghost" href="#demo">WATCH THE DEMO</a>
+    </div>
+    <div class="small">Runs on Claude Code, the Claude API, or local models with Ollama</div>
+    <div class="video" id="demo">
+      <video src="demo/jarvis-demo.mp4" poster="demo/poster.jpg" controls playsinline preload="metadata" aria-label="A one-minute demo of JARVIS: checking Gmail in the background, a reminder, a status update, remembering a birthday and switching themes"></video>
+    </div>
+    <p class="small" style="margin-top:12px">One minute, with sound. The HUD is in demo mode with made-up data.</p>
+  </div>
+</header>
+
+<section id="features">
+  <div class="wrap">
+    <div class="lab">What it does</div>
+    <h2>An assistant you talk to, not a chat window</h2>
+    <p class="lead">Most voice assistants answer questions and run a fixed set of commands. JARVIS runs on Claude Code, so it can work with your files, your browser and your coding sessions, and keep you posted while a long job runs in the background.</p>
+    <div class="grid">
+      <div class="card"><h3>Hands-free</h3><p>Say the wake word and every sentence after it is a command, until you tell it to sleep. Say its name while it's talking to stop it.</p><span class="say">“Jarvis, wake up.”</span></div>
+      <div class="card"><h3>Quick replies, slow jobs in the background</h3><p>A fast model answers right away and hands anything long to a stronger one. You get short spoken updates while it works, and you can keep talking to it.</p><span class="say">“What's the status?”</span></div>
+      <div class="card"><h3>Uses your Mac</h3><p>Your signed-in Chrome for Gmail, YouTube or LinkedIn, your files and shell, your Claude Code sessions, and other apps through Accessibility. It asks before taking over the mouse.</p><span class="say">“Check my Gmail and tell me what needs a reply.”</span></div>
+      <div class="card"><h3>Remembers you</h3><p>People, preferences, projects and routines get saved as they come up. The MEMORY tab lists every fact, and you can delete any of them.</p><span class="say">“My sister Priya's birthday is on the fourteenth.”</span></div>
+      <div class="card"><h3>Speaks up when there's a reason</h3><p>A morning briefing, spoken reminders, routines you set by voice, and the occasional check-in when something is worth mentioning.</p><span class="say">“Every morning at eight, check the AI news.”</span></div>
+      <div class="card"><h3>Honest about results</h3><p>Background jobs come back as done, unverified or failed, and it won't call something done that it couldn't check. Text from emails and web pages is never treated as an instruction.</p><span class="say">“I pressed send, but I couldn't confirm it went through.”</span></div>
+      <div class="card"><h3>A voice with some character</h3><p>A calm British butler with a dry sense of humour. When it looks something up, it tells you what it found in its own words and skips the list of links.</p><span class="say">“Twenty past nine, sir.”</span></div>
+      <div class="card"><h3>Your choice of brain</h3><p>Claude Code with your Claude subscription, the Anthropic API pay as you go, or Ollama, which is free and stays on your Mac.</p><span class="say">Claude Code · Claude API · Ollama</span></div>
+      <div class="card"><h3>Also on your phone</h3><p>Message it on Telegram, voice notes included. Reminders go there too when JARVIS is asleep.</p><span class="say">Telegram bot, locked to your chat</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="inside">
+  <div class="wrap">
+    <div class="lab">A look inside</div>
+    <h2>The HUD</h2>
+    <p class="lead">A heads-up display you can read from across the desk: live state and transcript, running jobs, your Claude Code sessions, system stats and music. Five themes, each in dark and light.</p>
+    <div class="shots">
+      <figure><img src="screenshots/home.png" alt="Home: the reactor, system stats and a Claude Code session's activity" loading="lazy"><figcaption>Home: state, what it heard, and what your sessions are doing.</figcaption></figure>
+      <figure><img src="screenshots/memory.png" alt="Memory: facts it remembers, plus reminders and routines" loading="lazy"><figcaption>Memory: what it knows about you, plus reminders and routines.</figcaption></figure>
+      <figure><img src="screenshots/settings.png" alt="Settings: models, progress updates, briefing, check-ins and themes" loading="lazy"><figcaption>Settings: changes apply as soon as you make them.</figcaption></figure>
+      <figure><img src="screenshots/sessions.png" alt="Sessions: every Claude Code session on the Mac and its status" loading="lazy"><figcaption>Sessions: every Claude Code session on the Mac and what it last said.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <div class="lab">How it works</div>
+    <h2>From your voice to a finished job</h2>
+    <p class="lead">Simple things like music, stop or the time never leave the Mac. Everything else goes to the brain, which answers itself or starts a background job.</p>
+    <div class="flow">
+      <div><b>01 · LISTEN</b><span>Apple's on-device recogniser hears the wake word and your command, with echo cancellation so it ignores its own voice.</span></div>
+      <div><b>02 · THINK</b><span>A fast model answers small questions in a couple of seconds. Anything longer goes to a background worker on a stronger model.</span></div>
+      <div><b>03 · WORK</b><span>Workers use Chrome, your files, your apps and your sessions. They check their results and send short status lines as they go.</span></div>
+      <div><b>04 · SPEAK</b><span>Kokoro reads the answer sentence by sentence as it arrives, so it starts talking before the whole reply is ready.</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="privacy">
+  <div class="wrap">
+    <div class="lab">Privacy and safety</div>
+    <h2>It has real access to your Mac, so it asks first</h2>
+    <div class="two">
+      <div>
+        <p class="lead" style="margin-bottom:18px">The Claude Code brain and its workers run without permission prompts, which is what lets them drive your browser. Spoken confirmation takes the place of those prompts.</p>
+        <ul class="ticks">
+          <li>It reads the task back and waits for a yes before anything that sends, posts, deletes, publishes, pays or changes account settings.</li>
+          <li>Text in emails, web pages and documents is treated as information. If an email asks it to do something, it tells you instead.</li>
+          <li>Your own Claude Code deny rules and hooks still apply, and it can't edit its own code, its config or your Claude settings.</li>
+          <li>It reads other apps through Accessibility and asks before it moves your mouse. You can switch that off.</li>
+        </ul>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <tr><th>What</th><th>Where it goes</th></tr>
+          <tr><td>Wake word</td><td>Stays on your Mac</td></tr>
+          <tr><td>Speech recognition</td><td>On your Mac (Apple). Optional ElevenLabs, streamed only while awake</td></tr>
+          <tr><td>Voice</td><td>On your Mac (Kokoro). Optional ElevenLabs or Edge</td></tr>
+          <tr><td>Your requests</td><td>Your chosen brain: Claude, or local with Ollama</td></tr>
+          <tr><td>Memory, journal, reminders</td><td><code>~/.jarvis</code> on your Mac, mode 600</td></tr>
+          <tr><td>API keys, Telegram token</td><td>Encrypted with the macOS Keychain</td></tr>
+          <tr><td>Network</td><td>Nothing listens. The radio proxy is local only</td></tr>
+        </table>
+      </div>
+    </div>
+    <p class="small" style="margin-top:18px">Read the full <a href="https://github.com/ashwinsingh2007/J.A.R.V.I.S/blob/main/SECURITY.md">security notes</a>, and report problems privately through a <a href="https://github.com/ashwinsingh2007/J.A.R.V.I.S/security/advisories/new">GitHub security advisory</a>.</p>
+  </div>
+</section>
+
+<section id="install">
+  <div class="wrap">
+    <div class="lab">Get started</div>
+    <h2>Install</h2>
+    <div class="two">
+      <pre><span class="c"># macOS 14+, Node.js 20+, Xcode command line tools</span>
+git clone https://github.com/ashwinsingh2007/J.A.R.V.I.S.git jarvis
+cd jarvis
+./setup.sh      <span class="c"># packages, Swift helpers, voices</span>
+./build.sh      <span class="c"># makes JARVIS.app</span>
+open JARVIS.app</pre>
+      <ul class="ticks">
+        <li>Setup asks for your name and lets you pick the brain, how it listens and the voice.</li>
+        <li>macOS asks for microphone and speech recognition access on first launch.</li>
+        <li>For the full agent, install <a href="https://docs.claude.com/en/docs/claude-code">Claude Code</a>. For a free local setup, install <a href="https://ollama.com">Ollama</a>.</li>
+        <li>Python 3.10+ is needed for the Kokoro voice; without it, the macOS voices still work.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="contribute">
+  <div class="wrap">
+    <div class="lab">Contribute</div>
+    <h2>Help build it</h2>
+    <p class="lead">Bug reports, fixes, new skills, better wording and new voices are all welcome. The prompts that shape its personality live in the repo too, so you can improve how it talks without touching code.</p>
+    <div class="grid">
+      <div class="card"><h3>Contributing guide</h3><p>Setup, where things live, the checks to run, and how to keep personal data out of issues.</p><span class="say"><a href="https://github.com/ashwinsingh2007/J.A.R.V.I.S/blob/main/CONTRIBUTING.md">CONTRIBUTING.md →</a></span></div>
+      <div class="card"><h3>Issues and ideas</h3><p>Report a bug or suggest a feature with the issue forms, or ask questions and share setups in Discussions.</p><span class="say"><a href="https://github.com/ashwinsingh2007/J.A.R.V.I.S/issues/new/choose">Open an issue →</a> &nbsp; <a href="https://github.com/ashwinsingh2007/J.A.R.V.I.S/discussions">Discussions →</a></span></div>
+      <div class="card"><h3>Design and code of conduct</h3><p>How JARVIS should sound and look, and how we treat each other.</p><span class="say"><a href="https://github.com/ashwinsingh2007/J.A.R.V.I.S/blob/main/DESIGN.md">DESIGN.md →</a> &nbsp; <a href="https://github.com/ashwinsingh2007/J.A.R.V.I.S/blob/main/CODE_OF_CONDUCT.md">Code of conduct →</a></span></div>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <div class="lab">Questions</div>
+    <h2>FAQ</h2>
+    <details><summary>Is it free?</summary><p>Yes. JARVIS is free and open source under the MIT licence. With the Claude Code brain it uses your existing Claude subscription; with the Anthropic API you pay Anthropic for what you use; with Ollama it costs nothing.</p></details>
+    <details><summary>Does it work offline?</summary><p>Partly. The wake word, speech recognition and the Kokoro voice run on your Mac. The brain needs Claude unless you use a local model through Ollama.</p></details>
+    <details><summary>Does it always listen to me?</summary><p>It listens for the wake word on the device. After "wake up" it treats what you say as commands until you say "sleep". "Standby" turns the microphone off, and "Disable" in the HUD releases it completely.</p></details>
+    <details><summary>Can it send emails or messages on its own?</summary><p>Only after you confirm. It reads the message back and waits for a yes before it sends, posts, deletes or pays for anything.</p></details>
+    <details><summary>Does it run on Windows or Linux?</summary><p>Not yet. It relies on macOS for speech recognition, Accessibility and the Keychain.</p></details>
+    <details><summary>Can I change the wake word or the voice?</summary><p>Yes. The voice, the speech recogniser and the models can be changed from the HUD's Settings tab, and the wake words live in <code>~/.jarvis/config.json</code>.</p></details>
+    <details><summary>Is this related to Marvel or Anthropic?</summary><p>No. It's an independent project inspired by the films. "Claude" and "Claude Code" are trademarks of Anthropic.</p></details>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>J.A.R.V.I.S. · MIT licence · not affiliated with Marvel, Disney or Anthropic</span>
+    <span><a href="https://github.com/ashwinsingh2007/J.A.R.V.I.S">GitHub</a> · <a href="https://github.com/ashwinsingh2007/J.A.R.V.I.S/blob/main/SECURITY.md">Security</a> · <a href="https://github.com/ashwinsingh2007/J.A.R.V.I.S/blob/main/CONTRIBUTING.md">Contribute</a></span>
+  </div>
+</footer>
+
+</body>
+</html>

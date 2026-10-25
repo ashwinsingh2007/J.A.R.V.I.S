@@ -877,7 +877,8 @@
     const tools = [['Bash', 'sessions.sh'], ['Read', '~/.claude/projects/…/transcript.jsonl'], ['WebSearch', 'kokoro onnx british voices'], ['Bash', 'send.sh web-app "run the tests"'], ['Bash', 'mac.sh screenshot'], ['Agent', 'agent: checking your Gmail']];
     const cycle = ['idle', 'listening', 'thinking', 'speaking'];
     let i = 0;
-    setInterval(() => {
+    // &tour=1: a script drives the HUD (tools/make-demo.mjs), so no random cycling.
+    if (!/[?&]tour=1/.test(location.search)) setInterval(() => {
       const s = cycle[i++ % cycle.length]; ev({ type: 'state', state: s });
       if (s === 'listening') ev({ type: 'transcript', text: 'jarvis, what are my sessions doing', final: false });
       if (s === 'thinking') { ev({ type: 'transcript', text: 'what are my sessions doing', final: true }); ev({ type: 'reply', text: '' }); const t = tools[(i >> 1) % tools.length]; ev({ type: 'tool', name: t[0], summary: t[1] }); }
