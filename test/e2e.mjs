@@ -588,6 +588,37 @@ async function testHud() {
   const setup = await windowByUrl(s.app, /setup\.html\?first=0/, 8000);
   check('OPEN SETUP opens the setup window', setup);
   if (setup) await setup.close();
+  await sleep(500);
+
+  // The big choices: cards show what's set, and open the Settings window at that section
+  check('settings cards show the brain and worker', /CLAUDE CODE.*AGENTS/.test(await text(hud, '#sc-brain')), await text(hud, '#sc-brain'));
+  await hud.click('.setcard[data-section="brain"]');
+  const sw = await windowByUrl(s.app, /setup\.html\?first=0&section=brain/, 8000);
+  check('the Brain card opens Settings at the brain', sw && await sw.waitForSelector('section.on[data-step="brain"]', { timeout: 8000 }).then(() => true).catch(() => false));
+  if (sw) {
+    check('Settings mode has a Save button, not a wizard', await sw.textContent('#next') === 'Save' && await sw.isHidden('#back'));
+    check('the brain choices from Setup are all there', await sw.locator('[data-brain]').count() === 4);
+    await sw.click('[data-brain="ollama"]');
+    await sw.waitForTimeout(500);
+    const ollamaReady = !(await sw.isDisabled('#next'));
+    if (ollamaReady) {
+      await sw.click('#next');
+      await sw.waitForFunction(() => /Saved/.test(document.getElementById('saved').textContent), null, { timeout: 8000 }).catch(() => {});
+      check('switching the brain is saved and offers a restart', s.config().brainProvider === 'ollama' && await sw.isVisible('#restart'), await text(sw, '#saved'));
+    } else check('Save waits until Ollama is ready', /Ollama|model/.test(await text(sw, '#brain-msg')), await text(sw, '#brain-msg'));
+    await sw.click('#steps li[data-step="voice"]');
+    await sw.click('[data-tts="edge"]');
+    await sw.click('#next');
+    await sw.waitForFunction(() => /Saved/.test(document.getElementById('saved').textContent), null, { timeout: 8000 }).catch(() => {});
+    check('a voice change applies live', await s.waitLog(/settings: applied ttsEngine/, 5000));
+    // Put things back for the tests that follow.
+    await sw.click('[data-tts="native"]');
+    await sw.click('#steps li[data-step="brain"]');
+    await sw.click('[data-brain="claude-code"]');
+    await sw.click('#next');
+    await sw.waitForTimeout(800);
+    await sw.close();
+  }
 
   // Music tab
   await hud.click('#nav a[data-view="music"]');

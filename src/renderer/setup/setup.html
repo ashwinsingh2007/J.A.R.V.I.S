@@ -11,7 +11,7 @@
 </head>
 <body>
 <aside>
-  <div class="logo"><span class="orb"></span><div>J.A.R.V.I.S<small>SETUP</small></div></div>
+  <div class="logo"><span class="orb"></span><div>J.A.R.V.I.S<small id="logo-sub">SETUP</small></div></div>
   <ol id="steps">
     <li data-step="welcome"><b>Welcome</b><small>Name</small></li>
     <li data-step="look"><b>Appearance</b><small>Theme</small></li>
@@ -274,7 +274,7 @@
     <p class="eyebrow">Step 8</p>
     <h1>Ready.</h1>
     <ul id="summary" class="summary"></ul>
-    <div class="callout">Say <b>“Jarvis, wake up”</b> to begin. <b>“Sleep”</b> stops listening, <b>“standby”</b> turns the mic off. Come back here any time from the menu bar (◉ → Setup…) or the HUD's SETTINGS tab.</div>
+    <div class="callout">Say <b>“Jarvis, wake up”</b> to begin. <b>“Sleep”</b> stops listening, <b>“standby”</b> turns the mic off. Change any of this later from the menu bar (◉ → Settings…) or the HUD's SETTINGS tab.</div>
   </section>
 
   </div>
@@ -282,6 +282,7 @@
     <button id="back" class="btn">Back</button>
     <span class="grow"></span>
     <span id="saved" class="msg"></span>
+    <button id="restart" class="btn" hidden>Restart now</button>
     <button id="next" class="btn primary">Next</button>
   </nav>
 </main>

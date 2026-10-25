@@ -13,5 +13,7 @@ contextBridge.exposeInMainWorld('setup', {
   permissions: (action, which) => ipcRenderer.invoke('setup:permissions', { action, which }),
   open: (url) => ipcRenderer.invoke('setup:open', url),
   finish: () => ipcRenderer.invoke('setup:finish'),
+  apply: () => ipcRenderer.invoke('setup:apply'),
+  onGoto: (f) => ipcRenderer.on('goto', (e, s) => f(s)),
   onTheme: (f) => ipcRenderer.on('theme', (e, t) => f(t)),
 });

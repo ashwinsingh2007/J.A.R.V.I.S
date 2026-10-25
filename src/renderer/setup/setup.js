@@ -2,6 +2,8 @@
 // lets the user choose brain, ears and voice, saves to ~/.jarvis/config.json.
 const $ = (id) => document.getElementById(id);
 const FIRST = new URLSearchParams(location.search).get('first') === '1';
+// After the first run the same screens are the Settings window: free navigation and a Save button.
+const SECTION = new URLSearchParams(location.search).get('section') || '';
 const STEPS = ['welcome', 'look', 'brain', 'ears', 'voice', 'access', 'extras', 'finish'];
 const TEXT = ['userName', 'honorific', 'model', 'effort', 'worker', 'agentModel', 'anthropicModel', 'geminiModel', 'ollamaUrl', 'ollamaModel', 'speechLocale', 'appleSpeech', 'kokoroVoice', 'elevenLabsVoiceId', 'elevenLabsModel', 'edgeVoice', 'nativeVoice', 'radioCountry'];
 const NUM = ['commandSilenceSeconds', 'kokoroSpeed', 'telegramChatId'];
@@ -30,7 +32,7 @@ function show(i) {
   document.querySelectorAll('#steps li').forEach((li, n) => { li.classList.toggle('on', n === step); li.classList.toggle('done', FIRST && n < furthest && n !== step); li.classList.toggle('locked', FIRST && n > furthest); });
   document.querySelector('.scroll').scrollTop = 0;
   $('back').disabled = step === 0;
-  $('next').textContent = step === STEPS.length - 1 ? (FIRST ? 'Start JARVIS' : 'Save & restart') : 'Next';
+  $('next').textContent = !FIRST ? 'Save' : step === STEPS.length - 1 ? 'Start JARVIS' : 'Next';
   if (STEPS[step] === 'finish') renderSummary();
   if (STEPS[step] === 'access') refreshPerms();
   else if (STEPS[step] !== 'finish') status($('saved'), '');
@@ -330,7 +332,18 @@ async function saveAndRemember() {
   for (const k of SECRET) if (p[k]) info.cfg[`has_${k}`] = true;
 }
 
+/** Settings window: save, apply what can change live, and offer a restart for the rest. */
+async function saveSettings() {
+  const err = problem();
+  if (err && (STEPS[step] === 'brain' || STEPS[step] === 'finish')) { status($('saved'), err, 'bad'); return; }
+  await saveAndRemember();
+  const r = await window.setup.apply();
+  $('restart').hidden = !r.restart;
+  status($('saved'), r.restart ? 'Saved. Restart JARVIS to use the new settings.' : 'Saved and applied.', 'ok');
+}
+
 async function next() {
+  if (!FIRST) return saveSettings();
   if (STEPS[step] === 'finish') {
     const err = problem();
     if (err) { status($('saved'), err, 'bad'); return; }
@@ -399,6 +412,8 @@ function bind() {
   window.addEventListener('focus', () => { if (STEPS[step] === 'access') refreshPerms(); });
   window.setup.onOllamaProgress((pr) => setBar(pr.pct, pr.phase));
   $('back').addEventListener('click', () => show(step - 1));
+  $('restart').addEventListener('click', async () => { status($('saved'), 'Restarting…', 'ok'); await window.setup.finish(); });
+  window.setup.onGoto((s) => { const i = STEPS.indexOf(s); if (i >= 0) show(i); });
   $('next').addEventListener('click', next);
   $('test-voice').addEventListener('click', async () => {
     status($('voice-result'), 'speaking…');
@@ -418,5 +433,11 @@ function bind() {
   load();
   bind();
   await refreshOllama();
-  show(0);
+  if (!FIRST) {
+    document.body.classList.add('settings');
+    $('logo-sub').textContent = 'SETTINGS';
+    document.querySelector('#steps li[data-step="finish"] b').textContent = 'Summary';
+    document.querySelector('#steps li[data-step="welcome"] b').textContent = 'You';
+  }
+  show(Math.max(0, STEPS.indexOf(SECTION)));
 })();

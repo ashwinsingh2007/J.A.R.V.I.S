@@ -220,3 +220,7 @@ nav.buttons { display: flex; align-items: center; gap: 14px; padding: 16px 56px;
 .perms li .chip { flex: none; min-width: 108px; justify-content: center; text-align: center; }
 .perms li .btn { flex: none; height: 34px; padding: 0 16px; font-size: 13px; }
 .perms li.done { border-color: color-mix(in srgb, var(--ok) 35%, var(--line)); }
+
+/* ---------- settings mode: same screens, no wizard ---------- */
+body.settings .eyebrow, body.settings #back { display: none; }
+body.settings #steps li { cursor: pointer; }

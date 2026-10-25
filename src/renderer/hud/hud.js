@@ -886,6 +886,7 @@
     }
     if (e.values && 'autoHide' in e.values) { focus.on = !!e.values.autoHide; armFocus(); }
     if (e.autoHideMs) { focus.ms = e.autoHideMs; armFocus(); }
+    renderSetCards(e);
     if ('brain' in e) {
       const cc = /^claude code/.test(e.brain || '');
       $('brain-settings').hidden = $('effort-row').hidden = !cc;
@@ -893,6 +894,25 @@
     }
     showTts();
   }
+  // The big choices: what is set now, and a button into the Settings window at that section.
+  const setVals = {};
+  function renderSetCards(e) {
+    Object.assign(setVals, e.values || {});
+    if ('brain' in e) setVals.brain = e.brain;
+    if ('workerAvailable' in e) setVals.workerAvailable = e.workerAvailable;
+    if (e.hands) setVals.hands = e.hands;
+    const v = setVals, up = (s) => String(s || '—').toUpperCase();
+    const cc = /^claude code/.test(v.brain || '');
+    const worker = cc ? `AGENTS · ${up(v.agentModel)}` : v.workerAvailable && v.worker !== 'off' ? `FRIDAY · ${up(v.agentModel)}` : 'NO WORKER';
+    $('sc-brain').textContent = `${up(v.brain)} · ${worker}`;
+    const h = v.hands || {};
+    $('sc-access').textContent = h.missing ? 'MIC · SPEECH' : `MIC · SPEECH · APPS ${h.ax ? '✓' : '✗'} · SCREEN ${h.screen ? '✓' : '✗'}`;
+    $('sc-ears').textContent = v.sttEngine === 'elevenlabs' ? 'ELEVENLABS SCRIBE' : `ON-DEVICE · ${up(v.speechLocale)}`;
+    $('sc-voice').textContent = { kokoro: `KOKORO · ${up(v.kokoroVoice)}`, elevenlabs: 'ELEVENLABS', edge: `EDGE · ${up(v.edgeVoice)}`, native: `MACOS · ${up(v.nativeVoice)}` }[v.ttsEngine] || up(v.ttsEngine);
+    $('sc-extras').textContent = `TELEGRAM ${stats.telegram && stats.telegram !== 'off' ? up(stats.telegram) : 'OFF'}`;
+  }
+  document.querySelectorAll('.setcard').forEach((b) => b.addEventListener('click', () => post({ type: 'action', name: 'setup', section: b.dataset.section })));
+
   document.querySelectorAll('[data-key]').forEach((el) => el.addEventListener('change', () => {
     const v = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
     if (el.dataset.key === 'ttsEngine') showTts();

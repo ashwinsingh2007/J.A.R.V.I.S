@@ -431,3 +431,11 @@ body.focus[data-view="cc"] #crew .mate { opacity: 1; transform: none; transition
 /* full mode keeps only the captions: the mic and the state word fold away */
 #status .row1 { max-height: 120px; transition: max-height .5s ease, opacity .4s ease; }
 body.focus[data-view="cc"] #status .row1 { max-height: 0; opacity: 0; overflow: hidden; pointer-events: none; }
+
+/* settings: the big choices, each opening the Settings window at its section */
+.setcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin: 6px 0 4px; }
+.setcard { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 12px 14px; text-align: left; cursor: pointer; border: 1px solid var(--line); background: rgba(var(--rgb), calc(0.04 * var(--glow) + 0.02)); color: var(--text); font: inherit; transition: border-color .15s, background .15s; }
+.setcard:hover { border-color: var(--cyan); background: rgba(var(--rgb), calc(0.1 * var(--glow) + 0.03)); }
+.setcard b { font: var(--lab) var(--mono); letter-spacing: 0.2em; color: var(--bright); }
+.setcard small { font-size: 0.85em; letter-spacing: 0.08em; color: var(--muted); line-height: 1.4; }
+.setcard em { margin-top: 2px; font-style: normal; font-size: var(--lab); letter-spacing: 0.18em; color: var(--cyan); }

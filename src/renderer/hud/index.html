@@ -154,6 +154,15 @@
     <div class="panel narrow settings">
       <h3>SETTINGS <span class="saved" id="set-saved">SAVED</span></h3>
 
+      <!-- the big choices open the same screens as Setup -->
+      <div class="setcards" id="setcards">
+        <button class="setcard" data-section="brain"><b>BRAIN &amp; WORKER</b><small id="sc-brain">—</small><em>CHANGE ›</em></button>
+        <button class="setcard" data-section="access"><b>ACCESS</b><small id="sc-access">—</small><em>REVIEW ›</em></button>
+        <button class="setcard" data-section="ears"><b>LISTENING</b><small id="sc-ears">—</small><em>CHANGE ›</em></button>
+        <button class="setcard" data-section="voice"><b>VOICE</b><small id="sc-voice">—</small><em>CHANGE ›</em></button>
+        <button class="setcard" data-section="extras"><b>TELEGRAM &amp; EXTRAS</b><small id="sc-extras">—</small><em>CHANGE ›</em></button>
+      </div>
+
       <h3 class="sub">VOICE</h3>
       <ul class="rows form">
         <li><b>Engine</b><select data-key="ttsEngine">
@@ -201,6 +210,7 @@
       <h3 class="sub">GENERAL</h3>
       <ul class="rows form">
         <li><b>Form of address</b><select data-key="honorific"><option value="sir">sir</option><option value="ma'am">ma'am</option><option value="boss">boss</option><option value="friend">friend</option></select></li>
+        <li><b>Greet me when JARVIS starts</b><label class="tog"><input data-key="greetOnStart" type="checkbox"><span></span></label></li>
         <li><b>Announce finished sessions</b><label class="tog"><input data-key="announceSessions" type="checkbox"><span></span></label></li>
         <li><b>Morning briefing</b><label class="tog"><input data-key="morningBriefing" type="checkbox"><span></span></label></li>
         <li><b>Check-ins when quiet</b><select data-key="checkIns"><option value="off">off</option><option value="sometimes">sometimes</option><option value="often">often</option></select></li>
@@ -236,7 +246,7 @@
         <li><b>Config file</b><small>~/.jarvis/config.json</small></li>
         <li><b>Log file</b><small>~/.jarvis/jarvis.log</small></li>
       </ul>
-      <button id="open-setup" class="setup-btn">OPEN SETUP</button>
+      <button id="open-setup" class="setup-btn">ALL SETTINGS</button>
       <div class="hint">Changes here apply at once. API keys, the ElevenLabs voice, the brain provider and Telegram are in Setup.</div>
     </div>
   </section>

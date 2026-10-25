@@ -143,7 +143,7 @@ class Orchestrator extends EventEmitter {
       if (this._state !== 'booting') return;
       this.state = 'idle';
       hud.send('boot', { ok: true });
-      speaker.speak(`Online, ${this.cfg.honorific}. Say wake up when you need me.`);
+      if (this.cfg.greetOnStart) speaker.speak(`Online, ${this.cfg.honorific}. Say wake up when you need me.`);
     });
 
     brain.on('sentence', (s) => {
@@ -276,7 +276,7 @@ class Orchestrator extends EventEmitter {
       case 'disable': this.toggleDisabled(); break;
       case 'new': this.newConversation(); break;
       case 'fullscreen': this.hud.toggleFullScreen(); break;
-      case 'setup': this.emit('open-setup'); break;
+      case 'setup': this.emit('open-setup', body.section || ''); break;
       case 'theme': this.emit('set-theme', { theme: body.theme, themeMode: body.mode }); break;
       case 'settings': if (body.patch && typeof body.patch === 'object') this.emit('settings', body.patch); break;
       case 'memory-forget': if (body.id && this.memory.forget(body.id)) this.brain.reconfigure && this.brain.reconfigure(); break;
