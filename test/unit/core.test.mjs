@@ -35,6 +35,32 @@ test('a trailing sources list is never read aloud', () => {
   assert.ok(!util.SOURCES_START.test('Sources say it is good.'));
 });
 
+test('which() finds an executable on PATH and gives up on one that is not there', () => {
+  const known = process.platform === 'win32' ? 'cmd.exe' : 'sh';
+  const found = util.which(known);
+  assert.ok(found, `expected to find ${known}`);
+  assert.ok(path.isAbsolute(found));
+  assert.ok(fs.existsSync(found));
+  assert.equal(util.which('jarvis-no-such-binary-zzz'), null);
+  assert.equal(util.which(''), null);
+});
+
+test('env() keeps the inherited environment and a usable PATH', () => {
+  const key = process.platform === 'win32' ? 'SystemRoot' : 'HOME';
+  const e = util.env({ JARVIS_TEST_SENTINEL: 'yes' });
+  assert.equal(e.JARVIS_TEST_SENTINEL, 'yes');
+  assert.equal(e[key], process.env[key]);
+  assert.ok(e.PATH, 'PATH must never be empty');
+  assert.ok(e.PATH.split(path.delimiter).filter(Boolean).length >= 1);
+});
+
+test('initPaths points at the venv layout of this platform', () => {
+  const win = process.platform === 'win32';
+  const p = util.initPaths(ROOT);
+  assert.equal(p.python, path.join(ROOT, '.venv', win ? 'Scripts' : 'bin', win ? 'python.exe' : 'python3'));
+  assert.equal(p.edgeTTS, path.join(ROOT, '.venv', win ? 'Scripts' : 'bin', win ? 'edge-tts.exe' : 'edge-tts'));
+});
+
 test('sentence splitter emits whole sentences as text streams in', () => {
   const out = [];
   const s = new SentenceSplitter((x) => out.push(x));
