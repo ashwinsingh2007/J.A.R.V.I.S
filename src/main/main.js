@@ -60,7 +60,7 @@ function startJarvis(brains) {
   buildTray();
   orch.on('state', updateTrayTitle);
   orch.on('disabled', buildTray);
-  orch.on('open-setup', () => openSetup(false));
+  orch.on('open-setup', (section) => openSetup(false, section));
   orch.on('set-theme', (t) => saveTheme(t));
   orch.on('settings', (patch) => saveHudSettings(patch));
   orch.on('hands-permit', permitHands);
@@ -111,7 +111,7 @@ function buildTray() {
     { label: `Brain: ${orch ? orch.brain.label : '—'}`, enabled: false },
     { label: `Telegram: ${cfg.telegramToken ? (telegram ? telegram.status : 'connecting…') : 'not configured'}`, enabled: false },
     { type: 'separator' },
-    { label: 'Setup…', click: () => openSetup(false) },
+    { label: 'Settings…', click: () => openSetup(false) },
     { label: 'Open Log', click: () => shell.openPath(C.LOG_FILE) },
     { label: 'Quit JARVIS', accelerator: 'Cmd+Q', click: () => app.quit() },
   ]);
@@ -120,7 +120,7 @@ function buildTray() {
 
 function appMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate([
-    { role: 'appMenu', submenu: [{ role: 'about' }, { label: 'Setup…', click: () => openSetup(false) }, { type: 'separator' }, { role: 'hide' }, { role: 'hideOthers' }, { type: 'separator' }, { role: 'quit' }] },
+    { role: 'appMenu', submenu: [{ role: 'about' }, { label: 'Settings…', click: () => openSetup(false) }, { type: 'separator' }, { role: 'hide' }, { role: 'hideOthers' }, { type: 'separator' }, { role: 'quit' }] },
     { role: 'editMenu' },
     { label: 'View', submenu: [{ role: 'reload' }, { role: 'toggleDevTools' }, { type: 'separator' }, { role: 'togglefullscreen' }] },
     { role: 'windowMenu' },
@@ -137,18 +137,19 @@ app.on('before-quit', () => {
 
 // ---------- setup / onboarding ----------
 
-function openSetup(firstRun) {
-  if (setupWin && !setupWin.isDestroyed()) { setupWin.show(); setupWin.focus(); return; }
+/** Setup on first run; afterwards the same screens are the Settings window, opened at a section. */
+function openSetup(firstRun, section = '') {
+  if (setupWin && !setupWin.isDestroyed()) { if (section) setupWin.webContents.send('goto', section); setupWin.show(); setupWin.focus(); return; }
   const c = C.load();
   const t = themeOf(c);
   const { workArea } = require('electron').screen.getPrimaryDisplay();
   setupWin = new BrowserWindow({
     width: Math.min(1180, workArea.width - 80), height: Math.min(880, workArea.height - 60),
-    minWidth: 980, minHeight: 720, center: true, title: firstRun ? 'Welcome to JARVIS' : 'JARVIS Setup',
+    minWidth: 980, minHeight: 720, center: true, title: firstRun ? 'Welcome to JARVIS' : 'JARVIS Settings',
     backgroundColor: t.background,
     webPreferences: { preload: path.join(__dirname, '..', 'preload', 'setup.js'), contextIsolation: true, sandbox: true },
   });
-  setupWin.loadFile(path.join(__dirname, '..', 'renderer', 'setup', 'setup.html'), { query: { first: firstRun ? '1' : '0', theme: c.theme, mode: c.themeMode } });
+  setupWin.loadFile(path.join(__dirname, '..', 'renderer', 'setup', 'setup.html'), { query: { first: firstRun ? '1' : '0', section: String(section || ''), theme: c.theme, mode: c.themeMode } });
   setupWin.on('page-title-updated', (e) => e.preventDefault());
   setupWin.on('closed', () => { setupWin = null; if (!hud) app.quit(); });   // setup closed before JARVIS started
 }
@@ -201,7 +202,7 @@ ipcMain.handle('setup:save', (e, patch) => {
 // Settings the HUD can change live. Keys, Telegram and the brain provider stay in Setup.
 const HUD_KEYS = ['ttsEngine', 'kokoroVoice', 'kokoroSpeed', 'edgeVoice', 'nativeVoice', 'elevenLabsModel',
   'sttEngine', 'appleSpeech', 'speechLocale', 'commandSilenceSeconds', 'requireEndWord',
-  'model', 'effort', 'agentModel', 'progressUpdates', 'screenControl', 'morningBriefing', 'checkIns', 'honorific', 'announceSessions', 'autoHide', 'worker'];
+  'model', 'effort', 'agentModel', 'progressUpdates', 'screenControl', 'morningBriefing', 'checkIns', 'honorific', 'announceSessions', 'autoHide', 'worker', 'greetOnStart'];
 
 /** Accessibility and Screen Recording for JARVIS.app, as the screen-control helper sees them. */
 let handsState = null;
@@ -374,6 +375,21 @@ ipcMain.handle('setup:install-hooks', async (e) => {
 });
 
 ipcMain.handle('setup:open', (e, url) => { if (fromSetup(e) && /^(https:\/\/|x-apple\.systempreferences:)/.test(url)) shell.openExternal(url); });
+
+// Settings window: apply what can change live, and say whether the rest needs a restart.
+ipcMain.handle('setup:apply', (e) => {
+  if (!fromSetup(e) || !orch) return { restart: false };
+  const fresh = C.load();
+  const live = {}, later = [];
+  for (const k of Object.keys(fresh)) {
+    if (JSON.stringify(fresh[k]) === JSON.stringify(cfg[k])) continue;
+    if (HUD_KEYS.includes(k)) live[k] = fresh[k];
+    else if (!['theme', 'themeMode', 'onboarded'].includes(k)) later.push(k);
+  }
+  if (Object.keys(live).length) saveHudSettings(live);
+  log(`settings: applied ${Object.keys(live).join(', ') || 'nothing'} live${later.length ? `; restart needed for ${later.join(', ')}` : ''}`);
+  return { restart: later.length > 0, keys: later };
+});
 
 ipcMain.handle('setup:finish', async (e) => {
   if (!fromSetup(e)) return;
