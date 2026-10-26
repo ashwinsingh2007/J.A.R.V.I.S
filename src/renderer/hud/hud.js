@@ -210,7 +210,7 @@
   // along the shortest chain of neurons. Each one fires while it has jobs running.
   const HUBS = [
     { id: 'edith', name: 'EDITH', role: 'SECURITY', x: 21, y: -53 },
-    { id: 'karen', name: 'KAREN', role: 'MESSAGES', x: 73, y: 24 },
+    { id: 'karen', name: 'KAREN', role: 'COMMS', x: 73, y: 24 },
     { id: 'friday', name: 'FRIDAY', role: 'TASKS', x: -79, y: -14 },
     { id: 'vision', name: 'VISION', role: 'BROWSER', x: -38, y: 50 },
   ];
@@ -549,7 +549,7 @@
   // ---------- right panel: conversations (JARVIS, the crew, Claude Code sessions) ----------
   const livelog = $('livelog');
   const CREW_IDS = ['friday', 'karen', 'edith', 'vision'];
-  const CREW_ROLE = { friday: 'tasks', karen: 'messages', edith: 'security', vision: 'browser' };
+  const CREW_ROLE = { friday: 'tasks', karen: 'comms', edith: 'security', vision: 'browser' };
   let liveStuck = true, liveNow = null, liveSig = '';
   livelog.addEventListener('scroll', () => { liveStuck = livelog.scrollHeight - livelog.scrollTop - livelog.clientHeight < 24; });
   function setConversation(c) {
