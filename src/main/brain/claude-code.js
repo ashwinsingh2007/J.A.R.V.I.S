@@ -54,7 +54,7 @@ class ClaudeCodeBrain extends EventEmitter {
     this.agentTools = new Map(); // Agent tool_use_id -> task_id, to place subagent messages
     this.splitter = new SentenceSplitter((s) => { if (!this.discard) this.emit('sentence', s); });
     try { this._sessionId = fs.readFileSync(C.SESSION_FILE, 'utf8').trim() || null; } catch { this._sessionId = null; }
-    this.context = new Context('claude-code', () => this.emit('context', this.contextInfo()));
+    this.context = new Context('claude-code', () => this.emit('context', this.contextInfo()), { learn: true });
     this.contextTokens = 0;      // the main thread's context size at its last reply
     // A new day rolls the session over even if nobody talks.
     setInterval(() => this.maybeRoll(), RETRY_MS).unref();

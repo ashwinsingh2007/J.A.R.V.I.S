@@ -28,7 +28,7 @@ class CrewChat extends EventEmitter {
     this.claudePath = claudePath;
     this.sessions = {};          // id -> { session, tokens }
     try { this.sessions = JSON.parse(fs.readFileSync(FILE, 'utf8')) || {}; } catch {}
-    this.contexts = Object.fromEntries(CREW.map((id) => [id, new Context(`crew-${id}`, () => {}, { self: id, seed: false })]));
+    this.contexts = Object.fromEntries(CREW.map((id) => [id, new Context(`crew-${id}`, () => {}, { self: id, seed: false, learn: true })]));
     this.running = new Map();    // id -> { proc, text, result, error }
   }
 
@@ -41,7 +41,7 @@ class CrewChat extends EventEmitter {
     if (!CREW.includes(id) || this.running.has(id)) return false;
     const s = this.sessions[id] || (this.sessions[id] = {});
     const ctx = this.contexts[id];
-    const prompt = [agentPrompt(this.cfg, id), fill(read('crew-direct.md', ''), this.cfg), s.session ? '' : ctx.carried].filter(Boolean).join('\n\n');
+    const prompt = [agentPrompt(this.cfg, id), fill(read('crew-direct.md', ''), this.cfg).replaceAll('{{ME}}', id), s.session ? '' : ctx.carried].filter(Boolean).join('\n\n');
     const args = [
       '-p', text,
       '--output-format', 'stream-json', '--verbose',
