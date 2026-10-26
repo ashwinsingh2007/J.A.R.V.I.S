@@ -22,7 +22,7 @@ const EventEmitter = require('events');
 const C = require('../config');
 const { log, env, run, jsonLines } = require('../util');
 const { Context } = require('./context');
-const { SentenceSplitter, systemPrompt, workerPrompt, summarise, claudeSettings, claudeDisallowed } = require('./common');
+const { SentenceSplitter, systemPrompt, workerPrompt, summarise, claudeSettings, claudeExtras, claudeDisallowed } = require('./common');
 
 const ENDED = new Set(['completed', 'failed', 'killed', 'stopped', 'cancelled']);
 // A fresh brain starts at about 23k tokens (prompt, tools, worker); this leaves about 45k for the conversation.
@@ -225,7 +225,9 @@ class ClaudeCodeBrain extends EventEmitter {
       // New terminals only come from the user.
       '--disallowedTools', claudeDisallowed(this.cfg, { brain: true }),
       '--setting-sources', '',
-      '--settings', claudeSettings(),
+      '--settings', claudeSettings(this.cfg),
+      // This assistant's skills and MCP servers (its background worker, a subagent, gets them too).
+      ...claudeExtras(this.cfg),
     ];
     if (this._sessionId) args.push('--resume', this._sessionId);
     let p;
@@ -344,6 +346,9 @@ class ClaudeCodeBrain extends EventEmitter {
           this.warmed = true;
           const secs = (Date.now() - this.startedAt) / 1000;
           log(`timing: claude ready in ${secs.toFixed(2)}s`);
+          // What this assistant can use, as Claude Code loaded it.
+          this.loaded = { skills: (obj.skills || []).length, mcp: (obj.mcp_servers || []).map((m) => `${m.name} ${m.status}`) };
+          log(`brain: ${this.loaded.skills} skills, MCP ${this.loaded.mcp.join(', ') || 'none'}`);
           this.emit('ready', secs);
         }
         break;

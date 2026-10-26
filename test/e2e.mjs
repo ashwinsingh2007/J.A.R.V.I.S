@@ -841,10 +841,29 @@ async function testHud() {
   check('its persona and wake words are saved', coach && /running coach/.test(coach.persona) && coach.wakeWords.join() === 'coach,couch', JSON.stringify(coach));
   check('it shows up around the core', await hud.evaluate(() => !!document.getElementById('crew-coach')));
   await shot(hud, 'hud-assistant-edit');
+  // Skills and MCP servers for this assistant: all on by default, ticks saved with SAVE
+  await hud.waitForFunction(() => /OF \d+ ON/.test(document.getElementById('a-skill-count').textContent), null, { timeout: 15000 }).catch(() => {});
+  check('the editor lists the skills on this Mac, all on', /^(\d+) OF \1 ON$/.test(await text(hud, '#a-skill-count')), await text(hud, '#a-skill-count'));
+  await hud.click('#a-skill-none');
+  await hud.click('#a-skills li:first-child input');
+  await hud.click('#a-save');
+  await sleep(800);
+  const picked = (s.config().assistantSettings.coach || {}).skills;
+  check('picking skills saves just those', Array.isArray(picked) && picked.length === 1, JSON.stringify(picked));
+  await shot(hud, 'hud-assistant-skills');
   hud.once('dialog', (d) => d.accept());
   await hud.click('#a-delete');
   await sleep(600);
   check('your own assistant can be deleted', !JSON.stringify(s.config().customAssistants || {}).includes('COACH'));
+  // Settings › Skills & MCP lists what's here
+  await hud.click('#sp-back');
+  await hud.click('.setcard[data-section="extensions"]');
+  await hud.waitForFunction(() => document.querySelectorAll('#x-skills li:not(.empty)').length > 0, null, { timeout: 15000 }).catch(() => {});
+  check('Skills & MCP lists the skills and the marketplaces', await hud.evaluate(() => document.querySelectorAll('#x-skills li:not(.empty)').length > 0 && document.querySelectorAll('#x-market option').length > 0));
+  await shot(hud, 'hud-skills-mcp');
+  await hud.click('#sp-back');
+  await hud.click('.setcard[data-section="assistant"]');
+  await sleep(400);
   const back = s.mark();
   await hud.click('#acards .bcard:nth-of-type(1)');
   await hud.click('#a-use');
