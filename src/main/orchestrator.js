@@ -324,7 +324,11 @@ class Orchestrator extends EventEmitter {
         break;
       case 'schedule-cancel': if (body.id) this.scheduler.cancel(body.id); break;
       case 'hands-permit': this.emit('hands-permit'); break;
-      case 'test-voice': this.speaker.stop(); this.speaker.speak(`This is how I sound, ${this.cfg.honorific}.`); break;
+      case 'test-voice':
+        this.speaker.stop();
+        if (CREW.includes(body.agent)) this.speaker.speak(`${body.agent.toUpperCase()} here. This is how I sound, ${this.cfg.honorific}.`, body.agent);
+        else this.speaker.speak(`This is how I sound, ${this.cfg.honorific}.`);
+        break;
       case 'music': if (this.youtube.playing) this.youtube.stop(); else this.music.toggle(); break;
       case 'youtube-play': if (body.id) this.youtube.playPreset(body.id); break;
       case 'youtube-stop': this.youtube.stop(); break;
@@ -471,12 +475,13 @@ class Orchestrator extends EventEmitter {
   }
 
   /** Proactive line without disturbing an in-progress turn. Silent while asleep. */
-  speakNow(text) {
+  /** who: a crew member speaking for themselves, in their own voice. */
+  speakNow(text, who = 'jarvis') {
     if (this.disabled) return;
     if (!this.awake) { log(`asleep: silent notice '${text.slice(0, 60)}'`); return; }
-    if (this.brain.isBusy) { this.pendingNotices.push(text); return; }
+    if (this.brain.isBusy) { this.pendingNotices.push([text, who]); return; }
     this.emit('notice', text);
-    this.speaker.speak(text);
+    this.speaker.speak(text, who);
   }
 
   async answerApproval(yes) {
@@ -639,15 +644,16 @@ class Orchestrator extends EventEmitter {
     const many = this.progress.size > 1;
     for (const e of this.progress.values()) {
       if (e.source && e.source.kind === 'telegram') continue;
-      let line = null;
-      if (e.fresh && now - e.lastSpokenAt >= every) line = many ? `${cap(e.description)}: ${e.status}` : e.status;
+      let line = null, who = 'jarvis';
+      // A fresh STATUS line is the crew member's own words, so it's in their voice.
+      if (e.fresh && now - e.lastSpokenAt >= every) { line = many ? `${cap(e.description)}: ${e.status}` : e.status; who = e.agent; }
       else if (now - e.lastSpokenAt >= every * 2) line = /^\w+ing\b/i.test(e.description) ? `Still ${e.description}, ${this.cfg.honorific}.` : `Still working on it, ${this.cfg.honorific}.`;
       if (!line) continue;
       e.fresh = false;
       e.lastSpokenAt = now;
       log(`progress: '${line}'`);
       this.hud.send('notice', { text: line });
-      this.speaker.speak(line);
+      this.speaker.speak(line, who);
       return;
     }
   }
@@ -675,7 +681,7 @@ class Orchestrator extends EventEmitter {
     if (this.pendingNotices.length) {
       const n = this.pendingNotices;
       this.pendingNotices = [];
-      n.forEach((t) => this.speakNow(t));
+      n.forEach(([t, who]) => this.speakNow(t, who));
     }
   }
 
@@ -799,7 +805,7 @@ class Orchestrator extends EventEmitter {
     if (this.brain.context) this.brain.context.add(r.agent, `(talking with the user directly) The user said: "${this.conv.jobs.find((j) => j.id === job.id).task.slice(0, 500)}". ${r.agent.toUpperCase()} replied: ${r.text}`);
     const spoken = clean(cutSources(r.text));
     if (job.source.kind === 'telegram') this.emit('telegram-reply', job.source.chat, `${r.agent.toUpperCase()}: ${spoken}`);
-    else this.speakNow(spoken);
+    else this.speakNow(spoken, r.agent);
   }
 
   /** A short line to whoever asked: Telegram, or aloud. */

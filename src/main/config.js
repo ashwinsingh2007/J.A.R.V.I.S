@@ -55,6 +55,14 @@ const DEFAULTS = {
   elevenLabsApiKey: '',
   elevenLabsVoiceId: 'JBFqnCBsd6RMkjVDRZzb',   // "George", British
   elevenLabsModel: 'eleven_flash_v2_5',
+  // Each crew member's own voice, per engine, used when they speak for themselves (direct chats and
+  // the STATUS lines of their jobs). JARVIS uses the voices above.
+  crewVoices: {
+    friday: { kokoro: 'bf_emma', edge: 'en-IE-EmilyNeural', native: 'Moira', elevenlabs: 'pFZP5JQG7iQjIQuC4Bku' },        // Lily
+    karen: { kokoro: 'af_heart', edge: 'en-US-JennyNeural', native: 'Samantha', elevenlabs: 'EXAVITQu4vr4xnSDxMaL' },     // Sarah
+    edith: { kokoro: 'bf_isabella', edge: 'en-GB-SoniaNeural', native: 'Tessa', elevenlabs: 'Xb7hH8MSUJpSbSDYk0k2' },    // Alice
+    vision: { kokoro: 'am_michael', edge: 'en-US-GuyNeural', native: 'Rishi', elevenlabs: 'nPczCjzI2devNBz1zQrb' },      // Brian
+  },
   maxSpokenSentences: 99,
 
   musicVolume: 0.3,
@@ -133,6 +141,11 @@ function sanitize(cfg) {
     cfg[k] = typeof cfg[k] === 'string' && cfg[k].trim() ? cfg[k].trim() : DEFAULTS[k];
   }
   if (!/^https?:\/\/[^\s]+$/.test(cfg.ollamaUrl)) cfg.ollamaUrl = DEFAULTS.ollamaUrl;
+  const voices = cfg.crewVoices && typeof cfg.crewVoices === 'object' ? cfg.crewVoices : {};
+  cfg.crewVoices = Object.fromEntries(Object.entries(DEFAULTS.crewVoices).map(([id, def]) => [id, Object.fromEntries(Object.entries(def).map(([eng, v]) => {
+    const got = voices[id] && voices[id][eng];
+    return [eng, typeof got === 'string' && /^[\w .()-]{1,80}$/.test(got.trim()) ? got.trim() : v];
+  }))]));
   cfg.userName = typeof cfg.userName === 'string' ? cfg.userName.trim().slice(0, 40) : '';
   for (const k of ['wakeWords', 'endWords']) {
     cfg[k] = Array.isArray(cfg[k]) ? cfg[k].filter((w) => typeof w === 'string' && w.trim()).map((w) => w.toLowerCase()) : DEFAULTS[k];

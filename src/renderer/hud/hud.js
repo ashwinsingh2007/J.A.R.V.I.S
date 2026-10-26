@@ -941,6 +941,34 @@
   function showTts() {
     const eng = document.querySelector('[data-key="ttsEngine"]').value;
     document.querySelectorAll('[data-tts]').forEach((li) => { li.hidden = li.dataset.tts !== eng; });
+    renderCrewVoices();
+  }
+  // Each crew member's voice for the engine in use. The choices are the same lists as JARVIS's;
+  // ElevenLabs gets its premade voices.
+  const ELEVEN = [['JBFqnCBsd6RMkjVDRZzb', 'George (British male)'], ['onwK4e9ZLuTAKqWW03F9', 'Daniel (British male)'], ['nPczCjzI2devNBz1zQrb', 'Brian (American male)'],
+    ['pFZP5JQG7iQjIQuC4Bku', 'Lily (British female)'], ['Xb7hH8MSUJpSbSDYk0k2', 'Alice (British female)'], ['EXAVITQu4vr4xnSDxMaL', 'Sarah (American female)'], ['XB0fDUnXU5powFXDhCwa', 'Charlotte (female)']];
+  let crewVoices = {};
+  function renderCrewVoices() {
+    const eng = document.querySelector('[data-key="ttsEngine"]').value;
+    const src = { kokoro: 'kokoroVoice', edge: 'edgeVoice', native: 'nativeVoice' }[eng];
+    const choices = src ? [...document.querySelectorAll(`[data-key="${src}"] option`)].map((o) => [o.value, o.textContent]) : ELEVEN;
+    $('crew-voices').replaceChildren(...['friday', 'karen', 'edith', 'vision'].map((id) => {
+      const li = document.createElement('li');
+      const b = document.createElement('b'); b.textContent = id.toUpperCase();
+      const sel = document.createElement('select'); sel.dataset.crewVoice = id;
+      const now = (crewVoices[id] || {})[eng] || '';
+      const list = choices.some(([v]) => v === now || v.startsWith(now + ' ')) || !now ? choices : [[now, now], ...choices];
+      sel.replaceChildren(...list.map(([v, t]) => new Option(t, v)));
+      sel.value = (list.find(([v]) => v === now) || list.find(([v]) => v.startsWith(now + ' ')) || list[0] || [''])[0];
+      sel.addEventListener('change', () => {
+        crewVoices = { ...crewVoices, [id]: { ...(crewVoices[id] || {}), [eng]: eng === 'native' ? sel.value.replace(/ \(.*$/, '') : sel.value } };
+        post({ type: 'action', name: 'settings', patch: { crewVoices } });
+      });
+      const t = document.createElement('button'); t.className = 'mini'; t.textContent = '▶'; t.title = `Hear ${id.toUpperCase()}`;
+      t.addEventListener('click', () => post({ type: 'action', name: 'test-voice', agent: id }));
+      li.append(b, sel, t);
+      return li;
+    }));
   }
   function setHands(h, on) {
     const st = $('hands-state'), btn = $('hands-permit');
@@ -964,6 +992,7 @@
       opt('ttsEngine', 'elevenlabs').disabled = !av.elevenlabs;
       opt('sttEngine', 'elevenlabs').disabled = !av.elevenlabs;
     }
+    if (e.values && e.values.crewVoices) crewVoices = e.values.crewVoices;
     for (const [k, v] of Object.entries(e.values || {})) {
       const el = document.querySelector(`[data-key="${k}"]`);
       if (!el) continue;

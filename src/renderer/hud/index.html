@@ -316,12 +316,17 @@
         <li data-tts="kokoro"><b>Voice</b><select data-key="kokoroVoice">
           <option value="bm_george">George (British male)</option><option value="bm_lewis">Lewis (British male)</option>
           <option value="bm_daniel">Daniel (British male)</option><option value="bm_fable">Fable (British male)</option>
-          <option value="bf_emma">Emma (British female)</option><option value="am_michael">Michael (American male)</option>
-          <option value="af_heart">Heart (American female)</option></select></li>
+          <option value="bf_emma">Emma (British female)</option><option value="bf_isabella">Isabella (British female)</option>
+          <option value="bf_alice">Alice (British female)</option><option value="bf_lily">Lily (British female)</option>
+          <option value="am_michael">Michael (American male)</option><option value="am_adam">Adam (American male)</option>
+          <option value="am_onyx">Onyx (American male)</option><option value="af_heart">Heart (American female)</option>
+          <option value="af_bella">Bella (American female)</option><option value="af_nicole">Nicole (American female)</option>
+          <option value="af_sarah">Sarah (American female)</option></select></li>
         <li data-tts="kokoro"><b>Speed</b><span class="unit"><input data-key="kokoroSpeed" type="number" min="0.5" max="2" step="0.05"><i>×</i></span></li>
         <li data-tts="edge"><b>Voice</b><select data-key="edgeVoice">
           <option>en-GB-RyanNeural</option><option>en-GB-ThomasNeural</option><option>en-GB-SoniaNeural</option><option>en-US-GuyNeural</option>
-          <option>en-US-JennyNeural</option><option>en-IN-PrabhatNeural</option><option>en-IN-NeerjaNeural</option></select></li>
+          <option>en-US-JennyNeural</option><option>en-US-AriaNeural</option><option>en-GB-LibbyNeural</option><option>en-IE-EmilyNeural</option>
+          <option>en-IE-ConnorNeural</option><option>en-AU-NatashaNeural</option><option>en-IN-PrabhatNeural</option><option>en-IN-NeerjaNeural</option></select></li>
         <li data-tts="native"><b>Voice</b><select data-key="nativeVoice"></select></li>
         <li data-tts="elevenlabs"><b>Model</b><select data-key="elevenLabsModel">
           <option value="eleven_flash_v2_5">Flash v2.5 (fastest)</option><option value="eleven_turbo_v2_5">Turbo v2.5</option>
@@ -329,6 +334,9 @@
         <li data-tts="elevenlabs"><b>ElevenLabs key</b><input class="key" id="v-el-key" type="password" placeholder="stored — leave empty to keep" autocomplete="off"><button class="mini" data-ktest="elevenlabs" data-kfield="v-el-key">SAVE &amp; TEST</button></li>
         <li><b>Try it</b><button class="mini" id="test-voice">▶ TEST VOICE</button></li>
       </ul>
+      <h4 class="sp-sub">CREW VOICES</h4>
+      <p class="sp-note">Used when a crew member speaks for themselves: in a direct chat, and for the progress lines of their jobs. JARVIS keeps his own voice.</p>
+      <ul class="rows form" id="crew-voices"></ul>
 
         </div>
 

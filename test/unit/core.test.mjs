@@ -161,3 +161,26 @@ test('remind.py, the brain\'s reminder tool', () => {
   assert.equal(py('remind.py', 'add', '--at', '+1h', '--repeat', 'yearly', 'x').status, 2);
   assert.match(py('remind.py', 'cancel', 'bank').stdout, /cancelled/);
 });
+
+test('each crew member speaks in their own voice, and a broken one falls back to JARVIS\'s', async () => {
+  const EventEmitter = require('events');
+  const Speaker = require('../../src/main/speaker');
+  const audio = new EventEmitter();
+  const played = [];
+  audio.playTTS = (f) => { played.push(f); setImmediate(() => audio.emit('tts-ended')); };
+  audio.stopTTS = () => {};
+  const cfg = C.sanitize({ ...C.DEFAULTS, ttsEngine: 'native', crewVoices: { karen: { native: 'Broken' }, edith: { native: '$(rm -rf /)' } } });
+  assert.equal(cfg.crewVoices.edith.native, 'Tessa');
+  assert.equal(cfg.crewVoices.friday.kokoro, 'bf_emma');
+  const sp = new Speaker(cfg, audio);
+  const voices = [];
+  sp.synth_native = async (s, voice) => { voices.push([s, voice]); if (voice === 'Broken') throw new Error('no such voice'); return `/tmp/${voices.length}.wav`; };
+  const done = new Promise((r) => sp.once('finish', r));
+  sp.speak('Good evening.');
+  sp.speak('Three new emails.', 'karen');
+  sp.speak('All clear.', 'edith');
+  await done;
+  assert.deepEqual(voices, [['Good evening.', 'Daniel'], ['Three new emails.', 'Broken'], ['All clear.', 'Tessa'], ['Three new emails.', 'Daniel']]);
+  assert.equal(played.length, 3);
+  assert.equal(sp.engine, 'native');
+});

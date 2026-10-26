@@ -115,6 +115,8 @@ Speech to text is Apple's on-device recogniser by default, which is private and 
 
 For the voice, Kokoro is the default and runs locally. ElevenLabs, Microsoft Edge's neural voices and the built-in macOS voices are also available.
 
+Each crew member has a voice of their own, so you can tell who's talking. They use it when you talk to them directly and for the progress lines of their jobs. JARVIS keeps his voice for everything he says himself, including retelling what the crew found. With Kokoro the defaults are Emma for FRIDAY, Heart for KAREN, Isabella for EDITH and Michael for VISION, and every engine has its own set of defaults. You can change any of them, and hear them, under Voice in the HUD's Settings. If a crew voice doesn't work, for example a macOS voice that isn't installed, that line is spoken in JARVIS's voice instead.
+
 ## Looks
 
 There are five themes, each with a dark and a light version, or it can follow macOS: JARVIS (holographic blue), Terminal (green phosphor), Neon (magenta), Stark (red and gold) and Minimal (graphite, no glow). Pick one in Setup or in the HUD's Settings tab and the HUD changes immediately.

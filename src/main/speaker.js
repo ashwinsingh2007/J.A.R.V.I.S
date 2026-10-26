@@ -4,7 +4,8 @@
 //   edge       – Microsoft Edge neural voices via edge-tts (internet, free)
 //   native     – macOS `say` (always available fallback)
 // Every engine writes an audio file; the hidden audio window plays it.
-// Sentences are synthesised ahead while the previous one plays.
+// Sentences are synthesised ahead while the previous one plays. A crew member speaking for
+// themselves (speak(text, 'karen')) uses their own voice from cfg.crewVoices.
 //
 // events: 'start', 'finish', 'level' (0..1)
 const fs = require('fs');
@@ -21,8 +22,8 @@ class Speaker extends EventEmitter {
     super();
     this.cfg = cfg;
     this.audio = audio;
-    this.queue = [];             // sentences waiting
-    this.ready = new Map();      // sentence -> file
+    this.queue = [];             // { s, who } waiting
+    this.ready = new Map();      // item -> file
     this.inflight = new Set();
     this.playing = false;
     this.generation = 0;
@@ -59,11 +60,18 @@ class Speaker extends EventEmitter {
     log(`tts: engine ${this.engine}`);
   }
 
-  speak(sentence) {
+  speak(sentence, who = 'jarvis') {
     const s = clean(sentence);
     if (!s) return;
-    this.queue.push(s);
+    this.queue.push({ s, who });
     this.pump();
+  }
+
+  /** The voice for one engine: JARVIS's own, or a crew member's. */
+  voice(engine, who) {
+    const crew = who !== 'jarvis' && this.cfg.crewVoices && this.cfg.crewVoices[who];
+    if (crew && crew[engine]) return crew[engine];
+    return { kokoro: this.cfg.kokoroVoice, edge: this.cfg.edgeVoice, native: this.cfg.nativeVoice, elevenlabs: this.cfg.elevenLabsVoiceId }[engine];
   }
 
   stop() {
@@ -91,27 +99,34 @@ class Speaker extends EventEmitter {
     this.audio.playTTS(file);
   }
 
-  async synth(s) {
-    this.inflight.add(s);
+  async synth(item) {
+    const { s } = item;
+    this.inflight.add(item);
     const gen = this.generation;
     const t = Date.now();
     let file = null, err = '';
     try {
-      file = await this[`synth_${this.engine}`](s);
+      file = await this[`synth_${this.engine}`](s, this.voice(this.engine, item.voiceOf || item.who));
     } catch (e) { err = String(e.message || e); }
-    this.inflight.delete(s);
+    this.inflight.delete(item);
     if (gen !== this.generation) { if (file) fs.rm(file, () => {}); return; }
     if (file) {
       log(`timing: ${this.engine} synth ${Date.now() - t} ms for ${s.length} chars`);
-      this.ready.set(s, file);
+      this.ready.set(item, file);
+    } else if (item.who !== 'jarvis' && !item.voiceOf) {
+      // A crew voice that doesn't work: say this line in JARVIS's voice, keep the engine.
+      log(`tts: ${item.who}'s ${this.engine} voice failed (${err.slice(0, 160)}), using JARVIS's`);
+      item.voiceOf = 'jarvis';
+      this.synth(item);
+      return;
     } else if (this.engine !== 'native') {
       log(`tts: ${this.engine} failed (${err.slice(0, 200)}), falling back to macOS voice`);
       this.engine = 'native';
-      this.synth(s);
+      this.synth(item);
       return;
     } else {
       log(`tts: native failed (${err}); skipping sentence`);
-      const i = this.queue.indexOf(s);
+      const i = this.queue.indexOf(item);
       if (i >= 0) this.queue.splice(i, 1);
       if (!this.queue.length && !this.inflight.size && !this.playing) this.finishedOne(false);
     }
@@ -122,9 +137,9 @@ class Speaker extends EventEmitter {
 
   // ---------- engines ----------
 
-  async synth_native(s) {
+  async synth_native(s, voice) {
     const out = this.tmp('wav');
-    const r = await run('/usr/bin/say', ['-v', this.cfg.nativeVoice, '--file-format=WAVE', '--data-format=LEI16@22050', '-o', out, s], { timeout: 30000 });
+    const r = await run('/usr/bin/say', ['-v', voice, '--file-format=WAVE', '--data-format=LEI16@22050', '-o', out, s], { timeout: 30000 });
     if (r.code !== 0) {
       // Voice not installed: system default voice.
       const r2 = await run('/usr/bin/say', ['--file-format=WAVE', '--data-format=LEI16@22050', '-o', out, s], { timeout: 30000 });
@@ -133,15 +148,15 @@ class Speaker extends EventEmitter {
     return out;
   }
 
-  async synth_edge(s) {
+  async synth_edge(s, voice) {
     const out = this.tmp('mp3');
-    const r = await run(paths.edgeTTS, ['--voice', this.cfg.edgeVoice, '--text', s, '--write-media', out], { timeout: 20000 });
+    const r = await run(paths.edgeTTS, ['--voice', voice, '--text', s, '--write-media', out], { timeout: 20000 });
     if (r.code !== 0 || !fs.existsSync(out)) throw new Error(r.err || 'edge-tts failed');
     return out;
   }
 
-  async synth_elevenlabs(s) {
-    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(this.cfg.elevenLabsVoiceId)}?output_format=mp3_44100_128`, {
+  async synth_elevenlabs(s, voice) {
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice)}?output_format=mp3_44100_128`, {
       method: 'POST',
       headers: { 'xi-api-key': this.cfg.elevenLabsApiKey, 'content-type': 'application/json' },
       body: JSON.stringify({ text: s, model_id: this.cfg.elevenLabsModel }),
@@ -178,13 +193,13 @@ class Speaker extends EventEmitter {
     return true;
   }
 
-  synth_kokoro(s) {
+  synth_kokoro(s, voice) {
     return new Promise((resolve, reject) => {
       if (!this.kokoro) return reject(new Error('kokoro not running'));
       const id = Math.random().toString(36).slice(2);
       const out = this.tmp('wav');
       this.kokoroJobs.set(id, { resolve, reject, out });
-      this.kokoro.stdin.write(JSON.stringify({ id, text: s, voice: this.cfg.kokoroVoice, speed: this.cfg.kokoroSpeed, out }) + '\n');
+      this.kokoro.stdin.write(JSON.stringify({ id, text: s, voice, speed: this.cfg.kokoroSpeed, out }) + '\n');
     });
   }
 

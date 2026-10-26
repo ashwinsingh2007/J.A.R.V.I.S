@@ -553,6 +553,9 @@ body.focus[data-view="cc"] #ask { opacity: 0; transform: translateY(calc(100% + 
 input.key { flex: 1; min-width: 0; max-width: 360px; margin-left: auto; height: 32px; padding: 0 10px; border: 1px solid var(--line); background: var(--field-bg, transparent); color: var(--bright); font: var(--val) var(--mono); -webkit-user-select: text; user-select: text; }
 input.key:focus { outline: none; border-color: var(--cyan); }
 .rows.form li input.key + .mini { margin-left: 8px; }
+.sp-sub { margin: 18px 2px 4px; font: var(--lab) var(--mono); letter-spacing: 0.2em; color: var(--cyan); font-weight: normal; }
+#crew-voices select { margin-left: auto; }
+#crew-voices .mini { margin-left: 8px; padding: 7px 10px; }
 .hbar { margin: 10px 0; }
 .hbar > div { height: 4px; background: var(--hair); overflow: hidden; }
 .hbar i { display: block; height: 100%; width: 0; background: var(--cyan); box-shadow: 0 0 calc(8px * var(--glow)) var(--cyan); transition: width .25s; }
