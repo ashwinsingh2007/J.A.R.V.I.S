@@ -7,7 +7,7 @@
   const $ = (id) => document.getElementById(id);
   const post = (msg) => { try { window.webkit.messageHandlers.jarvis.postMessage(msg); } catch (e) { /* demo */ } };
   const ask = (name, extra = {}) => post({ type: 'action', name, ...extra });
-  const TITLES = { brain: 'BRAIN & WORKER', access: 'ACCESS', ears: 'LISTENING', voice: 'VOICE', extras: 'TELEGRAM & EXTRAS' };
+  const TITLES = { assistant: 'ASSISTANT', brain: 'BRAIN & WORKER', access: 'ACCESS', ears: 'LISTENING', voice: 'VOICE', extras: 'TELEGRAM & EXTRAS' };
 
   let info = null;           // setupInfo() from main: cfg (secrets as has_*), found, installed, brain, workerAvailable
   let page = '';
@@ -130,9 +130,9 @@
     $('b-worker').disabled = !ccReady();
     if (!ccReady()) $('b-worker').value = 'off';
     $('b-agent-row').hidden = !ccReady() || (!brainIsCC && $('b-worker').value === 'off');
-    $('b-worker-note').textContent = !ccReady() ? 'FRIDAY runs on Claude Code, which is not set up here. Without her, JARVIS does short jobs itself.'
-      : brainIsCC ? 'With Claude Code as the brain, FRIDAY runs as its background agents.'
-      : $('b-worker').value === 'off' ? 'Off: JARVIS does short jobs itself and tells you when something needs more.' : 'FRIDAY uses your Claude plan.';
+    $('b-worker-note').textContent = !ccReady() ? 'The background worker runs on Claude Code, which is not set up here. Without it, JARVIS does short jobs itself.'
+      : brainIsCC ? 'With Claude Code as the brain, the worker runs as its background agent.'
+      : $('b-worker').value === 'off' ? 'Off: JARVIS does short jobs itself and tells you when something needs more.' : 'The worker uses your Claude plan.';
     const why = brainProblem();
     $('b-save').disabled = !!why;
     if (why) msg('b-msg', why, ''); else if (!/Saved|Restart/.test($('b-msg').textContent)) msg('b-msg', '');

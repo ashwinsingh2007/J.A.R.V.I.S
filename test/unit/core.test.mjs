@@ -16,7 +16,7 @@ const require = createRequire(import.meta.url);
 const C = require('../../src/main/config');
 const util = require('../../src/main/util');
 util.initPaths(ROOT);
-const { SentenceSplitter, systemPrompt, agentPrompt } = require('../../src/main/brain/common');
+const { SentenceSplitter, systemPrompt, workerPrompt } = require('../../src/main/brain/common');
 const { matches, isCommand, WAKE_PHRASES, SLEEP_PHRASES, STANDBY_PHRASES } = require('../../src/main/wake');
 const { Memory } = require('../../src/main/memory');
 const { Scheduler, nextDue } = require('../../src/main/scheduler');
@@ -98,9 +98,9 @@ test('config sanitising replaces junk with defaults', () => {
 test('screen-control instructions follow the setting', () => {
   const on = { ...C.DEFAULTS, screenControl: true }, off = { ...C.DEFAULTS, screenControl: false };
   assert.match(systemPrompt(on), /hands\.sh/);
-  assert.match(agentPrompt(on), /hands\.sh/);
+  assert.match(workerPrompt(on), /hands\.sh/);
   assert.doesNotMatch(systemPrompt(off), /hands\.sh/);
-  assert.doesNotMatch(agentPrompt(off) + systemPrompt(on), /<!--\/?screen-->/);
+  assert.doesNotMatch(workerPrompt(off) + systemPrompt(on), /<!--\/?screen-->/);
 });
 
 test('repeating items move to their next time', () => {
@@ -160,4 +160,37 @@ test('remind.py, the brain\'s reminder tool', () => {
   assert.equal(py('remind.py', 'add', '--at', 'tomorrow', 'x').status, 2);
   assert.equal(py('remind.py', 'add', '--at', '+1h', '--repeat', 'yearly', 'x').status, 2);
   assert.match(py('remind.py', 'cancel', 'bank').stdout, /cancelled/);
+});
+
+test('assistants: a preset under the user\'s own changes, and the old settings become JARVIS\'s', () => {
+  fs.writeFileSync(C.CONFIG_FILE, JSON.stringify({ onboarded: true, model: 'haiku', kokoroVoice: 'am_michael', radioFavourites: [{ id: 'r1', name: 'Mirchi' }] }));
+  let c = C.load();
+  assert.deepEqual([c.assistant, c.model, c.effort, c.kokoroVoice, c.wakeWords[0]], ['jarvis', 'haiku', 'medium', 'am_michael', 'jarvis']);
+  assert.deepEqual(JSON.parse(fs.readFileSync(C.CONFIG_FILE, 'utf8')).radioFavourites, [{ id: 'r1', name: 'Mirchi' }]);
+  C.save({ assistant: 'friday' });
+  c = C.load();
+  assert.deepEqual([c.model, c.effort, c.kokoroVoice, c.wakeWords[0]], ['opus', 'high', 'bf_emma', 'friday']);
+  C.save({ effort: 'medium' });
+  assert.equal(C.load().effort, 'medium');
+  C.save({ assistant: 'jarvis' });
+  assert.equal(C.load().model, 'haiku');
+  C.resetAssistant('jarvis');
+  assert.equal(C.load().model, 'sonnet');
+  C.save({ assistant: 'nobody' });
+  assert.equal(C.load().assistant, 'jarvis');
+  assert.match(systemPrompt({ ...C.DEFAULTS, assistant: 'friday' }), /You are FRIDAY, the personal AI[\s\S]*Never say the word "FRIDAY"/);
+  assert.doesNotMatch(systemPrompt({ ...C.DEFAULTS, assistant: 'friday' }), /\{\{/);
+  fs.rmSync(C.CONFIG_FILE);
+});
+
+test('while awake, the name only counts when the user addresses the assistant with it', () => {
+  const EventEmitter = require('events');
+  const { Wake } = require('../../src/main/wake');
+  const ears = Object.assign(new EventEmitter(), { setAwake() {}, armed() {}, reset() {}, mute() {} });
+  const w = new Wake({ ...C.DEFAULTS, wakeWords: ['friday'] }, ears);
+  assert.ok(w.addressed('friday what is next'));
+  assert.ok(w.addressed('hey friday, what is next'));
+  assert.equal(w.addressed('the meeting on friday at nine'), null);
+  assert.equal(w.addressed('book it for friday'), null);
+  assert.ok(w.lastWake('blah blah friday stop'));
 });

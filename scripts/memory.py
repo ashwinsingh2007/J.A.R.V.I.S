@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 """What JARVIS knows about the user, kept in ~/.jarvis/memory.json.
 
-  memory.py add "<fact>" [--topic person|preference|project|place|routine|other] [--for friday|karen|edith|vision]
-  memory.py list [--topic T] [--for <crew member>]
+  memory.py add "<fact>" [--topic person|preference|project|place|routine|other]
+  memory.py list [--topic T]
   memory.py search <words>
   memory.py forget <id | words>      (words must match exactly one fact; add --all to drop every match)
   memory.py day [today|yesterday|YYYY-MM-DD]   what was said that day (the journal)
-
-A fact with --for belongs to one crew member; the rest are everyone's.
 """
 import datetime as dt
 import json
@@ -19,7 +17,6 @@ import sys
 STATE = os.environ.get('JARVIS_STATE_DIR') or os.path.expanduser('~/.jarvis')
 FILE = os.path.join(STATE, 'memory.json')
 TOPICS = ['person', 'preference', 'project', 'place', 'routine', 'other']
-CREW = ['friday', 'karen', 'edith', 'vision']
 
 
 def load():
@@ -47,8 +44,7 @@ def norm(s):
 
 
 def show(f):
-    owner = f" for {f['for'].upper()}" if f.get('for') else ''
-    return f"{f['id']}  [{f.get('topic', 'other')}{owner}] {f['text']}  (since {f.get('added', '?')[:10]})"
+    return f"{f['id']}  [{f.get('topic', 'other')}] {f['text']}  (since {f.get('added', '?')[:10]})"
 
 
 def matches(data, words):
@@ -73,7 +69,6 @@ def main(argv):
     data = load()
     if cmd == 'add':
         topic = opt(args, '--topic', 'other')
-        owner = (opt(args, '--for') or '').lower()
         text = ' '.join(args).strip()
         if not text:
             print('nothing to remember', file=sys.stderr)
@@ -85,15 +80,12 @@ def main(argv):
                 return 0
         f = {'id': 'm' + secrets.token_hex(3), 'text': text[:400], 'topic': topic,
              'added': dt.datetime.now().isoformat(timespec='minutes')}
-        if owner in CREW:
-            f['for'] = owner
         data['facts'].append(f)
         save(data)
         print(f'remembered: {show(f)}')
     elif cmd == 'list':
         topic = opt(args, '--topic')
-        owner = (opt(args, '--for') or '').lower()
-        facts = [f for f in data['facts'] if (not topic or f.get('topic') == topic) and (not owner or f.get('for', owner) == owner)]
+        facts = [f for f in data['facts'] if not topic or f.get('topic') == topic]
         print('\n'.join(show(f) for f in facts) or 'nothing remembered yet')
     elif cmd == 'search':
         found = matches(data, ' '.join(args))

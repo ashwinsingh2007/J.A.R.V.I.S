@@ -44,11 +44,23 @@ Claude Code is the default and gets the full feature set, using your Claude subs
 
 Speech stays on the Mac by default. Apple's recogniser does the listening, Kokoro does the talking, and echo cancellation stops it from hearing its own voice.
 
-It has a personality: a calm British butler with a dry sense of humour who keeps answers short. When it looks something up, it tells you what it found in its own words and leaves out the list of links.
+It has a personality, and you pick which one. There are five assistants. Each of them does everything, with the same tools, memory and conversation. What differs is how they run and how they sound:
 
-It remembers people, preferences, projects and routines as they come up in conversation. Before older turns are summarised, a separate pass reads what you said in them and saves the facts that last, so a short summary doesn't lose them. If a fact changed (you moved city, a trip got moved), the new one replaces the old. Only your own words are read for this. Emails, web pages and crew reports can't add to memory, and passwords, keys and card numbers are never kept.
+| Assistant | What it's like | Runs on |
+|---|---|---|
+| JARVIS (the default) | Balanced. Quick replies and strong background work. A calm British butler with a dry sense of humour | Claude Code: Sonnet, with Opus for background jobs |
+| FRIDAY | The smartest. She thinks hardest, so she takes longer to answer | Claude Code: Opus on high effort |
+| KAREN | The fastest and cheapest, with simpler answers | Claude Code: Haiku, with Sonnet for background jobs |
+| EDITH | Private. Her brain runs on a local model on your Mac, and she is the weakest of the five | Ollama |
+| VISION | For when you don't have Claude | Google's Gemini, which has a free tier |
 
-Each crew member also has a memory of their own. "Keep my LinkedIn posts casual" is KAREN's, and the rest of the crew doesn't need it. Every crew member gets the shared facts plus their own, both on jobs and when you talk to them directly. The MEMORY tab in the HUD lists every fact, whose it is and whether it was learnt this way, and you can delete any of them.
+Pick one in Setup, switch by clicking another one on the HUD's home screen, or say "switch to FRIDAY". Each one answers to its own name and has its own voice. Settings you change are saved to the assistant you're using, and Settings › Assistant can put one back to its preset. A switch waits until any running background job has finished.
+
+Whichever one you use, it keeps answers short. When it looks something up, it tells you what it found in its own words and leaves out the list of links.
+
+It remembers people, preferences, projects and routines as they come up in conversation. Before older turns are summarised, a separate pass reads what you said in them and saves the facts that last, so a short summary doesn't lose them. If a fact changed (you moved city, a trip got moved), the new one replaces the old. Only your own words are read for this. Emails, web pages and job reports can't add to memory, and passwords, keys and card numbers are never kept.
+
+The background worker gets the same memory. The MEMORY tab in the HUD lists every fact and whether it was learnt this way, and you can delete any of them.
 
 It speaks up on its own when there's a reason to. You get a morning briefing (weather, mail that needs a reply, today's reminders, anything left open from yesterday), spoken reminders, routines you set by voice ("every morning at eight, check the AI news"), and the occasional check-in when something is worth mentioning.
 
@@ -86,28 +98,17 @@ JARVIS is Claude Code first. That's what it's built and tested against, and it's
 
 ### Browser work
 
-Anything inside a website (Gmail, LinkedIn, YouTube, forms, shopping) runs through Claude Code with the Claude in Chrome extension, in your own signed-in Chrome. FRIDAY does it, or KAREN for email, chats and social media. So for browser work you need Claude Code, whichever brain you pick.
+Anything inside a website (Gmail, LinkedIn, YouTube, forms, shopping) runs through Claude Code with the Claude in Chrome extension, in your own signed-in Chrome. The background worker does it. So for browser work you need Claude Code, whichever brain you pick.
 
-### The crew
+### Background work
 
-JARVIS is the head of a small crew. He chats with you, answers simple questions and keeps an eye on things, and he hands every real task to the crew member it belongs to:
+JARVIS answers simple things himself and hands every real task to his background worker. The worker has every tool: coding, web search and research, files and scripts, websites in your signed-in Chrome, email, chats and social media, and looking after the Mac (what's slowing it down, what's installed, and cleaning caches, logs and the Trash). One worker takes a job from start to finish, so the parts of a job that belong together stay together. Unrelated jobs can run at the same time.
 
-| Crew member | Takes care of |
-|---|---|
-| FRIDAY | The main worker, with every tool: coding, web search and research, files, scripts, anything inside a website in your signed-in Chrome, and anything heavy |
-| KAREN | All your communication and online presence: email, WhatsApp, Telegram and other chats, every social media account (messages, comments, posts, replies), and self-branding: profiles, bios and content plans |
-| EDITH | Security and checks: code and work reviews, fact-checks, whether a link, email or download is safe |
-| VISION | Your Mac itself: which apps are open and what's slowing it down, CPU, memory, disk and battery, what's installed and how big it is, and cleaning junk such as caches, logs and the Trash. He has a shell but no browser and no web, and he cleans or quits apps only after you say yes |
-
-Each one has their own persona (in `prompts/crew/`), works in the background on Opus by default, and reports back while you keep talking. Ask "what's the status?" any time. When part of a job belongs to someone else, they hand it back to JARVIS and he passes it on. Anything that sends, posts, deletes or pays still waits for your yes. With Claude Code as the brain the crew runs as its background agents; with any other brain they run as separate Claude Code processes, so Claude Code needs to be installed. You can pick the crew's model, or switch the crew off, in Setup and in the HUD's Settings.
-
-### Talking to the crew directly
-
-You can also skip JARVIS and talk to any of them yourself. Start with their name ("KAREN, what's new on LinkedIn?"), say "talk to EDITH" to stay with her until you say "that's all, EDITH", or type in their chat in the right panel. On Telegram, "/karen ..." works too. Each one keeps their own ongoing conversation with you, so they remember what you two said, and JARVIS hears what was said so he isn't lost when you come back. Control words like "stop" still go to JARVIS, and anything that sends or posts still waits for your yes.
+The worker runs on Opus by default and reports back while you keep talking. Ask "what's the status?" any time. Anything that sends, posts, deletes, pays or cleans waits for your yes. With Claude Code as the brain, the worker runs as its background agent. With any other brain it runs as a separate Claude Code process, so Claude Code needs to be installed. You can pick the worker's model, or switch it off, in Setup and in the HUD's Settings.
 
 ### How it keeps the conversation
 
-JARVIS keeps the latest dozen turns word for word and folds older ones into a running summary: what you asked, what's waiting for your answer, what the crew found, and facts you told him. When the conversation gets long, or a new day starts, the brain starts a fresh session that carries the summary and those recent turns, so it stays quick and doesn't trip over stale details. This only happens while nothing is running. The summary sits in `~/.jarvis/` and "New conversation" clears it.
+JARVIS keeps the latest dozen turns word for word and folds older ones into a running summary: what you asked, what's waiting for your answer, what the background jobs found, and facts you told him. When the conversation gets long, or a new day starts, the brain starts a fresh session that carries the summary and those recent turns, so it stays quick and doesn't trip over stale details. This only happens while nothing is running. The summary sits in `~/.jarvis/` and "New conversation" clears it.
 
 ## How it listens and speaks
 
@@ -153,6 +154,7 @@ The first launch opens Setup, where you give your name and choose the brain, how
 | Say | What happens |
 |---|---|
 | "Jarvis, wake up" | It starts listening, and every sentence is a command. |
+| "Switch to FRIDAY" | Another assistant takes over, with the same memory and conversation. Say its name from then on. |
 | Pause for 3 seconds, or end with "over" | Sends what you said. |
 | "Jarvis" while it's talking | Stops it. |
 | "Sleep" | Stops taking commands; only the wake word works. |

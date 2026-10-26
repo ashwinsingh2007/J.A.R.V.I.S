@@ -48,6 +48,17 @@
         </select>
       </div>
     </div>
+    <div class="field">
+      <label for="assistant">Your assistant</label>
+      <select id="assistant">
+        <option value="jarvis">JARVIS · Balanced: fast and smart</option>
+        <option value="friday">FRIDAY · Maximum: the smartest, slower to answer</option>
+        <option value="karen">KAREN · Light: the fastest and cheapest</option>
+        <option value="edith">EDITH · Private: a local model on this Mac (needs Ollama)</option>
+        <option value="vision">VISION · No Claude needed: Google's Gemini</option>
+      </select>
+      <p class="note">They all do everything, with the same memory. They differ in how they run and how they sound. You can switch any time on the HUD.</p>
+    </div>
     <div class="callout">Everything stays on this Mac unless you pick a cloud service. Keys are encrypted with your macOS Keychain.</div>
   </section>
 
@@ -127,11 +138,11 @@
       </details>
     </div>
     <div class="group show" id="worker-group">
-      <h3>FRIDAY, the worker</h3>
-      <p class="note">JARVIS answers you straight away, so its brain can be a smaller, faster model. Long jobs, like reading your email, research or working in your browser, go to FRIDAY. She runs them in the background on a stronger model and reports back. A fast brain with a strong worker feels quick and still gets hard things done.</p>
+      <h3>The background worker</h3>
+      <p class="note">JARVIS answers you straight away, so its brain can be a smaller, faster model. Long jobs, like reading your email, research or working in your browser, go to the background worker. It runs them in the background on a stronger model and reports back. A fast brain with a strong worker feels quick and still gets hard things done.</p>
       <div class="grid2">
         <div class="field" id="worker-field"><label for="worker">Worker</label><select id="worker"><option value="claude-code">Claude Code (recommended)</option><option value="off">Off</option></select></div>
-        <div class="field" id="agent-field"><label for="agentModel">Crew model (FRIDAY, KAREN, EDITH, VISION)</label><select id="agentModel"><option value="opus">opus (most capable)</option><option value="sonnet">sonnet</option><option value="haiku">haiku (fastest)</option></select></div>
+        <div class="field" id="agent-field"><label for="agentModel">Worker model</label><select id="agentModel"><option value="opus">opus (most capable)</option><option value="sonnet">sonnet</option><option value="haiku">haiku (fastest)</option></select></div>
       </div>
       <p class="note" id="worker-help"></p>
     </div>

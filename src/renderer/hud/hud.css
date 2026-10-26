@@ -96,7 +96,7 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 .livelog .mh { display: flex; align-items: baseline; gap: 10px; margin-bottom: 3px; }
 .livelog .t { color: var(--faint); font-size: var(--lab); }
 .livelog .k { font-size: var(--lab); letter-spacing: 0.14em; color: var(--text); }
-.livelog li.you .k { color: var(--cyan); } .livelog li.crew .k, .livelog li.working .k { color: var(--amber); }
+.livelog li.you .k { color: var(--cyan); } .livelog li.job .k, .livelog li.working .k { color: var(--amber); }
 .livelog .x { color: var(--text); white-space: pre-wrap; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; }
 .livelog li.open .x { display: block; }
 .livelog li.you .x { color: var(--muted); } .livelog li.working .x { color: var(--faint); font-style: italic; }
@@ -489,6 +489,10 @@ body.spot #spot { opacity: 1; transform: translate(-50%, 0); }
 #spot .spot-hint { margin-top: 10px; font: var(--lab) var(--mono); letter-spacing: 0.2em; color: var(--cyan); }
 #spot .spot-back { margin-top: 18px; border: 1px solid var(--line2); background: transparent; color: var(--faint); font: var(--lab) var(--mono); letter-spacing: 0.18em; padding: 6px 12px; cursor: pointer; }
 #spot .spot-back:hover { color: var(--cyan); border-color: var(--cyan); }
+#spot .spot-go { margin: 18px 8px 0 0; border: 1px solid var(--cyan); background: rgba(var(--rgb), 0.12); color: var(--cyan); font: var(--lab) var(--mono); letter-spacing: 0.18em; padding: 6px 14px; cursor: pointer; }
+#spot .spot-go:hover { background: rgba(var(--rgb), 0.24); }
+#spot .spot-go:disabled { opacity: .5; cursor: default; }
+#acards .bcard .chip { font-style: normal; }
 @keyframes spotbreathe { 0%, 100% { transform: scale(1); opacity: .5; } 50% { transform: scale(1.18); opacity: .95; } }
 @keyframes crewflow { to { stroke-dashoffset: -3.6; } }
 @keyframes synfire { 0%, 100% { opacity: 0.16; } 45% { opacity: 0.24; } 55% { opacity: 0.7; } }

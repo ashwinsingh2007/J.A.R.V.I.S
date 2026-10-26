@@ -1,6 +1,7 @@
 // Wake-word and turn-taking logic on top of the transcript stream.
 //
-// Asleep: only "Jarvis, wake up" (or "wake up, Jarvis") does anything.
+// Asleep: only "Jarvis, wake up" (or "wake up, Jarvis") does anything. The name is the assistant's
+// (cfg.wakeWords): JARVIS, FRIDAY, KAREN, EDITH or VISION.
 // Awake (conversation mode): every utterance is a command. It is sent after
 // a pause, sooner when it ends with "over", later when the last word sounds
 // unfinished ("and…").
@@ -25,7 +26,7 @@ function matches(text, phrases) {
   return phrases.some((p) => t === p || t.startsWith(p + ' ') || t.endsWith(' ' + p));
 }
 
-const FILLER = new Set(['jarvis', 'please', 'now', 'ok', 'okay', 'alright', 'thanks', 'thank', 'you']);
+const FILLER = new Set(['jarvis', 'friday', 'karen', 'edith', 'vision', 'please', 'now', 'ok', 'okay', 'alright', 'thanks', 'thank', 'you']);
 
 /**
  * Is this utterance the command? The whole utterance can be the phrase, give or take "Jarvis", "please",
@@ -61,11 +62,16 @@ class Wake extends EventEmitter {
     this.carry = '';          // text from a recognition task that ended mid-command
     this.lastChange = Date.now();
     this.timer = null;
-    const alt = cfg.wakeWords.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-    this.wakeRe = new RegExp(`(?:^|[\\s,.!?])(${alt})(?=$|[\\s,.!?'])`, 'g');
-    this.nameLastRe = new RegExp(`\\b(wake|make|walk|back) ?up\\W*(\\w+\\W*)?(${alt})\\b`);
+    this.setNames();
     ears.on('text', (t, f) => this.handle(t, f));
     ears.on('restarted', () => this.taskRestarted());
+  }
+
+  /** The assistant's name, and its mishearings, from cfg.wakeWords. Called again when another assistant takes over. */
+  setNames() {
+    const alt = this.cfg.wakeWords.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+    this.wakeRe = new RegExp(`(?:^|[\\s,.!?])(${alt})(?=$|[\\s,.!?'])`, 'g');
+    this.nameLastRe = new RegExp(`\\b(wake|make|walk|back) ?up\\W*(\\w+\\W*)?(${alt})\\b`);
   }
 
   setConversation(on) {
@@ -126,8 +132,20 @@ class Wake extends EventEmitter {
   lastWake(text) {
     let m, last = null;
     this.wakeRe.lastIndex = 0;
-    while ((m = this.wakeRe.exec(text))) last = { end: m.index + m[0].length };
+    while ((m = this.wakeRe.exec(text))) last = { start: m.index, end: m.index + m[0].length };
     return last;
+  }
+
+  /**
+   * While awake, the name only counts when the user addresses the assistant with it, at the start
+   * ("Friday, what's next?", "hey Friday"). Names are also ordinary words: "the meeting on Friday".
+   */
+  addressed(text) {
+    this.wakeRe.lastIndex = 0;
+    const m = this.wakeRe.exec(text);
+    if (!m) return null;
+    const before = text.slice(0, m.index).trim().split(/\s+/).filter(Boolean);
+    return before.length <= 1 && (!before.length || /^(hey|hi|ok|okay|hello|yo|so)\W*$/.test(before[0])) ? { end: m.index + m[0].length } : null;
   }
 
   handle(text) {
@@ -148,7 +166,8 @@ class Wake extends EventEmitter {
       return;
     }
     if (this.armedAt === null) {
-      const w = this.lastWake(lower);
+      // While it speaks, "…Friday, stop" can follow the echo of its own voice, so the name counts anywhere.
+      const w = this.conversationMode && !this._speaking ? this.addressed(lower) : this.lastWake(lower);
       if (w) {
         log(`listener: wake heard in '${lower.slice(-80)}'`);
         this.arm(w.end, true);

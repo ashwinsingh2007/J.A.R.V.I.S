@@ -18,12 +18,13 @@ const MAX_HISTORY = 40;
 const ROLL_TOKENS = { anthropic: 40000, gemini: 40000, ollama: 4000 };
 const RETRY_MS = 10 * 60 * 1000;
 
-// A crew member's finished job, handed to the brain to retell.
-const REPORT = /^\[(FRIDAY|KAREN|EDITH|VISION) REPORT\]/;
+// A finished background job, handed to the brain to retell.
+const REPORT = /^\[JOB REPORT\]/;
 
 class ApiBrain extends EventEmitter {
-  /** kind: "anthropic" | "gemini" | "ollama"; worker: runs crew jobs (FRIDAY, KAREN, EDITH, VISION), or null */
-  constructor(cfg, kind, worker = null) {
+  /** kind: "anthropic" | "gemini" | "ollama"; worker: runs background jobs, or null */
+  /** fresh: forget the chat history (another assistant took over; the summary carries it). */
+  constructor(cfg, kind, worker = null, { fresh = false } = {}) {
     super();
     this.cfg = cfg;
     this.kind = kind;
@@ -37,23 +38,30 @@ class ApiBrain extends EventEmitter {
     this.isReady = true;
     this.abort = null;
     this.historyFile = path.join(C.STATE_DIR, `${kind}-history.json`);
-    try { this.history = JSON.parse(fs.readFileSync(this.historyFile, 'utf8')); } catch { this.history = []; }
-    this.context = new Context(kind, () => this.emit('context', this.contextInfo()), { learn: true });
-    setInterval(() => { if (!this.isBusy) this.maybeRoll(); }, RETRY_MS).unref();
+    try { this.history = fresh ? [] : JSON.parse(fs.readFileSync(this.historyFile, 'utf8')); } catch { this.history = []; }
+    this.context = new Context('conversation', () => this.emit('context', this.contextInfo()), { learn: true });
+    this.rollTimer = setInterval(() => { if (!this.isBusy) this.maybeRoll(); }, RETRY_MS).unref();
     this.splitter = new SentenceSplitter((s) => this.emit('sentence', s));
   }
 
   warmUp() { setTimeout(() => this.emit('ready', 0), 0); }
 
+  /** Another assistant took over: stop for good. */
+  dispose() {
+    clearInterval(this.rollTimer);
+    this.removeAllListeners();
+    this.cancel();
+    if (this.worker) { this.worker.removeAllListeners(); this.worker.stopAll(); }
+  }
+
   /**
-   * Tools and prompt note for this turn: the crew can be switched on and off in Settings. Retelling a
-   * crew report needs no tools, and a small model given tools there tends to redo the job instead; only a
-   * report that hands work to another crew member keeps the delegate tool.
+   * Tools and prompt note for this turn: the worker can be switched on and off in Settings. Retelling a
+   * job report needs no tools, and a small model given tools there tends to redo the job instead.
    */
   get tools() {
     const t = tools.forBrain(!!this.worker && this.cfg.worker === 'claude-code');
     if (!REPORT.test(this.lastPrompt || '')) return t;
-    return { ...t, specs: /\bHANDOFF (FRIDAY|KAREN|EDITH|VISION):/.test(this.lastPrompt) ? t.specs.filter((x) => x.name === 'delegate') : [] };
+    return { ...t, specs: [] };
   }
 
   reset() {
@@ -166,7 +174,7 @@ class ApiBrain extends EventEmitter {
         for (const c of calls) results.push({ call: c, out: c.name === 'delegate' && this.worker && this.cfg.worker === 'claude-code' ? this.delegate(c.input) : await tools.execute(c.name, c.input) });
         if (abort.signal.aborted) return;
         this.pushToolResults(results);
-        // Handed to FRIDAY: the user has heard "on it", and the result comes back later. Stop here so the
+        // Handed to the worker: the user has heard "on it", and the result comes back later. Stop here so the
         // model doesn't guess at an outcome it can't know yet.
         if (calls.some((c) => c.name === 'delegate')) { this.history.push(this.closing()); break; }
       }
@@ -200,10 +208,10 @@ class ApiBrain extends EventEmitter {
   /** The tools note plus the carried summary of earlier turns. */
   promptExtra(note) { return [note, this.context.carried].filter(Boolean).join('\n\n'); }
 
-  /** Hand a job to the crew, with the user's own words attached so a vague instruction can't lose the request. */
+  /** Hand a job to the worker, with the user's own words attached so a vague instruction can't lose the request. */
   delegate(input = {}) {
     const words = REPORT.test(this.lastPrompt || '') || /^\[(BRIEFING|CHECK-IN|SCHEDULED TASK)\]/.test(this.lastPrompt || '') ? '' : `\n\nThe user's own words: "${String(this.lastPrompt || '').slice(0, 1000)}"`;
-    return this.worker.start(input.description, `${String(input.task || '').trim()}${words}`, String(input.to || 'friday').toLowerCase());
+    return this.worker.start(input.description, `${String(input.task || '').trim()}${words}`);
   }
 
   /** A closing assistant turn after a handoff, so the next question starts on a clean history. */

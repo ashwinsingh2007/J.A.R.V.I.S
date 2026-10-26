@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { app, BrowserWindow, Menu, Tray, nativeImage, nativeTheme, ipcMain, shell, safeStorage, Notification } = require('electron');
 const C = require('./config');
+const { ASSISTANTS } = require('./assistants');
 const { log, initPaths, paths, run, which } = require('./util');
 
 app.setName('JARVIS');
@@ -67,7 +68,10 @@ function startJarvis(brains) {
   orch.on('hands-permit', permitHands);
   orch.on('notify', (title, body) => { try { new Notification({ title, body }).show(); } catch {} });
   orch.on('telegram-push', (text) => { if (telegram && cfg.telegramChatId) telegram.send(cfg.telegramChatId, text); });
+  orch.on('switch-assistant', switchAssistant);
+  orch.on('reset-assistant', resetAssistant);
   sendHudSettings();
+  sendAssistants();
   checkHands().then(sendHudSettings);
   ears.on('devices', buildTray);
 
@@ -217,6 +221,37 @@ ipcMain.handle('setup:save', (e, patch) => (fromSetup(e) ? setupSave(patch) : fa
 const HUD_KEYS = ['ttsEngine', 'kokoroVoice', 'kokoroSpeed', 'edgeVoice', 'nativeVoice', 'elevenLabsModel',
   'sttEngine', 'appleSpeech', 'speechLocale', 'commandSilenceSeconds', 'requireEndWord',
   'model', 'effort', 'agentModel', 'progressUpdates', 'screenControl', 'morningBriefing', 'checkIns', 'honorific', 'announceSessions', 'autoHide', 'worker', 'greetOnStart'];
+
+/** The assistants for the HUD: who is in use, and what each one is. */
+function sendAssistants() {
+  if (!hud) return;
+  const mine = cfg.assistantSettings || {};
+  hud.send('assistants', {
+    id: cfg.assistant,
+    list: Object.entries(ASSISTANTS).map(([id, a]) => ({ id, name: a.name, tier: a.tier, about: a.about, needs: a.needs, changed: Object.keys(mine[id] || {}).length > 0 })),
+  });
+}
+
+/** Another assistant takes over: its preset with the user's changes to it, and a fresh brain from the shared conversation. */
+function switchAssistant(id) {
+  if (!orch || !ASSISTANTS[id]) return;
+  C.save({ assistant: id });
+  Object.assign(cfg, C.load());
+  orch.switchBrain(require('./brain').create(cfg, found, { fresh: true }));
+  sendHudSettings();
+  sendAssistants();
+  buildTray();
+}
+
+/** Back to the preset: forget the user's changes to one assistant. The one in use starts again with it. */
+function resetAssistant(id) {
+  C.resetAssistant(id);
+  log(`assistant: ${ASSISTANTS[id].name} back to its preset`);
+  if (id !== cfg.assistant || !orch) { cfg.assistantSettings = C.load().assistantSettings; sendAssistants(); return; }
+  if (orch.canSwitch()) { Object.assign(cfg, C.load()); sendHudSettings(); sendAssistants(); return; }
+  if (orch.brain.context) orch.brain.context.handover();
+  switchAssistant(id);
+}
 
 /** Accessibility and Screen Recording for JARVIS.app, as the screen-control helper sees them. */
 let handsState = null;
