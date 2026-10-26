@@ -206,12 +206,13 @@
   resize();
 
   // ---------- the crew: JARVIS is the main brain inside a loose web of neurons ----------
-  // FRIDAY, EDITH and KAREN are larger nodes in that web; signals run to each of them from the brain along the
-  // shortest chain of neurons. Shown in focus. Placeholders for now; FRIDAY fires while background jobs run.
+  // FRIDAY, EDITH, KAREN and VISION are larger nodes in that web; signals run to each of them from the brain
+  // along the shortest chain of neurons. Each one fires while it has jobs running.
   const HUBS = [
-    { id: 'edith', name: 'EDITH', role: 'SAFETY', x: 21, y: -53 },
+    { id: 'edith', name: 'EDITH', role: 'SECURITY', x: 21, y: -53 },
     { id: 'karen', name: 'KAREN', role: 'MESSAGES', x: 73, y: 24 },
-    { id: 'friday', name: 'FRIDAY', role: 'JOBS', x: -79, y: -14 },
+    { id: 'friday', name: 'FRIDAY', role: 'TASKS', x: -79, y: -14 },
+    { id: 'vision', name: 'VISION', role: 'BROWSER', x: -38, y: 50 },
   ];
   const crew = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   crew.id = 'crew';
@@ -302,10 +303,12 @@
     }).join('');
     return `<g class="field">${field}</g>${mates}`;
   }
-  function setCrew(jobs) {
-    const fr = $('crew-friday');
-    fr.classList.toggle('on', jobs > 0);
-    fr.querySelector('.rl').textContent = jobs > 0 ? `JOBS · ${jobs} RUNNING` : 'JOBS · STANDBY';
+  function setCrew(counts) {
+    HUBS.forEach((h) => {
+      const el = $('crew-' + h.id), n = (counts && counts[h.id]) || 0;
+      el.classList.toggle('on', n > 0);
+      el.querySelector('.rl').textContent = `${h.role} · ${n > 0 ? n + ' RUNNING' : 'STANDBY'}`;
+    });
   }
 
   // ---------- animation loop ----------
@@ -670,7 +673,7 @@
   function setStats(st) {
     Object.assign(stats, st || {});
     const ag = Array.isArray(stats.agents) ? stats.agents : [];
-    setCrew(ag.length);
+    setCrew(stats.crew || (ag.length ? { friday: ag.length } : {}));
     $('br-worker').textContent = ag.length ? `${ag.length} JOB${ag.length === 1 ? '' : 'S'} · ${String(ag[0]).toUpperCase().slice(0, 28)}` : 'NO JOBS RUNNING';
     renderServices();
   }
@@ -1019,7 +1022,7 @@
     ev({ type: 'youtube_presets', presets: [ { id: 'lofigirl', name: 'Lofi Girl', note: '24/7 lofi hip-hop live' }, { id: 'cafebgm', name: 'Cafe Music BGM', note: 'jazz & bossa café live' } ] });
     ev({ type: 'music', playing: true, source: 'radio', id: 'lofi', name: 'Lofi Beats', note: 'chill lo-fi instrumentals · radio', title: 'Kupla - Valentine', volume: 24 });
     ev({ type: 'info', claude: '2.1.309 (Claude Code)', model: 'opus', voice: 'kokoro bm_george' });
-    ev({ type: 'stats', turns: 22, toolCalls: 14, memories: 38, sessionsActive: 2, brainModel: 'opus', effort: 'low', brainReady: true, tts: 'kokoro bm_george', stt: 'apple on-device', telegram: '@my_jarvis_bot', agents: ['checking your Gmail'] });
+    ev({ type: 'stats', turns: 22, toolCalls: 14, memories: 38, sessionsActive: 2, brainModel: 'opus', effort: 'low', brainReady: true, tts: 'kokoro bm_george', stt: 'apple on-device', telegram: '@my_jarvis_bot', agents: ['checking your Gmail'], crew: { karen: 1 } });
     ev({ type: 'system', cpu: 36, ram: 72, ramUsedGB: 12.5, ramTotalGB: 17.2, disk: 89, diskFreeGB: 24, battery: 70, charging: true, uptime: '4d 20h', host: 'macbook' });
     ev({ type: 'history', data: [
       { t: '09:30', you: 'what are my sessions doing', jarvis: 'Two are busy, sir. The web app is running its tests and the API server is mid-build. The blog and the docs are idle.' },

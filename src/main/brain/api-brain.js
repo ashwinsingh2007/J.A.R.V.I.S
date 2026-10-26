@@ -12,8 +12,11 @@ const tools = require('./tools');
 const MAX_ROUNDS = 8;
 const MAX_HISTORY = 40;
 
+// A crew member's finished job, handed to the brain to retell.
+const REPORT = /^\[(FRIDAY|KAREN|EDITH|VISION) REPORT\]/;
+
 class ApiBrain extends EventEmitter {
-  /** kind: "anthropic" | "gemini" | "ollama"; worker: FRIDAY, for heavy jobs, or null */
+  /** kind: "anthropic" | "gemini" | "ollama"; worker: runs crew jobs (FRIDAY, KAREN, EDITH, VISION), or null */
   constructor(cfg, kind, worker = null) {
     super();
     this.cfg = cfg;
@@ -35,12 +38,14 @@ class ApiBrain extends EventEmitter {
   warmUp() { setTimeout(() => this.emit('ready', 0), 0); }
 
   /**
-   * Tools and prompt note for this turn: FRIDAY can be switched on and off in Settings. Retelling one of
-   * her reports needs no tools, and a small model given tools there tends to redo the job instead.
+   * Tools and prompt note for this turn: the crew can be switched on and off in Settings. Retelling a
+   * crew report needs no tools, and a small model given tools there tends to redo the job instead; only a
+   * report that hands work to another crew member keeps the delegate tool.
    */
   get tools() {
     const t = tools.forBrain(!!this.worker && this.cfg.worker === 'claude-code');
-    return /^\[FRIDAY REPORT\]/.test(this.lastPrompt || '') ? { ...t, specs: [] } : t;
+    if (!REPORT.test(this.lastPrompt || '')) return t;
+    return { ...t, specs: /\bHANDOFF (FRIDAY|KAREN|EDITH|VISION):/.test(this.lastPrompt) ? t.specs.filter((x) => x.name === 'delegate') : [] };
   }
 
   reset() {
@@ -118,10 +123,10 @@ class ApiBrain extends EventEmitter {
     if (last && last.role === 'assistant' && (last.tool_calls || (Array.isArray(last.content) && last.content.some((b) => b.type === 'tool_use')))) this.history.pop();
   }
 
-  /** Hand a job to FRIDAY, with the user's own words attached so a vague instruction can't lose the request. */
+  /** Hand a job to the crew, with the user's own words attached so a vague instruction can't lose the request. */
   delegate(input = {}) {
-    const words = /^\[(FRIDAY REPORT|BRIEFING|CHECK-IN|SCHEDULED TASK)\]/.test(this.lastPrompt || '') ? '' : `\n\nThe user's own words: "${String(this.lastPrompt || '').slice(0, 1000)}"`;
-    return this.worker.start(input.description, `${String(input.task || '').trim()}${words}`);
+    const words = REPORT.test(this.lastPrompt || '') || /^\[(BRIEFING|CHECK-IN|SCHEDULED TASK)\]/.test(this.lastPrompt || '') ? '' : `\n\nThe user's own words: "${String(this.lastPrompt || '').slice(0, 1000)}"`;
+    return this.worker.start(input.description, `${String(input.task || '').trim()}${words}`, String(input.to || 'friday').toLowerCase());
   }
 
   /** A closing assistant turn after a handoff, so the next question starts on a clean history. */
