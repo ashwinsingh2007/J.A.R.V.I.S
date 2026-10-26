@@ -194,7 +194,7 @@ class ClaudeCodeBrain extends EventEmitter {
   agents() {
     return JSON.stringify({
       worker: {
-        description: "JARVIS's background worker, with every tool: coding, web search and research, files, websites in the user's signed-in Chrome, email, chats and social media, checking and cleaning the Mac, reviews and checks. Give it one complete, self-contained instruction with every part of the job.",
+        description: "Your background worker, with every tool: coding, web search and research, files, websites in the user's signed-in Chrome, email, chats and social media, checking and cleaning the Mac, reviews and checks. Give it one complete, self-contained instruction with every part of the job.",
         prompt: workerPrompt(this.cfg),
         model: this.cfg.agentModel,
         background: true,

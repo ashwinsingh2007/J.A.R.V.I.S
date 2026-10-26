@@ -9,6 +9,7 @@ const HOME = os.homedir();
 const STATE_DIR = process.env.JARVIS_STATE_DIR || path.join(HOME, '.jarvis');
 const CONFIG_FILE = path.join(STATE_DIR, 'config.json');
 const SECRET_KEYS = new Set(['anthropicApiKey', 'geminiApiKey', 'elevenLabsApiKey', 'telegramToken']);
+const { ASSISTANTS, SCOPED, assistantOf } = require('./assistants');
 
 const DEFAULTS = {
   onboarded: false,
@@ -17,6 +18,8 @@ const DEFAULTS = {
   theme: 'jarvis',                // jarvis | terminal | neon | stark | minimal
   themeMode: 'dark',              // dark | light | system
   wakeWords: ['jarvis', 'jervis', 'jarvus', 'jar vis'],
+  assistant: 'jarvis',            // which assistant is in use: jarvis | friday | karen | edith | vision (assistants.js)
+  assistantSettings: {},          // the user's own changes, per assistant: { friday: { model: 'sonnet' } }
 
   // Brain: "auto" picks Claude Code, then the Anthropic API, then Gemini, then Ollama.
   brainProvider: 'auto',          // auto | claude-code | anthropic | gemini | ollama
@@ -87,15 +90,37 @@ function readRaw() {
 
 function writeRaw(json) {
   fs.mkdirSync(STATE_DIR, { recursive: true });
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(json, Object.keys(json).sort(), 2));
+  const sorted = Object.fromEntries(Object.keys(json).sort().map((k) => [k, json[k]]));
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify(sorted, null, 2));
   try { fs.chmodSync(CONFIG_FILE, 0o600); } catch {}
+}
+
+/**
+ * Before assistants, the brain, model and voice settings sat at the top level. They are the user's
+ * own choices, so they become their changes to JARVIS.
+ */
+function migrate(raw) {
+  if (raw.assistant) return false;
+  const mine = {};
+  for (const k of SCOPED) if (k in raw) { mine[k] = raw[k]; delete raw[k]; }
+  raw.assistant = 'jarvis';
+  raw.assistantSettings = { ...(raw.assistantSettings || {}), jarvis: { ...mine, ...((raw.assistantSettings || {}).jarvis || {}) } };
+  return true;
 }
 
 function load() {
   fs.mkdirSync(STATE_DIR, { recursive: true });
   const raw = readRaw();
+  if (Object.keys(raw).length && migrate(raw)) writeRaw(raw);
   const cfg = { ...DEFAULTS };
   for (const [k, v] of Object.entries(raw)) cfg[k] = SECRET_KEYS.has(k) ? decrypt(v) : v;
+  // The assistant's preset, then the user's own changes to it.
+  if (!ASSISTANTS[cfg.assistant]) cfg.assistant = 'jarvis';
+  const mine = (cfg.assistantSettings && typeof cfg.assistantSettings === 'object' && cfg.assistantSettings[cfg.assistant]) || {};
+  for (const k of SCOPED) {
+    if (k in assistantOf(cfg.assistant).settings) cfg[k] = assistantOf(cfg.assistant).settings[k];
+    if (k in mine) cfg[k] = mine[k];
+  }
   // Older Swift-app values
   if (cfg.sttEngine === 'analyzer' || cfg.sttEngine === 'legacy') cfg.sttEngine = 'apple';
   if (String(cfg.nativeVoice).startsWith('com.apple.')) cfg.nativeVoice = 'Daniel';
@@ -103,6 +128,7 @@ function load() {
 }
 
 const ENUMS = {
+  assistant: Object.keys(ASSISTANTS),
   brainProvider: ['auto', 'claude-code', 'anthropic', 'gemini', 'ollama'],
   sttEngine: ['apple', 'elevenlabs'],
   appleSpeech: ['instant', 'accurate'],
@@ -134,6 +160,7 @@ function sanitize(cfg) {
   }
   if (!/^https?:\/\/[^\s]+$/.test(cfg.ollamaUrl)) cfg.ollamaUrl = DEFAULTS.ollamaUrl;
   cfg.userName = typeof cfg.userName === 'string' ? cfg.userName.trim().slice(0, 40) : '';
+  if (!cfg.assistantSettings || typeof cfg.assistantSettings !== 'object' || Array.isArray(cfg.assistantSettings)) cfg.assistantSettings = {};
   for (const k of ['wakeWords', 'endWords']) {
     cfg[k] = Array.isArray(cfg[k]) ? cfg[k].filter((w) => typeof w === 'string' && w.trim()).map((w) => w.toLowerCase()) : DEFAULTS[k];
     if (k === 'wakeWords' && !cfg[k].length) cfg[k] = DEFAULTS[k];
@@ -141,10 +168,27 @@ function sanitize(cfg) {
   return cfg;
 }
 
-/** Persist one or more keys. Secrets are encrypted at rest. */
+/** Persist one or more keys. Secrets are encrypted at rest. An assistant's settings go to that assistant. */
 function save(patch) {
   const raw = readRaw();
-  for (const [k, v] of Object.entries(patch)) raw[k] = SECRET_KEYS.has(k) ? encrypt(v) : v;
+  migrate(raw);
+  if (patch.assistant && ASSISTANTS[patch.assistant]) raw.assistant = patch.assistant;
+  const who = ASSISTANTS[raw.assistant] ? raw.assistant : 'jarvis';
+  for (const [k, v] of Object.entries(patch)) {
+    if (k === 'assistant') continue;
+    if (SCOPED.includes(k)) {
+      raw.assistantSettings = raw.assistantSettings || {};
+      raw.assistantSettings[who] = { ...(raw.assistantSettings[who] || {}), [k]: v };
+    } else raw[k] = SECRET_KEYS.has(k) ? encrypt(v) : v;
+  }
+  writeRaw(raw);
+}
+
+/** Forget the user's changes to one assistant, so it is back to its preset. */
+function resetAssistant(id) {
+  const raw = readRaw();
+  migrate(raw);
+  if (raw.assistantSettings) delete raw.assistantSettings[id];
   writeRaw(raw);
 }
 
@@ -168,5 +212,5 @@ module.exports = {
   BRAIN_SESSIONS_FILE: path.join(STATE_DIR, 'brain-sessions.txt'),
   MEMORY_FILE: path.join(STATE_DIR, 'memory.md'),
   EVENTS_FILE: path.join(STATE_DIR, 'events.jsonl'),
-  attachSafeStorage, load, save, sanitize, findProjectRoot,
+  attachSafeStorage, load, save, resetAssistant, sanitize, findProjectRoot,
 };

@@ -15,6 +15,7 @@ const { SystemMonitor, EventInbox } = require('./monitors');
 const { Memory, day } = require('./memory');
 const { Scheduler } = require('./scheduler');
 const { Conversations } = require('./conversations');
+const { assistantOf } = require('./assistants');
 
 const STOP_WORDS = ['wait', 'stop', 'hold on', 'cancel', 'never mind', 'nevermind', 'quiet', 'shut up', "that's all", 'thats all', 'enough', 'okay stop', 'ok stop'];
 const FILLERS = ['On it.', 'One moment.', 'Right away.', 'Let me see.'];
@@ -117,6 +118,9 @@ class Orchestrator extends EventEmitter {
     this.youtube.duck(duck);
   }
 
+  /** The assistant in use: JARVIS, FRIDAY, KAREN, EDITH or VISION. */
+  get name() { return assistantOf(this.cfg.assistant).name; }
+
   get isIdle() { return (this._state === 'idle' || this._state === 'muted') && !this.brain.isBusy && !this.speaker.isSpeaking; }
   get speaksAloud() { return this.source.kind !== 'telegram'; }
   get awake() { return this.wake.conversationMode; }
@@ -192,9 +196,9 @@ class Orchestrator extends EventEmitter {
         this.memory.journal('You', this.currentCommand);
       }
       if (said) {
-        this.memory.journal('JARVIS', clean(cutSources(said)));
+        this.memory.journal(this.name, clean(cutSources(said)));
         this.history.push({ t: hhmm(), you: this.currentCommand, jarvis: said.slice(0, 200) });
-        this.conv.turn(this.source.kind === 'proactive' ? '' : this.currentCommand, clean(cutSources(said)));
+        this.conv.turn(this.source.kind === 'proactive' ? '' : this.currentCommand, clean(cutSources(said)), this.name);
         this.sendConversation();
       }
       if (this.history.length > 8) this.history.shift();
@@ -206,7 +210,7 @@ class Orchestrator extends EventEmitter {
     brain.on('ready', () => this.sendStats());
     brain.on('task', (t) => {
       const what = t.description || 'task';
-      this.conv.job(t);
+      this.conv.job(t, this.name);
       setImmediate(() => this.sendConversation());
       if (t.status === 'running') {
         this.progress.set(t.id, { description: what, started: Date.now(), status: '', step: '', fresh: false, lastSpokenAt: Date.now(), source: this.agentSource || this.source });
@@ -243,9 +247,9 @@ class Orchestrator extends EventEmitter {
       const spoken = clean(cutSources(text.replace(/^.*?RESULT(?:\s*\(\w+\))?:\s*/s, '')));
       hud.send('notice', { text: spoken.slice(0, 200) });
       this.history.push({ t: hhmm(), you: '(agent)', jarvis: spoken.slice(0, 200) });
-      this.conv.turn('', spoken);
+      this.conv.turn('', spoken, this.name);
       this.sendConversation();
-      this.memory.journal('JARVIS', spoken);
+      this.memory.journal(this.name, spoken);
       if (this.history.length > 8) this.history.shift();
       hud.sendRaw('history', this.history);
       const src = this.agentSource;
@@ -339,6 +343,7 @@ class Orchestrator extends EventEmitter {
     memories = this.memory.facts.length;
     this.hud.send('stats', {
       turns: this.turns, toolCalls: this.toolCalls, memories, sessionsActive: this.sessionsActive,
+      assistant: this.cfg.assistant, assistantName: this.name,
       brainModel: this.brain.label, effort: this.brain.label.startsWith('claude code') ? this.cfg.effort : '',
       brainReady: this.brain.isReady, tts: this.speaker.label, stt: this.ears.engineLabel, telegram: this.telegramStatus,
       agents: [...this.progress.values()].map((e) => e.description),
@@ -384,7 +389,7 @@ class Orchestrator extends EventEmitter {
       out = { key: this.view, name: s.name, status: s.status, ago: s.ago, entries: this.radar.conversation(cwd) };
     } else {
       const busy = this.view === 'jarvis' ? this.brain.isBusy : jobs > 0;
-      out = { key: this.view, name: this.view === 'jobs' ? 'BACKGROUND JOBS' : 'JARVIS', status: busy ? 'working' : 'idle', ago: '', entries: this.conv.entries(this.view) };
+      out = { key: this.view, name: this.view === 'jobs' ? 'BACKGROUND JOBS' : this.name, status: busy ? 'working' : 'idle', ago: '', entries: this.conv.entries(this.view, this.name) };
     }
     this.hud.send('conversation', { ...out, jobs });
   }
@@ -533,7 +538,7 @@ class Orchestrator extends EventEmitter {
     const line = late > 5 ? `A reminder from ${hhmmOf(it.due)}, ${this.cfg.honorific}: ${text}` : `Reminder, ${this.cfg.honorific}: ${text}`;
     log(`reminder: '${line}'`);
     this.memory.journal('Reminder', it.text);
-    this.emit('notify', 'JARVIS', it.text);
+    this.emit('notify', this.name, it.text);
     this.hud.send('notice', { text: line });
     if (this.disabled) return;
     if (!this.muted) this.speaker.speak(line);

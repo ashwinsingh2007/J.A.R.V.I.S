@@ -11,7 +11,7 @@ const hhmm = () => new Date().toTimeString().slice(0, 5);
 
 class Conversations {
   constructor() {
-    this.chat = [];     // { t, you, jarvis }
+    this.chat = [];     // { t, you, jarvis, by }: by is the assistant who answered
     this.jobs = [];     // { id, t, description, task, status, step, result }
     try { Object.assign(this, JSON.parse(fs.readFileSync(FILE, 'utf8'))); } catch {}
     // Chats with the old crew were never jobs.
@@ -27,18 +27,18 @@ class Conversations {
     }, 500);
   }
 
-  turn(you, jarvis) {
+  turn(you, jarvis, by = 'JARVIS') {
     if (!you && !jarvis) return;
-    this.chat.push({ t: hhmm(), you: String(you || '').slice(0, 2000), jarvis: String(jarvis || '').slice(0, 4000) });
+    this.chat.push({ t: hhmm(), you: String(you || '').slice(0, 2000), jarvis: String(jarvis || '').slice(0, 4000), by });
     this.chat = this.chat.slice(-KEEP);
     this.save();
   }
 
-  job(t) {
+  job(t, by = 'JARVIS') {
     let j = this.jobs.find((x) => x.id === t.id);
     if (!j) {
       if (t.status !== 'running') return;
-      j = { id: t.id, t: hhmm(), description: t.description || 'a job', task: String(t.task || '').slice(0, 4000), status: 'running', step: '', result: '' };
+      j = { id: t.id, by, t: hhmm(), description: t.description || 'a job', task: String(t.task || '').slice(0, 4000), status: 'running', step: '', result: '' };
       this.jobs.push(j);
       this.jobs = this.jobs.slice(-KEEP * 2);
     } else if (t.status) j.status = t.status;
@@ -61,18 +61,18 @@ class Conversations {
   running() { return this.jobs.filter((j) => j.status === 'running').length; }
 
   /** Entries for the panel: { t, who, name, text } with who = you | jarvis | job | working. key: 'jarvis' or 'jobs'. */
-  entries(key) {
+  entries(key, name = 'JARVIS') {
     if (key === 'jarvis') {
       const out = [];
       for (const c of this.chat.slice(-30)) {
         if (c.you) out.push({ t: c.t, who: 'you', name: 'YOU', text: c.you });
-        if (c.jarvis) out.push({ t: c.t, who: 'jarvis', name: 'JARVIS', text: c.jarvis });
+        if (c.jarvis) out.push({ t: c.t, who: 'jarvis', name: c.by || 'JARVIS', text: c.jarvis });
       }
       return out;
     }
     const out = [];
     for (const j of this.jobs.slice(-15)) {
-      out.push({ t: j.t, who: 'jarvis', name: 'JARVIS', text: j.task || j.description });
+      out.push({ t: j.t, who: 'jarvis', name: j.by || name, text: j.task || j.description });
       if (j.result) out.push({ t: '', who: 'job', name: 'REPORT', text: j.result });
       else if (j.status === 'running') out.push({ t: '', who: 'working', name: 'WORKING', text: j.step ? `Working: ${j.step}` : `Working on ${j.description}…` });
       else out.push({ t: '', who: 'working', name: 'REPORT', text: `${j.status === 'failed' ? 'Failed' : 'Stopped'} without a report.` });

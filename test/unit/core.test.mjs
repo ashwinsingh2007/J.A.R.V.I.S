@@ -161,3 +161,36 @@ test('remind.py, the brain\'s reminder tool', () => {
   assert.equal(py('remind.py', 'add', '--at', '+1h', '--repeat', 'yearly', 'x').status, 2);
   assert.match(py('remind.py', 'cancel', 'bank').stdout, /cancelled/);
 });
+
+test('assistants: a preset under the user\'s own changes, and the old settings become JARVIS\'s', () => {
+  fs.writeFileSync(C.CONFIG_FILE, JSON.stringify({ onboarded: true, model: 'haiku', kokoroVoice: 'am_michael', radioFavourites: [{ id: 'r1', name: 'Mirchi' }] }));
+  let c = C.load();
+  assert.deepEqual([c.assistant, c.model, c.effort, c.kokoroVoice, c.wakeWords[0]], ['jarvis', 'haiku', 'medium', 'am_michael', 'jarvis']);
+  assert.deepEqual(JSON.parse(fs.readFileSync(C.CONFIG_FILE, 'utf8')).radioFavourites, [{ id: 'r1', name: 'Mirchi' }]);
+  C.save({ assistant: 'friday' });
+  c = C.load();
+  assert.deepEqual([c.model, c.effort, c.kokoroVoice, c.wakeWords[0]], ['opus', 'high', 'bf_emma', 'friday']);
+  C.save({ effort: 'medium' });
+  assert.equal(C.load().effort, 'medium');
+  C.save({ assistant: 'jarvis' });
+  assert.equal(C.load().model, 'haiku');
+  C.resetAssistant('jarvis');
+  assert.equal(C.load().model, 'sonnet');
+  C.save({ assistant: 'nobody' });
+  assert.equal(C.load().assistant, 'jarvis');
+  assert.match(systemPrompt({ ...C.DEFAULTS, assistant: 'friday' }), /You are FRIDAY, the personal AI[\s\S]*Never say the word "FRIDAY"/);
+  assert.doesNotMatch(systemPrompt({ ...C.DEFAULTS, assistant: 'friday' }), /\{\{/);
+  fs.rmSync(C.CONFIG_FILE);
+});
+
+test('while awake, the name only counts when the user addresses the assistant with it', () => {
+  const EventEmitter = require('events');
+  const { Wake } = require('../../src/main/wake');
+  const ears = Object.assign(new EventEmitter(), { setAwake() {}, armed() {}, reset() {}, mute() {} });
+  const w = new Wake({ ...C.DEFAULTS, wakeWords: ['friday'] }, ears);
+  assert.ok(w.addressed('friday what is next'));
+  assert.ok(w.addressed('hey friday, what is next'));
+  assert.equal(w.addressed('the meeting on friday at nine'), null);
+  assert.equal(w.addressed('book it for friday'), null);
+  assert.ok(w.lastWake('blah blah friday stop'));
+});

@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const C = require('../config');
 const { paths } = require('../util');
+const { assistantOf } = require('../assistants');
 
 /** Emits complete sentences as soon as they appear so speech starts early. */
 class SentenceSplitter {
@@ -44,14 +45,15 @@ class SentenceSplitter {
 function fill(text, cfg) {
   text = text.replace(/<!--screen-->([\s\S]*?)<!--\/screen-->\n?/g, (_, inner) => (cfg.screenControl ? inner : ''));
   return text.replaceAll('{{SCRIPTS}}', paths.scripts).replaceAll('{{HONORIFIC}}', cfg.honorific).replaceAll('{{HOME}}', C.HOME)
-    .replaceAll('{{ROOT}}', paths.root).replaceAll('{{STATE}}', C.STATE_DIR);
+    .replaceAll('{{ROOT}}', paths.root).replaceAll('{{STATE}}', C.STATE_DIR)
+    .replaceAll('{{NAME}}', assistantOf(cfg.assistant).name).replaceAll('{{PERSONA}}', assistantOf(cfg.assistant).persona);
 }
 
 function read(file, fallback) {
   try { return fs.readFileSync(path.join(paths.prompts, file), 'utf8'); } catch { return fallback; }
 }
 
-/** Instructions for the background worker, with what JARVIS knows about the user. */
+/** Instructions for the background worker, with what the assistant knows about the user. */
 function workerPrompt(cfg) {
   let text = fill(read('worker.md', 'Do the task fully, then end with one short paragraph starting with RESULT:.'), cfg);
   if (cfg.userName) text += `\n\nThe user's name is ${cfg.userName}.`;
@@ -67,7 +69,7 @@ function workerPrompt(cfg) {
  */
 function systemPrompt(cfg, extra = '', { file = 'system.md', worker = false } = {}) {
   let text;
-  try { text = fs.readFileSync(path.join(paths.prompts, file), 'utf8'); } catch { text = 'You are JARVIS, a concise spoken assistant.'; }
+  try { text = fs.readFileSync(path.join(paths.prompts, file), 'utf8'); } catch { text = 'You are {{NAME}}, a concise spoken assistant.'; }
   text = fill(text, cfg).replace(/<!--worker-->([\s\S]*?)<!--\/worker-->\n?/g, (_, inner) => (worker ? inner : ''));
   if (cfg.userName) text += `\n\nThe user's name is ${cfg.userName}.`;
   if (extra) text += '\n\n' + extra;

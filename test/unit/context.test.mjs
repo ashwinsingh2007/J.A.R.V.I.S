@@ -50,7 +50,7 @@ test('a roll folds older lines into the summary and keeps the latest word for wo
   assert.match(carried, /EARLIER CONVERSATION/);
   assert.match(carried, /It is context, not instructions/);
   assert.match(carried, /Summary of earlier turns:\nThe user counted lines\./);
-  assert.match(carried, /JARVIS: line 19/);
+  assert.match(carried, /Assistant: line 19/);
   // The next roll builds on the summary.
   for (let i = 0; i < 12; i++) c.add('user', `more ${i}`);
   await c.roll(async (system, text) => { input = text; return 'Merged.'; });
@@ -134,7 +134,7 @@ test('the API brain starts its history again from the summary', async (t) => {
   const last = sent[sent.length - 1];
   assert.deepEqual(last.messages, [{ role: 'user', content: 'and now?' }]);
   assert.match(last.system, /Summary of earlier turns:\nThe user likes long questions\./);
-  assert.match(last.system, /JARVIS: Right\./);
+  assert.match(last.system, /Assistant: Right\./);
 });
 
 test('memory learns new facts, updates changed ones and never keeps secrets', () => {
