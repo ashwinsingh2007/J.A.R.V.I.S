@@ -560,7 +560,36 @@ async function testHud() {
     await sleep(300);
     check(`tab ${v} opens`, await hud.evaluate(() => document.body.dataset.view) === v);
   }
+  await sleep(900);
   await shot(hud, 'hud-1-home');
+
+  // The crew show in the normal view too, clear of the side panels, and can be clicked there
+  const crewLayout = (w, h) => hud.evaluate(() => {
+    const box = (el) => el.getBoundingClientRect();
+    const hit = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    const panels = ['lc', 'lf', 'brand', 'ask'].map((id) => box(document.getElementById(id)));
+    return ['friday', 'karen', 'edith', 'vision'].map((id) => {
+      const m = document.getElementById('crew-' + id);
+      const parts = [m.querySelector('.halo'), m.querySelector('.nm2'), m.querySelector('.rl2')].map(box);
+      return { id, shown: getComputedStyle(m).opacity === '1', clear: parts.every((p) => panels.every((q) => !hit(p, q))) };
+    });
+  });
+  for (const [w, h] of [[1470, 920], [1920, 1140]]) {
+    await s.app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows().find((x) => x.isVisible()).setSize(w, h), [w, h]);
+    await sleep(1200);
+    const lay = await crewLayout();
+    check(`the crew show in the normal view at ${w}x${h}`, lay.every((x) => x.shown), lay.filter((x) => !x.shown).map((x) => x.id).join(', '));
+    check(`and none of them covers a panel at ${w}x${h}`, lay.every((x) => x.clear), lay.filter((x) => !x.clear).map((x) => x.id).join(', '));
+    if (w === 1470) await shot(hud, 'hud-home-crew-laptop');
+  }
+  const fri = await hud.evaluate(() => { const r = document.querySelector('#crew-friday .core').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+  let nm = s.mark();
+  await hud.mouse.click(fri[0], fri[1]);
+  await sleep(1300);
+  check('clicking FRIDAY in the normal view spotlights her', await hud.evaluate(() => document.getElementById('crew-friday').classList.contains('spot')) && await s.waitLog(/talking to friday \(HUD\)/, 3000, nm));
+  await hud.click('#spot-back');
+  await sleep(900);
+  check('BACK TO JARVIS returns to the normal view', await hud.evaluate(() => !document.body.classList.contains('spot') && getComputedStyle(document.getElementById('lc')).opacity === '1'));
 
   // System panel gets real numbers
   await sleep(3500);

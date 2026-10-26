@@ -433,6 +433,29 @@ body.focus[data-view="cc"] #crew .mate { opacity: 1; transform: none; transition
 #crew .mate.on .fire { opacity: 1; animation-duration: .7s; }
 #crew .mate.on .halo { opacity: 1; animation-duration: 4s; }
 #crew .mate.on .rl { fill: var(--cyan); }
+/* the normal view: the crew sit just outside the reactor ring, labels underneath, linked to the core.
+   In full mode they glide out to their places in the web. */
+#crew .nm2 { font-size: 2.1px; letter-spacing: 0.5px; fill: var(--bright); }
+#crew .rl2 { font-size: 1.35px; letter-spacing: 0.3px; fill: var(--faint); }
+#crew .nm2, #crew .rl2 { opacity: 0; transition: opacity .4s ease; }
+#crew .nm, #crew .rl { transition: opacity .4s ease; }
+#crew .tethers { opacity: 0; transition: opacity .5s ease; }
+#crew .tether { stroke: var(--cyan); stroke-width: 0.14; stroke-dasharray: 0.6 1.6; opacity: 0.35; animation: crewflow 2.6s linear infinite; }
+#crew .tether.on { opacity: 0.9; stroke-width: 0.22; animation-duration: .8s; }
+#crew .fire, #crew .spark { transition: opacity .4s ease; }
+body[data-view="cc"]:not(.focus):not(.spot) #crew { opacity: 1; }
+body[data-view="cc"]:not(.focus):not(.spot) #crew .tethers { opacity: 1; }
+body[data-view="cc"]:not(.focus):not(.spot) #crew .mate { opacity: 1; pointer-events: auto; cursor: pointer; transform: translate(calc((var(--nx) - var(--hx)) * 1px), calc((var(--ny) - var(--hy)) * 1px)); transition: opacity .5s ease, transform .8s cubic-bezier(.2,.7,.2,1); }
+body[data-view="cc"]:not(.focus):not(.spot) #crew .mate .nm, body[data-view="cc"]:not(.focus):not(.spot) #crew .mate .rl,
+body[data-view="cc"]:not(.focus):not(.spot) #crew .mate .fire, body[data-view="cc"]:not(.focus):not(.spot) #crew .mate .spark { opacity: 0; }
+body[data-view="cc"]:not(.focus):not(.spot) #crew .mate .nm2, body[data-view="cc"]:not(.focus):not(.spot) #crew .mate .rl2 { opacity: 1; }
+body[data-view="cc"]:not(.focus):not(.spot) #crew .mate.on .rl2 { fill: var(--cyan); }
+body[data-view="cc"]:not(.focus):not(.spot) #crew .mate:hover .aura { opacity: .8; transform: none; }
+body[data-view="cc"]:not(.focus):not(.spot) #crew .mate:hover .core { opacity: 1; }
+body[data-view="cc"]:not(.focus):not(.spot) #crew .mate:hover .nm2 { fill: var(--cyan); }
+body.spot #crew .mate .nm2, body.spot #crew .mate .rl2 { opacity: 0; }
+@media (max-width: 999px) { body[data-view="cc"]:not(.focus):not(.spot) #crew { opacity: 0; pointer-events: none; } body[data-view="cc"]:not(.focus):not(.spot) #crew .mate { pointer-events: none; } }
+
 /* clickable crew: in the idle view and in the spotlight */
 #crew .hit { fill: transparent; }
 #crew .aura { fill: none; stroke: var(--cyan); stroke-width: 0.12; opacity: 0; transform-box: fill-box; transform-origin: center; transform: scale(.6); transition: opacity .3s ease, transform .4s cubic-bezier(.2,.7,.2,1); }
