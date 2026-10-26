@@ -527,7 +527,7 @@
           armedT = setTimeout(() => { armedT = null; x.classList.remove('confirm'); x.textContent = isBrain ? 'RESET' : '×'; }, 3000);
         });
         if (watchedCwd && s.cwd === watchedCwd) card.classList.add('watching');
-        card.addEventListener('click', () => { if (s.cwd) post({ type: 'action', name: 'watch', cwd: s.cwd }); });
+        card.addEventListener('click', () => { if (sessKind(s) === 'jarvis') post({ type: 'action', name: 'watch', key: 'jarvis' }); else if (s.cwd) post({ type: 'action', name: 'watch', key: 'cc:' + s.cwd }); });
         card.appendChild(ico); card.appendChild(bodyEl); card.appendChild(x); cards.appendChild(card);
       });
     });
@@ -546,49 +546,64 @@
   renderSessions();
 
   const unmd = (t) => String(t || '').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/`([^`]*)`/g, '$1').replace(/\*\*/g, '');
-  // ---------- live session feed (session_tail) ----------
+  // ---------- right panel: conversations (JARVIS, the crew, Claude Code sessions) ----------
   const livelog = $('livelog');
-  let liveStuck = true, liveNow = null;
+  const CREW_IDS = ['friday', 'karen', 'edith', 'vision'];
+  const CREW_ROLE = { friday: 'tasks', karen: 'messages', edith: 'security', vision: 'browser' };
+  let liveStuck = true, liveNow = null, liveSig = '';
   livelog.addEventListener('scroll', () => { liveStuck = livelog.scrollHeight - livelog.scrollTop - livelog.clientHeight < 24; });
-  function setLive(t) {
-    if (!t || !t.entries) return;
-    liveNow = t;
-    $('live-name').textContent = (t.pinned ? '' : 'AUTO · ') + (t.name || '—');
-    $('live-dot').className = 'dot ' + (t.status || '');
-    $('live-ago').textContent = t.ago || '';
-    $('live-pin').textContent = t.pinned ? 'PINNED' : '';
-    watchedCwd = t.pinned ? (t.cwd || null) : null;
-    document.querySelectorAll('.card').forEach((c) => c.classList.toggle('watching', !!watchedCwd && c.dataset.cwd === watchedCwd));
+  function setConversation(c) {
+    if (!c || !c.entries) return;
+    liveNow = c;
+    $('live-name').textContent = c.name || '—';
+    $('live-dot').className = 'dot ' + (c.status || '');
+    $('live-ago').textContent = c.ago || '';
+    $('live-pin').textContent = '';
+    watchedCwd = c.key.startsWith('cc:') ? c.key.slice(3) : null;
+    document.querySelectorAll('.card').forEach((el) => el.classList.toggle('watching', !!watchedCwd && el.dataset.cwd === watchedCwd));
+    if (!livePop.hidden) buildPicker();
+    const sig = c.key + JSON.stringify(c.entries);
+    if (sig === liveSig) return;
+    const switched = !liveSig.startsWith(c.key + '[');
+    liveSig = sig;
     livelog.textContent = '';
-    const arr = t.entries.slice(-10);
-    if (!arr.length) { const e = document.createElement('li'); e.className = 'empty'; e.textContent = 'NO ACTIVITY YET'; livelog.appendChild(e); return; }
-    arr.forEach((en) => {
-      const li = document.createElement('li'); li.className = en.kind || 'assistant';
+    if (!c.entries.length) {
+      const e = document.createElement('li'); e.className = 'empty';
+      e.textContent = c.key === 'jarvis' ? 'NO CONVERSATION YET' : c.key.startsWith('cc:') ? 'NO MESSAGES YET' : `NOTHING ASKED OF ${c.name} YET`;
+      livelog.appendChild(e); return;
+    }
+    c.entries.forEach((en) => {
+      const li = document.createElement('li'); li.className = 'msg ' + (en.who || '');
+      const head = document.createElement('div'); head.className = 'mh';
+      const k = document.createElement('span'); k.className = 'k'; k.textContent = en.name || '';
       const tt = document.createElement('span'); tt.className = 't'; tt.textContent = en.t || '';
-      const k = document.createElement('span'); k.className = 'k'; k.textContent = en.kind === 'tool' ? '⚙ TOOL' : (en.kind || 'assistant').toUpperCase();
-      const x = document.createElement('span'); x.className = 'x'; x.textContent = unmd(en.text); x.title = unmd(en.text);
-      li.appendChild(tt); li.appendChild(k); li.appendChild(x); livelog.appendChild(li);
+      head.appendChild(k); head.appendChild(tt);
+      const x = document.createElement('div'); x.className = 'x'; x.textContent = unmd(en.text);
+      x.addEventListener('click', () => li.classList.toggle('open'));
+      li.appendChild(head); li.appendChild(x); livelog.appendChild(li);
     });
-    if (liveStuck) livelog.scrollTop = livelog.scrollHeight;
+    if (liveStuck || switched) livelog.scrollTop = livelog.scrollHeight;
   }
   const livePop = $('live-pop'), liveBtn = $('live-btn');
   function buildPicker() {
     livePop.textContent = '';
-    const add = (label, status, cwd, sub) => {
+    const add = (label, status, key, sub) => {
       const b = document.createElement('button');
       const d = document.createElement('span'); d.className = 'dot ' + (status || '');
       const n = document.createElement('span'); n.textContent = label;
       b.appendChild(d); b.appendChild(n);
       if (sub) { const sm = document.createElement('small'); sm.textContent = sub; b.appendChild(sm); }
-      b.classList.toggle('on', cwd ? (watchedCwd === cwd) : !watchedCwd);
-      b.addEventListener('click', () => { post(cwd ? { type: 'action', name: 'watch', cwd } : { type: 'action', name: 'unwatch' }); livePop.hidden = true; });
+      b.classList.toggle('on', !!liveNow && liveNow.key === key);
+      b.addEventListener('click', () => { post({ type: 'action', name: 'watch', key }); livePop.hidden = true; });
       livePop.appendChild(b);
     };
-    add('Auto (most recent working)', liveNow && !liveNow.pinned ? liveNow.status : '', null, '');
-    const jarvis = sessData.filter((x) => sessKind(x) === 'jarvis'), claude = sessData.filter((x) => sessKind(x) === 'claude');
     const grp = (t) => { const g = document.createElement('div'); g.className = 'grp'; g.textContent = t; livePop.appendChild(g); };
-    if (jarvis.length) { grp('JARVIS'); jarvis.forEach((x) => add(x.name, x.status, x.cwd, x.ago)); }
-    if (claude.length) { grp('CLAUDE CODE'); claude.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach((x) => add(x.name, x.status, x.cwd, x.ago)); }
+    const crewNow = (liveNow && liveNow.crew) || {};
+    grp('JARVIS');
+    add('JARVIS', stats.brainReady ? 'idle' : '', 'jarvis', 'you and JARVIS');
+    CREW_IDS.forEach((id) => add(id.toUpperCase(), crewNow[id] ? 'working' : 'idle', id, crewNow[id] ? `${crewNow[id]} running` : CREW_ROLE[id]));
+    const claude = sessData.filter((x) => sessKind(x) === 'claude');
+    if (claude.length) { grp('CLAUDE CODE'); claude.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach((x) => add(x.name, x.status, 'cc:' + x.cwd, x.ago)); }
   }
   liveBtn.addEventListener('click', (ev) => { ev.stopPropagation(); if (livePop.hidden) buildPicker(); livePop.hidden = !livePop.hidden; });
   document.addEventListener('click', (ev) => { if (!livePop.hidden && !livePop.contains(ev.target)) livePop.hidden = true; });
@@ -794,7 +809,7 @@
         case 'notice': notice(e.text || ''); break;
         case 'system': setSystem(e); break;
         case 'stats': setStats(e); break;
-        case 'session_tail': setLive(e); break;
+        case 'conversation': setConversation(e); break;
         case 'history': {
           nativeHistory = true; history.length = 0;
           (Array.isArray(e.data) ? e.data : []).forEach((h) => history.push(h));
@@ -1058,19 +1073,14 @@
     ];
     setTimeout(() => { ev({ type: 'boot', ok: true }); ev({ type: 'sessions', data: fake }); }, 900);
     const tailEntries = [
-      { t: '19:56:40', kind: 'user', text: 'Run the test suite for the meeting importer and fix anything that fails.' },
-      { t: '19:56:44', kind: 'assistant', text: 'Running the importer tests first to see the current state.' },
-      { t: '19:56:45', kind: 'tool', text: 'Bash: npm test -- importer' },
-      { t: '19:57:01', kind: 'result', text: '42 passed, 2 failed: parseAttendees drops the organiser when the calendar sends a display name with a comma.' },
-      { t: '19:57:03', kind: 'assistant', text: 'The failures are in parseAttendees. Reading the parser.' },
-      { t: '19:57:04', kind: 'tool', text: 'Read: src/importer/parseAttendees.ts' },
-      { t: '19:57:12', kind: 'tool', text: 'Edit: src/importer/parseAttendees.ts (quoted-name split)' },
-      { t: '19:57:13', kind: 'tool', text: 'Bash: npm test -- importer' },
-      { t: '19:57:29', kind: 'result', text: '44 passed, 0 failed.' },
-      { t: '19:57:31', kind: 'assistant', text: 'All importer tests pass now. The fix keeps quoted display names intact when splitting attendees.' },
+      { t: '19:56', who: 'you', name: 'YOU', text: 'Check my Gmail and tell me what needs a reply.' },
+      { t: '19:56', who: 'jarvis', name: 'JARVIS', text: "KAREN's going through your inbox now, sir." },
+      { t: '19:58', who: 'jarvis', name: 'JARVIS', text: 'Three new emails. Only the one from your bank needs a reply.' },
+      { t: '20:01', who: 'you', name: 'YOU', text: 'Draft a polite reply saying I will call them tomorrow.' },
+      { t: '20:01', who: 'jarvis', name: 'JARVIS', text: 'Drafting it now. I will read it to you before anything is sent.' },
     ];
-    let tailN = 4;
-    setInterval(() => { tailN = Math.min(tailEntries.length, tailN + 1); ev({ type: 'session_tail', name: 'web-app', cwd: '~/Projects/web-app', status: tailN < tailEntries.length ? 'working' : 'idle', ago: '12s ago', kind: 'jarvis', pinned: tailN > 6, entries: tailEntries.slice(0, tailN) }); }, 1500);
+    let tailN = 2;
+    setInterval(() => { tailN = Math.min(tailEntries.length, tailN + 1); ev({ type: 'conversation', key: 'jarvis', name: 'JARVIS', status: tailN < tailEntries.length ? 'working' : 'idle', ago: '', crew: { karen: 1 }, entries: tailEntries.slice(0, tailN) }); }, 1500);
     const tools = [['Bash', 'sessions.sh'], ['Read', '~/.claude/projects/…/transcript.jsonl'], ['WebSearch', 'kokoro onnx british voices'], ['Bash', 'send.sh web-app "run the tests"'], ['Bash', 'mac.sh screenshot'], ['Agent', 'agent: checking your Gmail']];
     const cycle = ['idle', 'listening', 'thinking', 'speaking'];
     let i = 0;

@@ -91,13 +91,15 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 .pop button.on { color: var(--cyan); }
 .pop button small { margin-left: auto; font-size: var(--lab); color: var(--faint); }
 .livelog { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; overflow: auto; min-height: 0; font-size: var(--val); line-height: 1.4; -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 56px, #000 100%); }
-.livelog li { display: grid; grid-template-columns: 5em 6.2em minmax(0, 1fr); gap: 8px; align-items: start; padding: 6px 0; border-bottom: 1px solid var(--hair); }
+.livelog li { padding: 8px 0; border-bottom: 1px solid var(--hair); }
 .livelog li:last-child { border-bottom: 0; }
-.livelog .t { color: var(--faint); }
-.livelog .k { font-size: var(--lab); letter-spacing: 0.14em; padding-top: 2px; }
-.livelog li.user .k { color: var(--cyan); } .livelog li.tool .k { color: var(--amber); } .livelog li.result .k { color: var(--faint); } .livelog li.assistant .k { color: var(--text); }
-.livelog .x { color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
-.livelog li.assistant .x { color: var(--text); } .livelog li.result .x { color: var(--faint); }
+.livelog .mh { display: flex; align-items: baseline; gap: 10px; margin-bottom: 3px; }
+.livelog .t { color: var(--faint); font-size: var(--lab); }
+.livelog .k { font-size: var(--lab); letter-spacing: 0.14em; color: var(--text); }
+.livelog li.you .k { color: var(--cyan); } .livelog li.crew .k, .livelog li.working .k { color: var(--amber); }
+.livelog .x { color: var(--text); white-space: pre-wrap; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; }
+.livelog li.open .x { display: block; }
+.livelog li.you .x { color: var(--muted); } .livelog li.working .x { color: var(--faint); font-style: italic; }
 .livelog .empty { color: var(--faint); letter-spacing: 0.16em; padding: 14px 0; }
 
 /* top right */
