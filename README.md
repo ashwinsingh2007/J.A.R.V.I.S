@@ -93,7 +93,7 @@ JARVIS is the head of a small crew. He chats with you, answers simple questions 
 | Crew member | Takes care of |
 |---|---|
 | FRIDAY | Coding, web search and research, files, scripts and anything heavy |
-| KAREN | Email, WhatsApp, Telegram and other messages, replies, and drafting posts for LinkedIn or X |
+| KAREN | All your communication and online presence: email, WhatsApp, Telegram and other chats, every social media account (messages, comments, posts, replies), and self-branding: profiles, bios and content plans |
 | EDITH | Security and checks: code and work reviews, fact-checks, whether a link, email or download is safe |
 | VISION | Anything inside a website, in your signed-in Chrome. He only has the Claude in Chrome tools |
 

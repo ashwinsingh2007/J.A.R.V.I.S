@@ -29,7 +29,7 @@ test('each crew member gets their own persona, the shared rules and the crew lis
 
 test('the brain prompt describes the crew, and the Claude Code brain has no web search of its own', () => {
   const p = systemPrompt(C.DEFAULTS);
-  assert.match(p, /KAREN: communication/);
+  assert.match(p, /KAREN: all of the user.s communication/);
   assert.match(p, /subagent_type \("friday", "karen", "edith" or "vision"\)/);
   assert.match(claudeDisallowed(C.DEFAULTS, { brain: true }), /WebSearch,WebFetch/);
   assert.doesNotMatch(claudeDisallowed(C.DEFAULTS), /WebSearch/);

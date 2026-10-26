@@ -52,7 +52,7 @@ const TOOL_NOTE = `In this mode you do not have Bash. Use the tools instead:
 // With the crew available, TIER 2 goes through the delegate tool instead of the Agent tool.
 const DELEGATE = {
   name: 'delegate',
-  description: "Hand a task to JARVIS's crew, who do it in the background on a stronger model and report back. to: friday (coding, web search and research, files, heavy jobs), karen (email, WhatsApp and other messages, drafting replies and posts), edith (reviews, fact-checks, safety and security), vision (anything inside a website, in the user's signed-in Chrome). Use it for every task beyond a simple answer.",
+  description: "Hand a task to JARVIS's crew, who do it in the background on a stronger model and report back. to: friday (coding, web search and research, files, heavy jobs), karen (all communication: email, WhatsApp and other chats, every social media account, posts, replies and self-branding), edith (reviews, fact-checks, safety and security), vision (anything inside a website, in the user's signed-in Chrome). Use it for every task beyond a simple answer.",
   schema: {
     type: 'object',
     properties: {
