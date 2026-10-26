@@ -323,8 +323,9 @@
   // The assistant in use changed: it becomes the core, the others move into the slots around it.
   function setAssistants(e) {
     if (Array.isArray(e.list) && e.list.length) { assistants = e.list; sel = { id: '' }; }
+    if (e.env) env = e.env;
     if (e.id) current = e.id;
-    if (e.edit) { editing = e.edit; aNote(`Made ${(assistants.find((a) => a.id === e.edit) || {}).name}. Change it below, then USE it.`); }
+    if (e.edit) { editing = e.edit; aNote(`Made ${(assistants.find((a) => a.id === e.edit) || {}).name}. Change it here, then use it.`); }
     else if (e.list) aNote('');
     const me = assistants.find((a) => a.id === current) || assistants[0];
     if (spotted) unspot(false);
@@ -335,39 +336,106 @@
     document.querySelector('.corelabel .jv').textContent = me.name;
     document.title = me.name.split('').join('.');
     $('ask-input').placeholder = `Type to ${me.name}…`;
-    $('sc-assistant').textContent = `${me.name} · ${me.tier}`;
     $('power').querySelector('b').textContent = `${body.classList.contains('disabled') ? 'ENABLE' : 'DISABLE'} ${me.name}`;
     renderAssistantCards();
   }
-  // Settings › Assistant: one card each. Clicking one opens it below to change it; USE IT switches.
-  let editing = '';
+  // ---------- the Agents tab ----------
+  // A card for each agent on the left; the open one's whole setup on the right. Save stores it for that
+  // agent, whether or not it is the one in use. env: what main says is set up (brains, Ollama's models,
+  // the speech engine every agent shares).
+  let editing = '', filled = '';
+  let env = { ready: {}, ollamaModels: [], engine: 'kokoro' };
+  const BRAINS = { auto: 'Best available', 'claude-code': 'Claude Code', anthropic: 'Anthropic API', gemini: 'Gemini', ollama: 'Ollama' };
+  const ENGINES = { kokoro: 'Kokoro', elevenlabs: 'ElevenLabs', edge: 'Edge neural', native: 'macOS voice' };
+  const cap = (x) => { x = String(x || '').replace(/\bclaude\b/g, 'Claude'); return x.charAt(0).toUpperCase() + x.slice(1); };
+  const field = (k) => document.querySelector(`#a-edit [data-s="${k}"]`);
+  function brainLine(st) {
+    const p = st.brainProvider;
+    if (p === 'anthropic') return `Anthropic · ${st.anthropicModel}`;
+    if (p === 'gemini') return `Gemini · ${st.geminiModel}`;
+    if (p === 'ollama') return `Ollama · ${st.ollamaModel}`;
+    return `Claude ${cap(st.model)} · ${st.effort} effort`;
+  }
+  function voiceLine(st) {
+    if (env.engine === 'kokoro') { const o = [...field('kokoroVoice').options].find((x) => x.value === st.kokoroVoice); return o ? o.textContent.split(' (')[0] : st.kokoroVoice; }
+    if (env.engine === 'edge') return String(st.edgeVoice || '').replace(/^\w\w-\w\w-|Neural$/g, '');
+    if (env.engine === 'native') return st.nativeVoice;
+    return 'ElevenLabs';
+  }
+  const workerOn = (st) => st.brainProvider === 'auto' || st.brainProvider === 'claude-code' || st.worker !== 'off';
+  function el(tag, cls, text) { const x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; }
+
   function renderAssistantCards() {
     if (!assistants.some((a) => a.id === editing)) editing = current;
+    $('n-agents').textContent = assistants.length;
     $('acards').replaceChildren(...assistants.map((a) => {
-      const b = document.createElement('button');
-      b.className = 'bcard' + (a.id === current ? ' on' : '') + (a.id === editing ? ' editing' : '');
-      const n = document.createElement('b'); n.textContent = `${a.name} · ${a.tier}${a.id === current ? ' · IN USE' : ''}`;
-      const d = document.createElement('small'); d.textContent = `${a.about}${a.needs ? ` Needs ${a.needs}.` : ''}`;
-      b.append(n, d);
-      if (a.changed || a.custom) { const c = document.createElement('i'); c.className = 'chip'; c.textContent = a.custom ? 'YOUR OWN' : 'YOUR CHANGES'; b.append(c); }
+      const st = a.settings || {};
+      const b = el('button', 'agcard' + (a.id === current ? ' on' : '') + (a.id === editing ? ' editing' : ''));
+      b.dataset.id = a.id;
+      const body = el('div', 'ag-txt');
+      const n = el('div', 'n', a.name);
+      if (a.id === current) n.append(el('span', 'badge on', 'In use'));
+      else if (a.custom) n.append(el('span', 'badge', 'Your own'));
+      else if (a.changed) n.append(el('span', 'badge', 'Changed'));
+      const skills = a.skills ? a.skills.length : ext.skills.length;
+      body.append(n, el('div', 't', cap(String(a.tier).toLowerCase())), el('div', 'm', brainLine(st)),
+        el('div', 'm', [workerOn(st) ? `Worker ${cap(st.agentModel)}` : 'No worker', voiceLine(st), skills ? `${skills} skills` : ''].filter(Boolean).join(' · ')));
+      b.append(el('span', 'ag-face', a.name.charAt(0)), body);
       b.addEventListener('click', () => { editing = a.id; renderAssistantCards(); });
       return b;
     }));
     const a = assistants.find((x) => x.id === editing);
     if (!a) return;
     $('a-edit-title').textContent = a.name;
-    document.querySelectorAll('#a-edit [data-own]').forEach((li) => { li.hidden = !a.custom; });
-    $('a-name').value = a.name; $('a-tier').value = a.tier; $('a-about').value = a.about;
-    $('a-wake').value = (a.wakeWords || []).join(', ');
-    $('a-persona').value = a.persona || '';
+    $('a-face').textContent = a.name.charAt(0);
+    $('a-edit-tier').textContent = cap(String(a.tier).toLowerCase()) + (a.needs ? ` · Needs ${a.needs}` : '');
+    $('a-edit-about').textContent = a.about;
     $('a-use').hidden = a.id === current;
-    $('a-use').textContent = `USE ${a.name}`;
+    $('a-use').textContent = `Use ${a.name}`;
+    $('a-inuse').hidden = a.id !== current;
     $('a-reset').hidden = !a.changed;
     $('a-delete').hidden = !a.custom;
     $('a-create').dataset.from = a.id;
+    document.querySelectorAll('#a-edit [data-own]').forEach((li) => { li.hidden = !a.custom; });
+    // Fill the form only when another agent opens or its saved setup changed, so typing isn't lost.
+    const key = a.id + JSON.stringify([a.settings, a.persona, a.wakeWords, a.name, a.tier, a.about]);
+    if (filled !== key) {
+      filled = key;
+      $('a-name').value = a.name; $('a-tier').value = a.tier; $('a-about').value = a.about;
+      $('a-wake').value = (a.wakeWords || []).join(', ');
+      $('a-persona').value = a.persona || '';
+      for (const [k, v] of Object.entries(a.settings || {})) {
+        const f = field(k);
+        if (!f) continue;
+        if (f.tagName === 'SELECT' && v && ![...f.options].some((o) => o.value === String(v))) f.append(new Option(String(v), String(v)));
+        f.value = v ?? '';
+      }
+    }
     if (sel.id !== a.id) sel = { id: a.id, skills: a.skills ? new Set(a.skills) : null, mcp: a.mcp ? new Set(a.mcp) : null };
+    syncAgent();
     renderPicks();
   }
+
+  // Rows that only apply to the chosen brain or the speech engine in use, and what still needs setting up.
+  function syncAgent() {
+    const p = field('brainProvider').value;
+    document.querySelectorAll('#a-edit [data-brain]').forEach((li) => { li.hidden = !li.dataset.brain.split(' ').includes(p); });
+    $('ag-agent-row').hidden = !workerOn({ brainProvider: p, worker: field('worker').value });
+    document.querySelectorAll('#a-edit [data-engine]').forEach((li) => { li.hidden = li.dataset.engine !== env.engine; });
+    const r = env.ready || {};
+    const need = {
+      'claude-code': 'Claude Code is not set up on this Mac. See Settings › Brains & keys.',
+      anthropic: 'Add an Anthropic API key in Settings › Brains & keys first.',
+      gemini: 'Add a Gemini API key in Settings › Brains & keys first.',
+      ollama: 'Ollama is not running. Set it up in Settings › Brains & keys.',
+    };
+    const note = $('ag-brain-note');
+    note.textContent = p === 'auto' ? 'Claude Code when it is ready, otherwise an API key you added, otherwise Ollama.' : r[p] ? '' : need[p];
+    note.classList.toggle('bad', p !== 'auto' && !r[p]);
+    $('ag-ollama-models').replaceChildren(...(env.ollamaModels || []).map((m) => new Option('', m.replace(/:latest$/, ''))));
+    $('ag-voice-note').textContent = `Every agent speaks through ${ENGINES[env.engine] || env.engine}. Change the engine in Settings › Voice.`;
+  }
+  document.querySelectorAll('#a-edit [data-s]').forEach((f) => f.addEventListener('change', syncAgent));
 
   // ---------- skills and MCP servers ----------
   // ext: what main found on this Mac (Settings › Skills & MCP), sel: the open assistant's ticks
@@ -376,7 +444,7 @@
   let sel = { id: '', skills: null, mcp: null };
   const li = (cls) => { const x = document.createElement('li'); if (cls) x.className = cls; return x; };
   const span = (cls, text) => { const x = document.createElement('span'); x.className = cls; x.textContent = text; return x; };
-  const SRC = { personal: 'YOURS', jarvis: 'GITHUB', plugin: '' };
+  const SRC = { personal: 'Yours', jarvis: 'GitHub', plugin: '' };
   function pickRow(on, name, desc, tag, onChange, title) {
     const row = li();
     const lab = document.createElement('label');
@@ -399,11 +467,11 @@
     const ids = ext.skills.map((x) => x.id);
     const isOn = (k, key) => !sel[k] || sel[k].has(key);
     const shown = ext.skills.filter((x) => !find || (x.name + ' ' + x.description + ' ' + (x.plugin || '')).toLowerCase().includes(find));
-    $('a-skills').replaceChildren(...(shown.length ? shown.map((x) => pickRow(isOn('skills', x.id), x.name, x.description, span('src', SRC[x.source] || String(x.plugin).toUpperCase()), (on) => toggle('skills', ids, x.id, on))) : [Object.assign(li('empty'), { textContent: ext.skills.length ? 'NO SKILL MATCHES' : 'LOOKING FOR SKILLS…' })]));
-    $('a-skill-count').textContent = ext.skills.length ? `${sel.skills ? sel.skills.size : ext.skills.length} OF ${ext.skills.length} ON` : '';
+    $('a-skills').replaceChildren(...(shown.length ? shown.map((x) => pickRow(isOn('skills', x.id), x.name, x.description, span('src', SRC[x.source] || String(x.plugin)), (on) => toggle('skills', ids, x.id, on))) : [Object.assign(li('empty'), { textContent: ext.skills.length ? 'No skill matches' : 'Looking for skills…' })]));
+    $('a-skill-count').textContent = ext.skills.length ? `${sel.skills ? sel.skills.size : ext.skills.length} of ${ext.skills.length} on` : '';
     const names = ext.mcp.map((m) => m.name);
-    $('a-mcp').replaceChildren(...(ext.mcp.length ? ext.mcp.map((m) => pickRow(isOn('mcp', m.name), m.name, m.target, span('st ' + m.status.split(' ')[0], m.status.toUpperCase()), (on) => toggle('mcp', names, m.name, on))) : [Object.assign(li('empty'), { textContent: 'CHECKING YOUR MCP SERVERS…' })]));
-    $('a-mcp-count').textContent = ext.mcp.length ? `${sel.mcp ? sel.mcp.size : ext.mcp.length} OF ${ext.mcp.length} ON` : '';
+    $('a-mcp').replaceChildren(...(ext.mcp.length ? ext.mcp.map((m) => pickRow(isOn('mcp', m.name), m.name, m.target, span('st ' + m.status.split(' ')[0], cap(m.status)), (on) => toggle('mcp', names, m.name, on))) : [Object.assign(li('empty'), { textContent: 'Checking your MCP servers…' })]));
+    $('a-mcp-count').textContent = ext.mcp.length ? `${sel.mcp ? sel.mcp.size : ext.mcp.length} of ${ext.mcp.length} on` : '';
   }
   $('a-skill-find').addEventListener('input', renderPicks);
   $('a-skill-all').addEventListener('click', () => { sel.skills = null; renderPicks(); });
@@ -415,35 +483,36 @@
   function setExt(e) {
     ext = { skills: e.skills || [], mcp: e.mcp || [], markets: e.markets || [] };
     if (e.error) xNote(e.error, true); else if (e.done) xNote(e.done);
-    $('sc-ext').textContent = `${ext.skills.length} SKILLS · ${ext.mcp.length} MCP SERVERS`;
+    $('sc-ext').textContent = `${ext.skills.length} skills · ${ext.mcp.length} MCP servers`;
+    if (assistants.length) renderAssistantCards();
     renderPicks();
     $('x-skill-count').textContent = String(ext.skills.length);
     $('x-skills').replaceChildren(...(ext.skills.length ? ext.skills.map((x) => {
       const row = li();
-      row.append(span('nm', x.name), span('ds', x.description), span('src', SRC[x.source] || String(x.plugin).toUpperCase()));
+      row.append(span('nm', x.name), span('ds', x.description), span('src', SRC[x.source] || String(x.plugin)));
       row.title = x.description;
       if (x.source === 'jarvis') {
-        const b = document.createElement('button'); b.className = 'mini'; b.textContent = 'REMOVE';
+        const b = document.createElement('button'); b.className = 'btn small'; b.textContent = 'Remove';
         b.addEventListener('click', () => { if (confirm(`Remove the skill ${x.name}?`)) { busy(`Removing ${x.name}…`); post({ type: 'action', name: 'ext:skill-remove', id: x.id }); } });
         row.append(b);
       }
       return row;
-    }) : [Object.assign(li('empty'), { textContent: 'NO SKILLS YET' })]));
+    }) : [Object.assign(li('empty'), { textContent: 'No skills yet' })]));
     const ms = $('x-market'), keep = ms.value;
     ms.replaceChildren(...ext.markets.map((m) => new Option(`${m.name} (${m.plugins.length})`, m.name)));
     if (ext.markets.some((m) => m.name === keep)) ms.value = keep;
     renderPlugins();
     $('x-mcp').replaceChildren(...(ext.mcp.length ? ext.mcp.map((m) => {
       const row = li();
-      row.append(span('nm', m.name), span('ds', m.target), span('st ' + m.status.split(' ')[0], m.status.toUpperCase()));
+      row.append(span('nm', m.name), span('ds', m.target), span('st ' + m.status.split(' ')[0], cap(m.status)));
       if (m.status === 'needs sign-in') row.title = `Run "claude" in a terminal and type /mcp to sign in to ${m.name}.`;
       if (m.kind === 'server') {
-        const b = document.createElement('button'); b.className = 'mini'; b.textContent = 'REMOVE';
+        const b = document.createElement('button'); b.className = 'btn small'; b.textContent = 'Remove';
         b.addEventListener('click', () => { if (confirm(`Remove the MCP server ${m.name} from your Claude Code?`)) { busy(`Removing ${m.name}…`); post({ type: 'action', name: 'ext:mcp-remove', server: m.name }); } });
         row.append(b);
       }
       return row;
-    }) : [Object.assign(li('empty'), { textContent: 'CHECKING…' })]));
+    }) : [Object.assign(li('empty'), { textContent: 'Checking…' })]));
   }
   function renderPlugins() {
     const m = ext.markets.find((x) => x.name === $('x-market').value);
@@ -453,7 +522,7 @@
       const row = li();
       row.append(span('nm', p.name), span('ds', p.description));
       row.title = p.description;
-      const b = document.createElement('button'); b.className = 'mini'; b.textContent = p.installed ? 'REMOVE' : 'INSTALL';
+      const b = document.createElement('button'); b.className = 'btn small'; b.textContent = p.installed ? 'Remove' : 'Install';
       b.addEventListener('click', () => {
         if (p.installed) { if (!confirm(`Remove ${p.name} from your Claude Code?`)) return; busy(`Removing ${p.name}…`); post({ type: 'action', name: 'ext:uninstall', plugin: p.name, market: m.name }); return; }
         if (!confirm(`Install ${p.name} from ${m.name}${m.from ? ` (${m.from})` : ''}? Its skills run with the same access as JARVIS, so only install what you trust.`)) return;
@@ -462,7 +531,7 @@
       });
       row.append(b);
       return row;
-    }) : [Object.assign(li('empty'), { textContent: m ? 'NO PLUGIN MATCHES' : 'NO MARKETPLACE YET' })]));
+    }) : [Object.assign(li('empty'), { textContent: m ? 'No plugin matches' : 'No marketplace yet' })]));
   }
   $('x-market').addEventListener('change', renderPlugins);
   $('x-find').addEventListener('input', renderPlugins);
@@ -491,7 +560,9 @@
   $('a-save').addEventListener('click', () => {
     const a = assistants.find((x) => x.id === editing);
     if (!a) return;
-    const patch = { id: a.id, persona: $('a-persona').value, wakeWords: $('a-wake').value };
+    const settings = {};
+    document.querySelectorAll('#a-edit [data-s]').forEach((f) => { if (f.value !== '') settings[f.dataset.s] = f.type === 'number' ? Number(f.value) : f.value.trim(); });
+    const patch = { id: a.id, persona: $('a-persona').value, wakeWords: $('a-wake').value, settings };
     if (sel.id === a.id && ext.skills.length) patch.skills = sel.skills ? [...sel.skills] : 'all';
     if (sel.id === a.id && ext.mcp.length) patch.mcp = sel.mcp ? [...sel.mcp] : 'all';
     if (a.custom) Object.assign(patch, { title: $('a-name').value, tier: $('a-tier').value, about: $('a-about').value });
@@ -499,11 +570,11 @@
     post({ type: 'action', name: 'assistant-update', ...patch });
   });
   $('a-use').addEventListener('click', () => { aNote(`Switching to ${$('a-edit-title').textContent}…`); post({ type: 'action', name: 'assistant', id: editing }); });
-  $('a-reset').addEventListener('click', () => { if (confirm('Forget your changes to this assistant and go back to its preset?')) post({ type: 'action', name: 'assistant-reset', id: editing }); });
+  $('a-reset').addEventListener('click', () => { if (confirm('Forget your changes to this agent and go back to its preset?')) post({ type: 'action', name: 'assistant-reset', id: editing }); });
   $('a-delete').addEventListener('click', () => { if (confirm(`Delete ${$('a-edit-title').textContent}? Its settings go too. Memory stays.`)) post({ type: 'action', name: 'assistant-delete', id: editing }); });
   $('a-create').addEventListener('click', () => {
     const name = $('a-new-name').value.trim();
-    if (!name) { aNote('Type a name for the new assistant first.', true); return; }
+    if (!name) { aNote('Type a name for the new agent first.', true); return; }
     post({ type: 'action', name: 'assistant-create', from: editing, title: name });
     $('a-new-name').value = '';
   });
@@ -646,6 +717,7 @@
     document.querySelectorAll('#nav a').forEach((a) => a.classList.toggle('active', a.dataset.view === v));
     if (v === 'cc') resize();
     if (v === 'history') { const c = $('chat'); c.scrollTop = c.scrollHeight; }
+    if (v === 'agents') post({ type: 'action', name: 'ext:list' });   // the skills and servers to tick
   }
   document.querySelectorAll('#nav a').forEach((a) => a.addEventListener('click', () => showView(a.dataset.view)));
   if (location.hash.length > 1 && document.getElementById('v-' + location.hash.slice(1))) setTimeout(() => showView(location.hash.slice(1)), 4500);
@@ -1062,7 +1134,7 @@
         case 'info': Object.assign(info, e); setStats({}); break;
         case 'theme': jarvisTheme.apply(e.theme, e.mode); break;
         case 'settings': setSettings(e); if (window.jarvisSettings) window.jarvisSettings.event(e); break;
-        case 'open-settings': showView('settings'); if (window.jarvisSettings) window.jarvisSettings.open(e.section || ''); break;
+        case 'open-settings': if (e.section === 'assistant') { showView('agents'); break; } showView('settings'); if (window.jarvisSettings) window.jarvisSettings.open(e.section || ''); break;
         default: if (/^cfg-/.test(e.type) && window.jarvisSettings) window.jarvisSettings.event(e);
         case 'boot': bootSignal(); break;
         case 'panel': addPanel(e.title, e.html); break;
@@ -1135,10 +1207,13 @@
     btn.hidden = !need.length;
   }
   function setSettings(e) {
-    const ns = document.querySelector('[data-key="nativeVoice"]');
+    // The macOS voices, for each agent's voice on the Agents tab.
     if (Array.isArray(e.sayVoices) && e.sayVoices.length) {
-      ns.replaceChildren(...e.sayVoices.map((v) => { const o = document.createElement('option'); o.value = o.textContent = v; return o; }));
+      const ns = $('ag-native'), keep = ns.value;
+      ns.replaceChildren(...e.sayVoices.map((v) => new Option(v, v)));
+      if (keep) { if (![...ns.options].some((o) => o.value === keep)) ns.append(new Option(keep, keep)); ns.value = keep; }
     }
+    if (e.values && e.values.ttsEngine && e.values.ttsEngine !== env.engine) { env.engine = e.values.ttsEngine; if (assistants.length) renderAssistantCards(); }
     const av = e.available;
     if (av) {
       const opt = (key, val) => document.querySelector(`[data-key="${key}"] option[value="${val}"]`);
@@ -1168,25 +1243,21 @@
     renderSetCards(e);
     showTts();
   }
-  // The big choices: what is set now, and a button into the Settings window at that section.
+  // The summary under each section in the Settings sidebar.
   const setVals = {};
   function renderSetCards(e) {
     Object.assign(setVals, e.values || {});
     if ('brain' in e) setVals.brain = e.brain;
     if ('workerAvailable' in e) setVals.workerAvailable = e.workerAvailable;
     if (e.hands) setVals.hands = e.hands;
-    const v = setVals, up = (s) => String(s || '—').toUpperCase();
-    const cc = /^claude code/.test(v.brain || '');
-    const worker = cc || (v.workerAvailable && v.worker !== 'off') ? `WORKER · ${up(v.agentModel)}` : 'NO WORKER';
-    $('sc-brain').textContent = `${up(v.brain)} · ${worker}`;
+    const v = setVals;
+    $('sc-brain').textContent = 'Claude Code, API keys, Ollama';
     const h = v.hands || {};
-    $('sc-access').textContent = h.missing ? 'MIC · SPEECH' : `MIC · SPEECH · APPS ${h.ax ? '✓' : '✗'} · SCREEN ${h.screen ? '✓' : '✗'}`;
-    $('sc-ears').textContent = v.sttEngine === 'elevenlabs' ? 'ELEVENLABS SCRIBE' : `ON-DEVICE · ${up(v.speechLocale)}`;
-    $('sc-voice').textContent = { kokoro: `KOKORO · ${up(v.kokoroVoice)}`, elevenlabs: 'ELEVENLABS', edge: `EDGE · ${up(v.edgeVoice)}`, native: `MACOS · ${up(v.nativeVoice)}` }[v.ttsEngine] || up(v.ttsEngine);
-    $('sc-extras').textContent = `TELEGRAM ${stats.telegram && stats.telegram !== 'off' ? up(stats.telegram) : 'OFF'}`;
+    $('sc-access').textContent = h.missing ? 'Mic · speech' : `Mic · speech · apps ${h.ax ? '✓' : '✗'} · screen ${h.screen ? '✓' : '✗'}`;
+    $('sc-ears').textContent = v.sttEngine === 'elevenlabs' ? 'ElevenLabs Scribe' : `On-device · ${v.speechLocale || ''}`;
+    $('sc-voice').textContent = { kokoro: 'Kokoro', elevenlabs: 'ElevenLabs', edge: 'Edge neural', native: 'macOS voice' }[v.ttsEngine] || v.ttsEngine || '—';
+    $('sc-extras').textContent = `Telegram ${stats.telegram && stats.telegram !== 'off' ? stats.telegram : 'off'}`;
   }
-  // Each card opens its page inside the Settings box (settings.js).
-  document.querySelectorAll('.setcard').forEach((b) => b.addEventListener('click', () => window.jarvisSettings && window.jarvisSettings.open(b.dataset.section)));
 
   document.querySelectorAll('[data-key]').forEach((el) => el.addEventListener('change', () => {
     const v = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
@@ -1204,6 +1275,8 @@
     const w = jarvisTheme.wanted();
     document.querySelectorAll('[data-theme-pick]').forEach((b) => b.classList.toggle('on', b.dataset.themePick === w.theme));
     document.querySelectorAll('[data-mode-pick]').forEach((b) => b.classList.toggle('on', b.dataset.modePick === w.mode));
+    const names = { jarvis: 'JARVIS', terminal: 'Terminal', neon: 'Neon', stark: 'Stark', minimal: 'Minimal' };
+    $('sc-look').textContent = `${names[w.theme] || w.theme} · ${w.mode === 'system' ? 'matches macOS' : w.mode}`;
   }
   document.querySelectorAll('[data-theme-pick]').forEach((b) => b.addEventListener('click', () => {
     jarvisTheme.apply(b.dataset.themePick); markLook(); post({ type: 'action', name: 'theme', theme: b.dataset.themePick });

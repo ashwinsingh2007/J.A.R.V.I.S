@@ -54,11 +54,11 @@ It has a personality, and you pick which one. There are five assistants. Each of
 | EDITH | Private. Her brain runs on a local model on your Mac, and she is the weakest of the five | Ollama |
 | VISION | For when you don't have Claude | Google's Gemini, which has a free tier |
 
-Pick one in Setup, switch by clicking another one on the HUD's home screen, or say "switch to FRIDAY". Each one answers to its own name and has its own voice. Settings you change are saved to the assistant you're using. A switch waits until any running background job has finished.
+Pick one in Setup, switch by clicking another one on the HUD's home screen, or say "switch to FRIDAY". Each one answers to its own name and has its own voice. Brain, model and voice changes are saved per assistant in the Agents tab. A switch waits until any running background job has finished.
 
-Settings › Assistant lets you rewrite any assistant's persona prompt and wake words, or put it back to its preset. You can also make your own: start from any of them, give it a name, and change its persona, brain and voice. Your own assistants show up around the core with the rest. The safety rules apply to every assistant, whatever its persona says.
+The Agents tab lists every assistant with its brain, model, background worker and voice. Open one to change any of those, its persona prompt, wake words, skills and MCP servers, without switching to it, or put it back to its preset. You can also make your own: start from any of them, give it a name, and change whatever you like. Your own assistants show up around the core with the rest. The safety rules apply to every assistant, whatever its persona says.
 
-Each assistant also has its own skills and MCP servers. Settings lists every Claude Code skill on your Mac (yours in `~/.claude/skills` and the ones inside your plugins) and your MCP servers with their status, and you tick what each assistant may use. Everything is on by default. Settings › Skills & MCP is where you get more: install plugins from a marketplace (Anthropic's skills marketplace included), add skills from a GitHub repository, or add an MCP server by its address or the command that starts it. Your Claude Code gets the plugins and servers too. JARVIS doesn't load your Claude Code settings, hooks or CLAUDE.md, so each assistant gets a small plugin of links to its chosen skills, and its servers are passed in when it starts. A skill or server can do anything JARVIS can, so JARVIS asks before it installs one. If a server needs you to sign in, run `claude` in a terminal and type `/mcp`.
+Each assistant also has its own skills and MCP servers. Settings lists every Claude Code skill on your Mac (yours in `~/.claude/skills` and the ones inside your plugins) and your MCP servers with their status, and you tick what each assistant may use in the Agents tab. Everything is on by default. Settings › Skills & MCP is where you get more: install plugins from a marketplace (Anthropic's skills marketplace included), add skills from a GitHub repository, or add an MCP server by its address or the command that starts it. Your Claude Code gets the plugins and servers too. JARVIS doesn't load your Claude Code settings, hooks or CLAUDE.md, so each assistant gets a small plugin of links to its chosen skills, and its servers are passed in when it starts. A skill or server can do anything JARVIS can, so JARVIS asks before it installs one. If a server needs you to sign in, run `claude` in a terminal and type `/mcp`.
 
 Whichever one you use, it keeps answers short. When it looks something up, it tells you what it found in its own words and leaves out the list of links.
 
@@ -108,7 +108,7 @@ Anything inside a website (Gmail, LinkedIn, YouTube, forms, shopping) runs throu
 
 JARVIS answers simple things himself and hands every real task to his background worker. The worker has every tool: coding, web search and research, files and scripts, websites in your signed-in Chrome, email, chats and social media, and looking after the Mac (what's slowing it down, what's installed, and cleaning caches, logs and the Trash). One worker takes a job from start to finish, so the parts of a job that belong together stay together. Unrelated jobs can run at the same time.
 
-The worker runs on Opus by default and reports back while you keep talking. Ask "what's the status?" any time. Anything that sends, posts, deletes, pays or cleans waits for your yes. With Claude Code as the brain, the worker runs as its background agent. With any other brain it runs as a separate Claude Code process, so Claude Code needs to be installed. You can pick the worker's model, or switch it off, in Setup and in the HUD's Settings.
+The worker runs on Opus by default and reports back while you keep talking. Ask "what's the status?" any time. Anything that sends, posts, deletes, pays or cleans waits for your yes. With Claude Code as the brain, the worker runs as its background agent. With any other brain it runs as a separate Claude Code process, so Claude Code needs to be installed. You can pick the worker's model, or switch it off, in Setup and in the HUD's Agents tab.
 
 ### How it keeps the conversation
 
@@ -181,7 +181,7 @@ The Claude Code brain and its background agents run without permission prompts, 
 
 Your own Claude Code deny rules and PreToolUse hooks in `~/.claude/settings.json` still apply. JARVIS also blocks edits to `~/.claude`, to its own code and to its config file, and it never opens new terminal windows.
 
-Using apps outside Chrome needs Accessibility and Screen Recording permission for JARVIS (HUD, Settings, Screen access, ALLOW). It reads windows through Accessibility and asks before it moves your mouse or types. You can turn this off with "Use apps outside Chrome".
+Using apps outside Chrome needs Accessibility and Screen Recording permission for JARVIS (HUD, Settings, General, Screen access, Allow). It reads windows through Accessibility and asks before it moves your mouse or types. You can turn this off with "Use apps outside Chrome".
 
 "Disable" in the HUD releases the microphone completely. Nothing listens on the network. The radio proxy binds to 127.0.0.1 and needs a key that changes every run. Telegram only answers the one chat id you set up.
 

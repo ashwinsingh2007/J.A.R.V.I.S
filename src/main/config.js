@@ -179,13 +179,36 @@ function save(patch) {
   const preset = assistantOf(who, raw).settings || {};
   for (const [k, v] of Object.entries(patch)) {
     if (k === 'assistant' || k === 'customAssistants') continue;
-    if (SCOPED.includes(k)) {
-      // Only real changes are kept: a value that matches the preset is the preset.
-      raw.assistantSettings = raw.assistantSettings || {};
-      const mine = { ...(raw.assistantSettings[who] || {}), [k]: v };
-      if (k in preset ? JSON.stringify(v) === JSON.stringify(preset[k]) : JSON.stringify(v) === JSON.stringify(DEFAULTS[k])) delete mine[k];
-      raw.assistantSettings[who] = mine;
-    } else raw[k] = SECRET_KEYS.has(k) ? encrypt(v) : v;
+    if (SCOPED.includes(k)) putScoped(raw, who, preset, k, v);
+    else raw[k] = SECRET_KEYS.has(k) ? encrypt(v) : v;
+  }
+  writeRaw(raw);
+}
+
+/** Only real changes are kept: a value that matches the preset is the preset. */
+function putScoped(raw, id, preset, k, v) {
+  raw.assistantSettings = raw.assistantSettings || {};
+  const mine = { ...(raw.assistantSettings[id] || {}), [k]: v };
+  if (k in preset ? JSON.stringify(v) === JSON.stringify(preset[k]) : JSON.stringify(v) === JSON.stringify(DEFAULTS[k])) delete mine[k];
+  raw.assistantSettings[id] = mine;
+}
+
+/**
+ * One assistant's brain, model, worker and voice (SCOPED keys), from the Agents tab. Works for any
+ * assistant, not only the one in use. Values that don't fit are dropped.
+ */
+function saveSettings(id, patch) {
+  const raw = readRaw();
+  migrate(raw);
+  if (!exists(id, raw)) return;
+  const preset = assistantOf(id, raw).settings || {};
+  for (const [k, v] of Object.entries(patch || {})) {
+    if (!SCOPED.includes(k) || k === 'wakeWords') continue;
+    let ok;
+    if (ENUMS[k]) ok = ENUMS[k].includes(v) ? v : undefined;
+    else if (RANGES[k]) { const n = Number(v); ok = Number.isFinite(n) ? Math.min(RANGES[k][1], Math.max(RANGES[k][0], n)) : undefined; }
+    else ok = typeof v === 'string' && v.trim() && v.length <= 120 ? v.trim() : undefined;
+    if (ok !== undefined) putScoped(raw, id, preset, k, ok);
   }
   writeRaw(raw);
 }
@@ -249,5 +272,5 @@ module.exports = {
   BRAIN_SESSIONS_FILE: path.join(STATE_DIR, 'brain-sessions.txt'),
   MEMORY_FILE: path.join(STATE_DIR, 'memory.md'),
   EVENTS_FILE: path.join(STATE_DIR, 'events.jsonl'),
-  attachSafeStorage, load, save, resetAssistant, saveProfile, saveCustom, sanitize, findProjectRoot,
+  attachSafeStorage, load, save, saveSettings, resetAssistant, saveProfile, saveCustom, sanitize, findProjectRoot,
 };

@@ -228,9 +228,17 @@ const HUD_KEYS = ['ttsEngine', 'kokoroVoice', 'kokoroSpeed', 'edgeVoice', 'nativ
 function sendAssistants(extra = {}) {
   if (!hud) return;
   const mine = cfg.assistantSettings || {};
+  const base = Object.fromEntries(SCOPED.filter((k) => k !== 'wakeWords').map((k) => [k, C.DEFAULTS[k]]));
+  const f = found || {};
   hud.send('assistants', {
     id: cfg.assistant,
     ...extra,
+    // What the Agents tab needs to say which brains are set up here.
+    env: {
+      ready: { 'claude-code': !!(f.claude && f.claude.path && f.claude.loggedIn), anthropic: !!cfg.anthropicApiKey, gemini: !!cfg.geminiApiKey, ollama: !!(f.ollama && f.ollama.running) },
+      ollamaModels: (f.ollama && f.ollama.models) || [],
+      engine: cfg.ttsEngine,
+    },
     list: allAssistants(cfg).map((a) => {
       const own = mine[a.id] || {};
       return {
@@ -238,6 +246,9 @@ function sendAssistants(extra = {}) {
         defaultPersona: (ASSISTANTS[a.id] || (cfg.customAssistants || {})[a.id] || {}).persona || '',
         wakeWords: own.wakeWords || a.settings.wakeWords || [], changed: Object.keys(own).length > 0,
         skills: Array.isArray(own.skills) ? own.skills : null, mcp: Array.isArray(own.mcp) ? own.mcp : null,
+        // Its brain, model, worker and voice as they stand: defaults, then its preset, then the user's changes.
+        settings: a.id === cfg.assistant ? Object.fromEntries(Object.keys(base).map((k) => [k, cfg[k]]))
+          : { ...base, ...Object.fromEntries(Object.entries(a.settings || {}).filter(([k]) => k in base)), ...Object.fromEntries(Object.entries(own).filter(([k]) => k in base)) },
       };
     }),
   });
@@ -309,7 +320,7 @@ async function extensionsAction(name, msg = {}) {
 const NAME_OK = /^[A-Z0-9][A-Z0-9 .'-]{1,19}$/;
 const wakeList = (v) => [...new Set(String(v || '').toLowerCase().split(',').map((w) => w.replace(/[^a-z0-9 ']/g, '').trim()).filter((w) => w.length >= 3))].slice(0, 6);
 
-/** Settings › Assistant: make a new assistant from another one, change one, or delete one of the user's own. */
+/** The Agents tab: make a new assistant from another one, change one, or delete one of the user's own. */
 function editAssistant(kind, b = {}) {
   const fail = (text) => hud && hud.send('assistant-error', { text });
   if (kind === 'assistant-create') {
@@ -365,6 +376,7 @@ function editAssistant(kind, b = {}) {
     fields.wakeWords = w;
   }
   C.saveProfile(id, fields);
+  if (b.settings && typeof b.settings === 'object') C.saveSettings(id, b.settings);
   log(`assistant: changed ${assistantOf(id, cfg).name} (${Object.keys(b).filter((k) => !['id', 'type', 'name'].includes(k)).join(', ')})`);
   if (id === cfg.assistant) refreshCurrent('The change'); else { Object.assign(cfg, C.load()); sendAssistants(); }
 }

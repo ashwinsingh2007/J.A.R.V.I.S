@@ -367,21 +367,21 @@ async function testValidation() {
   // Settings in the HUD box: a stored key shows as stored, an empty field keeps it, clamped values stay clamped
   if (hud) {
     await hud.click('#nav a[data-view="settings"]');
-    await hud.click('.setcard[data-section="ears"]');
+    await hud.click('#setnav [data-section="ears"]');
     await sleep(800);
-    check('Settings opens Listening inside the box', await hud.isVisible('#set-page .sp[data-page="ears"]'));
-    await hud.click('#sp-back');
-    await hud.click('.setcard[data-section="voice"]');
-    const v = await hud.inputValue('[data-key="kokoroSpeed"]').catch(() => '');
-    check('Settings shows the clamped speed', Number(v) <= 2, v);
+    check('Settings opens Listening beside the sidebar', await hud.isVisible('#set-page .sp[data-page="ears"]') && await hud.isHidden('#set-page .sp[data-page="general"]'));
+      await hud.click('#setnav [data-section="voice"]');
+    await hud.click('#nav a[data-view="agents"]');
+    await hud.waitForFunction(() => document.querySelector('#a-edit [data-s="kokoroSpeed"]').value, null, { timeout: 8000 }).catch(() => {});
+    const v = await hud.inputValue('#a-edit [data-s="kokoroSpeed"]').catch(() => '');
+    check('Agents shows the clamped speed', Number(v) > 0 && Number(v) <= 2, v);
+    await hud.click('#nav a[data-view="settings"]');
     const before = s.config().elevenLabsApiKey;
-    await hud.click('#sp-back');
-    await hud.click('.setcard[data-section="extras"]');
+      await hud.click('#setnav [data-section="extras"]');
     await hud.click('#x-save');
     await hud.waitForFunction(() => /Saved/.test(document.getElementById('x-msg').textContent), null, { timeout: 8000 }).catch(() => {});
     check('saving with empty key fields keeps the stored keys', s.config().elevenLabsApiKey === before && String(before).startsWith('enc:'));
-    await hud.click('#sp-back');
-  }
+    }
   await s.app.close();
 }
 
@@ -394,6 +394,7 @@ async function testThemes() {
   await hud.waitForFunction(() => document.body.dataset.state === 'idle', null, { timeout: 15000 }).catch(() => {});
   // Every theme, dark and light, from the HUD's own picker
   await hud.click('#nav a[data-view="settings"]');
+  await hud.click('#setnav [data-section="look"]');
   for (const theme of ['jarvis', 'terminal', 'neon', 'stark', 'minimal']) {
     for (const mode of ['dark', 'light']) {
       await hud.click(`#look-themes [data-theme-pick="${theme}"]`);
@@ -407,12 +408,26 @@ async function testThemes() {
       await shot(hud, `theme-hud-${theme}-${mode}`);
     }
   }
-  for (const page of ['brain', 'access', 'voice']) {
-    await hud.click(`.setcard[data-section="${page}"]`);
+  for (const page of ['general', 'brain', 'access', 'voice', 'extensions']) {
+    await hud.click(`#setnav [data-section="${page}"]`);
     await sleep(1200);
     await shot(hud, `settings-${page}-minimal-light`);
-    await hud.click('#sp-back');
   }
+  await hud.click('#nav a[data-view="agents"]');
+  await sleep(800);
+  await shot(hud, 'agents-minimal-light');
+  for (const [theme, mode] of [['jarvis', 'dark'], ['stark', 'dark']]) {
+    await hud.evaluate(([t, md]) => window.jarvisTheme && window.jarvisTheme.apply(t, md), [theme, mode]);
+    await sleep(500);
+    await shot(hud, `agents-${theme}-${mode}`);
+  }
+  await hud.click('#nav a[data-view="settings"]');
+  for (const page of ['general', 'brain', 'extensions']) {
+    await hud.click(`#setnav [data-section="${page}"]`);
+    await sleep(600);
+    await shot(hud, `settings-${page}-stark-dark`);
+  }
+  await hud.click('#setnav [data-section="look"]');
   await hud.click('#look-modes [data-mode-pick="system"]');
   await sleep(500);
   const sys = await hud.evaluate(() => document.documentElement.dataset.mode);
@@ -556,7 +571,7 @@ async function testHud() {
   await hud.waitForFunction(() => document.body.dataset.state === 'idle', null, { timeout: 15000 }).catch(() => {});
 
   // Tabs
-  for (const v of ['sessions', 'history', 'settings', 'music', 'cc']) {
+  for (const v of ['sessions', 'history', 'agents', 'settings', 'music', 'cc']) {
     await hud.click(`#nav a[data-view="${v}"]`);
     await sleep(300);
     check(`tab ${v} opens`, await hud.evaluate(() => document.body.dataset.view) === v);
@@ -603,39 +618,27 @@ async function testHud() {
   const brainRow = await hud.evaluate(() => document.querySelector('[data-kv="model"]').textContent);
   check('settings shows the brain', /claude code/i.test(settings) && /claude code/i.test(brainRow), brainRow);
   await shot(hud, 'hud-2-settings');
-  // The big choices: cards show what's set; each opens its page inside the Settings box
-  check('settings cards show the brain and worker', /CLAUDE CODE.*WORKER/.test(await text(hud, '#sc-brain')), await text(hud, '#sc-brain'));
+  // The sidebar says what's set; each section opens beside it
+  check('the sidebar sums up each section', /Claude Code/.test(await text(hud, '#sc-brain')) && /dark|light|macOS/.test(await text(hud, '#sc-look')), await text(hud, '#sc-look'));
   const winsBefore = await s.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length);
-  await hud.click('.setcard[data-section="brain"]');
+  await hud.click('#setnav [data-section="brain"]');
   await hud.waitForFunction(() => document.querySelector('#bc-claude-code').textContent, null, { timeout: 10000 }).catch(() => {});
-  check('Brain & worker opens inside the Settings box, no new window', await hud.isVisible('#set-page .sp[data-page="brain"]') && await hud.isHidden('#setcards') && await s.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length) === winsBefore);
-  check('the page has a Back button and a title', await hud.isVisible('#sp-back') && await text(hud, '#sp-title') === 'BRAIN & WORKER');
-  check('all four brains are offered, with their state', await hud.locator('#bcards .bcard').count() === 4 && /READY|NOT INSTALLED|SIGN IN/.test(await text(hud, '#bc-claude-code')), await text(hud, '#bc-claude-code'));
-  await hud.click('.bcard[data-b="ollama"]');
-  await hud.waitForFunction(() => /Ollama/.test(document.getElementById('b-ol-text').textContent), null, { timeout: 8000 }).catch(() => {});
-  check('choosing Ollama shows its guided panel', await hud.isVisible('.bpanel[data-for="ollama"]') && /Ollama/.test(await text(hud, '#b-ol-text')), await text(hud, '#b-ol-text'));
-  if (!(await hud.isDisabled('#b-save'))) {
-    await hud.click('#b-save');
-    await hud.waitForFunction(() => /Saved/.test(document.getElementById('b-msg').textContent), null, { timeout: 8000 }).catch(() => {});
-    check('switching the brain is saved and offers a restart', s.config().brainProvider === 'ollama' && await hud.isVisible('#b-restart'), await text(hud, '#b-msg'));
-    await hud.click('.bcard[data-b="claude-code"]');
-    await hud.click('#b-save');
-    await sleep(800);
-  } else check('Save waits until Ollama is ready', /Ollama|model/.test(await text(hud, '#b-msg')), await text(hud, '#b-msg'));
-  await hud.click('.bcard[data-b="gemini"]');
+  check('Brains & keys opens beside the sidebar, no new window', await hud.isVisible('#set-page .sp[data-page="brain"]') && await s.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length) === winsBefore);
+  check('the page has its title and the nav marks it', await text(hud, '#sp-title') === 'Brains & keys' && await hud.evaluate(() => document.querySelector('#setnav .navitem.on').dataset.section === 'brain'));
+  check('Claude Code, the keys and Ollama show their state', /Ready|Not installed|Sign in/.test(await text(hud, '#bc-claude-code')) && /key/i.test(await text(hud, '#bc-gemini')), await text(hud, '#bc-claude-code'));
+  check('no model choice is left in Settings', await hud.evaluate(() => !document.querySelector('#v-settings [data-key="model"], #v-settings [data-s], #v-settings #b-model')));
+  await hud.waitForFunction(() => /Ollama|Installed|Running|Free/.test(document.getElementById('b-ol-text').textContent), null, { timeout: 8000 }).catch(() => {});
+  check('Ollama shows how to set it up', /\w/.test(await text(hud, '#b-ol-text')), await text(hud, '#b-ol-text'));
   await hud.fill('#b-gemini-key', 'AIza-random-1234567890');
-  check('a typed key must pass TEST before Save', await hud.isDisabled('#b-save'));
+  check('a typed key must pass Test before Save', await hud.isDisabled('#b-save'));
   await hud.click('[data-btest="gemini"]');
   await hud.waitForFunction(() => /rejected/.test(document.getElementById('b-msg').textContent), null, { timeout: 15000 }).catch(() => {});
   check('a made-up Gemini key is rejected', /rejected/.test(await text(hud, '#b-msg')), await text(hud, '#b-msg'));
   await hud.fill('#b-gemini-key', '');
-  await hud.click('#sp-back');
-  check('Back returns to the cards', await hud.isVisible('#setcards') && await hud.isHidden('#set-page'));
-  await hud.click('.setcard[data-section="access"]');
+  await hud.click('#setnav [data-section="access"]');
   await hud.waitForFunction(() => document.querySelector('#hud-perms li[data-perm="mic"] .chip').textContent, null, { timeout: 10000 }).catch(() => {});
-  check('Access lists the permissions with their state', /ALLOWED|NOT YET|NOT ALLOWED/.test(await text(hud, '#hud-perms li[data-perm="mic"] .chip')), await text(hud, '#hud-perms li[data-perm="mic"] .chip'));
+  check('Access lists the permissions with their state', /Allowed|Not yet|Not allowed/.test(await text(hud, '#hud-perms li[data-perm="mic"] .chip')), await text(hud, '#hud-perms li[data-perm="mic"] .chip'));
   await shot(hud, 'hud-settings-access');
-  await hud.click('#sp-back');
 
   // Music tab
   await hud.click('#nav a[data-view="music"]');
@@ -693,11 +696,13 @@ async function testHud() {
 
   // Editable settings: saved, clamped and applied without a restart
   await hud.click('#nav a[data-view="settings"]');
-  await hud.waitForFunction(() => document.querySelector('[data-key="nativeVoice"]').options.length > 3, null, { timeout: 8000 }).catch(() => {});
   check('settings show the saved voice engine', await hud.evaluate(() => document.querySelector('[data-key="ttsEngine"]').value) === 'native');
-  const nvv = await hud.evaluate(() => { const e = document.querySelector('[data-key="nativeVoice"]'); return e.value + ' | ' + e.options.length; });
-  check('macOS voice list filled and saved voice selected', /^Daniel/.test(nvv), nvv);
-  check('only the current engine\'s voice rows show', await hud.evaluate(() => [...document.querySelectorAll('[data-tts]')].filter((li) => !li.hidden).every((li) => li.dataset.tts === 'native')));
+  await hud.click('#nav a[data-view="agents"]');
+  await hud.waitForFunction(() => document.getElementById('ag-native').options.length > 3, null, { timeout: 8000 }).catch(() => {});
+  const nvv = await hud.evaluate(() => { const e = document.getElementById('ag-native'); return e.value + ' | ' + e.options.length; });
+  check('the agent\'s macOS voice list is filled and its voice selected', /^Daniel/.test(nvv), nvv);
+  check('only the engine in use shows its voice rows', await hud.evaluate(() => [...document.querySelectorAll('#a-edit [data-engine]')].filter((li) => !li.hidden).every((li) => li.dataset.engine === 'native')));
+  await hud.click('#nav a[data-view="settings"]');
   const setField = (key, value) => hud.evaluate(([k, v]) => { const el = document.querySelector(`[data-key="${k}"]`); if (el.type === 'checkbox') el.checked = v; else el.value = v; el.dispatchEvent(new Event('change')); }, [key, value]);
   m = s.mark();
   await setField('commandSilenceSeconds', '1.5');
@@ -707,7 +712,7 @@ async function testHud() {
   await sleep(500);
   check('junk pause is clamped', s.config().commandSilenceSeconds === 0.5, s.config().commandSilenceSeconds);
   check('clamped value shown back in the HUD', await hud.evaluate(() => document.querySelector('[data-key="commandSilenceSeconds"]').value) === '0.5');
-  await hud.click('.setcard[data-section="ears"]');
+  await hud.click('#setnav [data-section="ears"]');
   await hud.click('.tog:has([data-key="requireEndWord"])');
   await sleep(500);
   check('"over" toggle saved', s.config().requireEndWord === true);
@@ -720,21 +725,20 @@ async function testHud() {
   check('recogniser saved', s.config().appleSpeech === 'accurate');
   await setField('ttsEngine', 'edge');
   check('voice engine switches live', await s.waitLog(/settings: applied ttsEngine/, 5000, m) && s.config().ttsEngine === 'edge');
-  check('edge voice row shows', await hud.evaluate(() => !document.querySelector('[data-tts="edge"]').hidden && document.querySelector('[data-tts="native"]').hidden));
+  check('the agent\'s edge voice row shows', await hud.evaluate(() => !document.querySelector('#a-edit [data-engine="edge"]').hidden && document.querySelector('#a-edit [data-engine="native"]').hidden));
   await setField('ttsEngine', 'native');
-  await hud.click('#sp-back');
-  await hud.click('.setcard[data-section="voice"]');
+  await hud.click('#setnav [data-section="voice"]');
   await hud.click('#test-voice');
   check('test voice speaks', await s.waitLog(/native synth/, 8000, m));
-  await hud.click('#sp-back');
-  await hud.click('.setcard[data-section="brain"]');
-  await hud.waitForFunction(() => !document.getElementById('b-save').disabled, null, { timeout: 8000 }).catch(() => {});
-  await hud.selectOption('#b-model', 'haiku');
-  await hud.click('#b-save');
-  await sleep(800);
-  check('brain model saved', s.config().model === 'haiku');
-  check('brain label updates', await s.waitLog(/settings: applied model/, 3000, m));
-  await hud.click('#sp-back');
+  // The brain and model are the agent's own, set on the Agents tab
+  await hud.click('#nav a[data-view="agents"]');
+  await hud.selectOption('#a-edit [data-s="model"]', 'haiku');
+  await hud.click('#a-save');
+  await sleep(1200);
+  check('the agent\'s model is saved', s.config().model === 'haiku', s.config().model);
+  check('its brain starts again with it', await s.waitLog(/assistant: changed JARVIS[^\n]*settings/, 5000, m));
+  await hud.click('#nav a[data-view="settings"]');
+  await hud.click('#setnav [data-section="general"]');
   await hud.waitForFunction(() => document.getElementById('hands-state').textContent !== 'checking…', null, { timeout: 8000 }).catch(() => {});
   const hs = await text(hud, '#hands-state');
   check('screen access status shown', /allowed|needs/.test(hs), hs);
@@ -823,11 +827,19 @@ async function testHud() {
   check('the brand reads K.A.R.E.N', await text(hud, '#brand .word') === 'K.A.R.E.N');
   check('her preset is in use', s.config().assistant === 'karen' && /claude code · haiku/.test(s.log().slice(sw)), s.config().assistant);
   await shot(hud, 'hud-karen');
-  // Back to JARVIS from Settings › Assistant
-  await hud.click('#nav a[data-view="settings"]');
-  await hud.click('.setcard[data-section="assistant"]');
+  // Back to JARVIS from the Agents tab
+  await hud.click('#nav a[data-view="agents"]');
   await sleep(400);
-  check('Settings lists the five assistants', await hud.evaluate(() => document.querySelectorAll('#acards .bcard').length === 5 && /KAREN/.test(document.querySelector('#acards .bcard.on').textContent)));
+  check('Agents lists the five, KAREN in use', await hud.evaluate(() => document.querySelectorAll('#acards .agcard').length === 5 && /KAREN/.test(document.querySelector('#acards .agcard.on').textContent) && document.getElementById('n-agents').textContent === '5'));
+  check('each card shows its brain and worker', /Claude Haiku · low effort/.test(await text(hud, '#acards .agcard.on')) && /Worker Sonnet/.test(await text(hud, '#acards .agcard.on')), await text(hud, '#acards .agcard.on'));
+  // Another agent can be changed without switching to it
+  await hud.click('#acards .agcard[data-id="vision"]');
+  check('opening VISION shows its Gemini brain', await hud.evaluate(() => document.getElementById('ag-brain').value === 'gemini' && !document.querySelector('#a-edit [data-brain="gemini"]').hidden && document.querySelector('#a-edit [data-brain="auto claude-code"]').hidden));
+  await hud.selectOption('#a-edit [data-s="agentModel"]', 'sonnet');
+  await hud.click('#a-save');
+  await sleep(800);
+  check('VISION\'s worker model is saved while KAREN stays in use', ((s.config().assistantSettings || {}).vision || {}).agentModel === 'sonnet' && s.config().assistant === 'karen', JSON.stringify((s.config().assistantSettings || {}).vision));
+  await hud.click('#acards .agcard[data-id="karen"]');
   // Make a new assistant from KAREN, give it a persona, then go back to JARVIS
   await hud.fill('#a-new-name', 'Coach');
   await hud.click('#a-create');
@@ -842,8 +854,8 @@ async function testHud() {
   check('it shows up around the core', await hud.evaluate(() => !!document.getElementById('crew-coach')));
   await shot(hud, 'hud-assistant-edit');
   // Skills and MCP servers for this assistant: all on by default, ticks saved with SAVE
-  await hud.waitForFunction(() => /OF \d+ ON/.test(document.getElementById('a-skill-count').textContent), null, { timeout: 15000 }).catch(() => {});
-  check('the editor lists the skills on this Mac, all on', /^(\d+) OF \1 ON$/.test(await text(hud, '#a-skill-count')), await text(hud, '#a-skill-count'));
+  await hud.waitForFunction(() => /of \d+ on/.test(document.getElementById('a-skill-count').textContent), null, { timeout: 15000 }).catch(() => {});
+  check('the editor lists the skills on this Mac, all on', /^(\d+) of \1 on$/.test(await text(hud, '#a-skill-count')), await text(hud, '#a-skill-count'));
   await hud.click('#a-skill-none');
   await hud.click('#a-skills li:first-child input');
   await hud.click('#a-save');
@@ -856,20 +868,18 @@ async function testHud() {
   await sleep(600);
   check('your own assistant can be deleted', !JSON.stringify(s.config().customAssistants || {}).includes('COACH'));
   // Settings › Skills & MCP lists what's here
-  await hud.click('#sp-back');
-  await hud.click('.setcard[data-section="extensions"]');
+  await hud.click('#nav a[data-view="settings"]');
+  await hud.click('#setnav [data-section="extensions"]');
   await hud.waitForFunction(() => document.querySelectorAll('#x-skills li:not(.empty)').length > 0, null, { timeout: 15000 }).catch(() => {});
   check('Skills & MCP lists the skills and the marketplaces', await hud.evaluate(() => document.querySelectorAll('#x-skills li:not(.empty)').length > 0 && document.querySelectorAll('#x-market option').length > 0));
   await shot(hud, 'hud-skills-mcp');
-  await hud.click('#sp-back');
-  await hud.click('.setcard[data-section="assistant"]');
+  await hud.click('#nav a[data-view="agents"]');
   await sleep(400);
   const back = s.mark();
-  await hud.click('#acards .bcard:nth-of-type(1)');
+  await hud.click('#acards .agcard[data-id="jarvis"]');
   await hud.click('#a-use');
   check('picking JARVIS there and USE switches back', await s.waitLog(/assistant: JARVIS took over/, 20000, back) && s.config().assistant === 'jarvis');
   await sleep(800);
-  await hud.click('#sp-back');
   await hud.click('#nav a[data-view="cc"]');
   await sleep(600);
   await hud.click('#live-btn');
@@ -880,6 +890,7 @@ async function testHud() {
   await sleep(300);
   check('moving onto a panel brings the panels back', !(await isFocus()));
   await hud.click('#nav a[data-view="settings"]');
+  await hud.click('#setnav [data-section="look"]');
   await hud.click('label:has([data-key="autoHide"])');
   await sleep(600);
   check('"full mode when idle" can be switched off', s.config().autoHide === false && await s.waitLog(/settings: applied autoHide/, 3000, m));
