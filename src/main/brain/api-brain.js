@@ -38,7 +38,7 @@ class ApiBrain extends EventEmitter {
     this.abort = null;
     this.historyFile = path.join(C.STATE_DIR, `${kind}-history.json`);
     try { this.history = JSON.parse(fs.readFileSync(this.historyFile, 'utf8')); } catch { this.history = []; }
-    this.context = new Context(kind);
+    this.context = new Context(kind, () => this.emit('context', this.contextInfo()));
     setInterval(() => { if (!this.isBusy) this.maybeRoll(); }, RETRY_MS).unref();
     this.splitter = new SentenceSplitter((s) => this.emit('sentence', s));
   }
@@ -67,12 +67,23 @@ class ApiBrain extends EventEmitter {
   /** About four characters to a token. */
   get historyTokens() { return Math.round(JSON.stringify(this.history).length / 4); }
 
+  /** What the HUD's Memory view shows about the conversation. */
+  contextInfo() {
+    const c = this.context;
+    return { summary: c.summary, rolledAt: c.rolledAt, lines: c.lines.length, tokens: this.historyTokens, limit: ROLL_TOKENS[this.kind], rolling: !!this.rolling || !!this.rollWanted };
+  }
+
+  /** Summarise now, from the HUD. */
+  rollNow() { this.rollWanted = true; if (!this.isBusy) this.maybeRoll(); }
+
   /** Summarise the older turns once the history is big or from yesterday, then start it again from the summary. */
   async maybeRoll() {
-    if (this.rolling || Date.now() - (this.rollFailedAt || 0) < RETRY_MS) return;
+    if (this.rolling) return;
     if (!this.freshWanted) {
-      if (!this.context.due(this.historyTokens, ROLL_TOKENS[this.kind])) return;
+      if (!this.rollWanted && (Date.now() - (this.rollFailedAt || 0) < RETRY_MS || !this.context.due(this.historyTokens, ROLL_TOKENS[this.kind]))) return;
       this.rolling = true;
+      this.rollWanted = false;
+      this.emit('context', this.contextInfo());
       log(`context: rolling over at about ${this.historyTokens} tokens`);
       try {
         await this.context.roll((system, text) => this.complete(system, text));
@@ -83,10 +94,12 @@ class ApiBrain extends EventEmitter {
       } finally { this.rolling = false; }
     }
     // A question that came in while summarising finishes on the old history first.
-    if (!this.freshWanted || this.isBusy) return;
-    this.freshWanted = false;
-    this.history = [];
-    this.saveHistory();
+    if (this.freshWanted && !this.isBusy) {
+      this.freshWanted = false;
+      this.history = [];
+      this.saveHistory();
+    }
+    this.emit('context', this.contextInfo());
   }
 
   /** One plain answer with no tools, for the summary. */

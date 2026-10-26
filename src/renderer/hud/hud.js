@@ -634,6 +634,23 @@
       () => post({ type: 'action', name: 'schedule-cancel', id: i.id }), 'Cancel')) : [emptyRow('NOTHING SCHEDULED')]));
     $('sched-count').textContent = items.length ? String(items.length) : '';
   }
+  // The rolling conversation summary: what JARVIS carries from older turns into a fresh session.
+  const kTok = (n) => (n >= 1000 ? Math.round(n / 1000) + 'K' : String(n || 0));
+  function setContext(c) {
+    c = c || {};
+    const pct = c.limit ? Math.min(100, Math.round((c.tokens || 0) / c.limit * 100)) : 0;
+    $('ctx-bar').style.width = pct + '%';
+    $('ctx-bar').classList.toggle('full', pct >= 90);
+    $('ctx-state').textContent = c.rolling ? 'SUMMARISING…' : '';
+    const when = c.rolledAt ? new Date(c.rolledAt).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).toUpperCase() : '';
+    $('ctx-meta').textContent = [`CONTEXT ${kTok(c.tokens)} / ${kTok(c.limit)} TOKENS`, `${c.lines || 0} TURN${c.lines === 1 ? '' : 'S'} SINCE THE SUMMARY`, when ? `SUMMARISED ${when}` : ''].filter(Boolean).join(' · ');
+    const box = $('ctx-summary');
+    box.classList.toggle('empty', !c.summary);
+    box.textContent = c.summary || 'NO SUMMARY YET. OLDER TURNS ARE SUMMARISED WHEN THE CONVERSATION GETS LONG OR A NEW DAY STARTS. THE LATEST DOZEN ALWAYS STAY WORD FOR WORD.';
+    $('ctx-roll').disabled = !!c.rolling;
+  }
+  $('ctx-roll').addEventListener('click', () => post({ type: 'action', name: 'context-roll' }));
+  $('ctx-clear').addEventListener('click', () => { if (confirm('Forget this conversation and its summary?')) post({ type: 'action', name: 'new' }); });
   $('mem-add').addEventListener('submit', (ev) => {
     ev.preventDefault();
     const v = $('mem-input').value.trim();
@@ -798,6 +815,7 @@
         case 'voice': voiceLevel = Math.max(voiceLevel * 0.5, Math.min(1, +e.level || 0)); break;
         case 'sessions': setSessions(e.data); break;
         case 'memory': setMemory(e.data); break;
+        case 'context': setContext(e.data); break;
         case 'schedule': setSchedule(e.data); break;
         case 'info': Object.assign(info, e); setStats({}); break;
         case 'theme': jarvisTheme.apply(e.theme, e.mode); break;
@@ -1046,6 +1064,7 @@
       { t: '11:06', you: '(agent)', jarvis: 'Three new emails. Only the one from your landlord needs a reply today.' },
       { t: '11:18', you: 'remind me at five to call the bank', jarvis: 'Done. I\'ll remind you at five.' },
     ] });
+    ev({ type: 'context', data: { tokens: 41200, limit: 70000, lines: 9, rolledAt: new Date(Date.now() - 3 * 3600e3).toISOString(), summary: 'Waiting on the user\n- Their go to send the reply to the landlord that KAREN drafted.\n\nWhat the crew found\n- FRIDAY: the payments test fails because of a missing comma in config.json (11:40).\n\nFacts the user stated\n- Flying to Delhi on Friday morning.' } });
     ev({ type: 'memory', data: [
       { id: 'm1', text: 'Prefers lo-fi music while working.', topic: 'preference', added: '2026-10-21T09:12' },
       { id: 'm2', text: 'Lives in Bengaluru and works from home on Fridays.', topic: 'place', added: '2026-10-22T18:40' },
