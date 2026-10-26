@@ -92,34 +92,25 @@ class Radar extends EventEmitter {
     return { cwd: cwd || dirName.replace(/-/g, '/'), last };
   }
 
-  /** Verbose tail of one session for the HUD's live panel. */
-  detail(cwd, limit = 16) {
+  /** One session as a conversation for the HUD's right panel: the user's prompts and Claude's replies, no tool traffic. */
+  conversation(cwd, limit = 30) {
     const file = this.byCwd.get(cwd);
     if (!file) return [];
     const out = [];
-    const hms = (ts) => { const d = new Date(ts); return isNaN(d) ? '' : d.toTimeString().slice(0, 8); };
-    for (const obj of parseLines(readTail(file, 256 * 1024))) {
-      if ((obj.type !== 'assistant' && obj.type !== 'user') || !obj.message) continue;
-      const t = obj.timestamp ? hms(obj.timestamp) : '';
+    const hhmm = (ts) => { const d = new Date(ts); return isNaN(d) ? '' : d.toTimeString().slice(0, 5); };
+    for (const obj of parseLines(readTail(file, 512 * 1024))) {
+      if ((obj.type !== 'assistant' && obj.type !== 'user') || !obj.message || obj.isSidechain || obj.isMeta) continue;
+      const t = obj.timestamp ? hhmm(obj.timestamp) : '';
       const content = obj.message.content;
-      if (obj.type === 'user') {
-        if (typeof content === 'string') { if (!content.startsWith('<')) out.push({ t, kind: 'user', text: content.slice(0, 240) }); continue; }
-        for (const b of content || []) {
-          if (b.type === 'text' && b.text && !b.text.startsWith('<')) out.push({ t, kind: 'user', text: b.text.slice(0, 240) });
-          else if (b.type === 'tool_result') {
-            const c = typeof b.content === 'string' ? b.content : (b.content || []).map((x) => x.text || '').join(' ');
-            if (c) out.push({ t, kind: 'result', text: c.replace(/\n/g, ' ').slice(0, 200) });
-          }
-        }
-      } else {
-        for (const b of content || []) {
-          if (b.type === 'text' && b.text) out.push({ t, kind: 'assistant', text: b.text.slice(0, 400) });
-          else if (b.type === 'tool_use') {
-            const i = b.input || {};
-            const s = String(i.command || i.file_path || i.pattern || i.query || i.url || i.description || '');
-            out.push({ t, kind: 'tool', text: `${b.name} ${s.slice(0, 160)}` });
-          }
-        }
+      const texts = typeof content === 'string' ? [content] : (content || []).filter((b) => b.type === 'text' && b.text).map((b) => b.text);
+      for (const raw of texts) {
+        const text = raw.trim();
+        if (!text || (obj.type === 'user' && text.startsWith('<'))) continue;
+        const who = obj.type === 'user' ? 'you' : 'claude';
+        const prev = out[out.length - 1];
+        // Claude's text between tool calls in one reply reads as one message.
+        if (prev && prev.who === who && who === 'claude') { prev.text = `${prev.text}\n\n${text}`.slice(-4000); continue; }
+        out.push({ t, who, name: who === 'you' ? 'YOU' : 'CLAUDE', text: text.slice(0, 4000) });
       }
     }
     return out.slice(-limit);

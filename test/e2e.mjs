@@ -727,6 +727,22 @@ async function testHud() {
   await s.waitLog(/timing: claude done/, 60000, tm);
   await hud.evaluate(() => document.activeElement && document.activeElement.blur());
 
+  // The right panel shows the conversation, not tool traffic, and lists JARVIS and the crew
+  await sleep(500);
+  check('the right panel shows my words and the reply', await hud.evaluate(() => {
+    const li = [...document.querySelectorAll('#livelog li.msg')];
+    return li.some((x) => x.classList.contains('you') && /capital of france/i.test(x.textContent)) && li.some((x) => x.classList.contains('jarvis') && /paris/i.test(x.textContent));
+  }), await text(hud, '#live-name'));
+  await hud.click('#live-btn');
+  const picks = await hud.evaluate(() => [...document.querySelectorAll('#live-pop button')].map((b) => b.querySelector('span:nth-child(2)').textContent));
+  check('the picker lists JARVIS and the crew', ['JARVIS', 'FRIDAY', 'KAREN', 'EDITH', 'VISION'].every((n) => picks.includes(n)), picks.slice(0, 6).join(', '));
+  await hud.click('#live-pop button:nth-of-type(3)');
+  await sleep(600);
+  check('picking KAREN shows her conversation', await text(hud, '#live-name') === 'KAREN', await text(hud, '#live-name'));
+  await hud.click('#live-btn');
+  await hud.click('#live-pop button:nth-of-type(1)');
+  await sleep(300);
+
   // Full mode: idle HOME hides the panels and shows the crew; moving the mouse brings them back
   await hud.click('#nav a[data-view="cc"]');
   await hud.evaluate(() => window.hud.event({ type: 'settings', autoHideMs: 1200 }));
@@ -911,6 +927,12 @@ async function testFriday() {
   await sleep(1000);
   const reply = await text(hud, '#reply');
   check('JARVIS tells the user the result in its own words', told && reply.length > 20 && !/RESULT/.test(reply), reply.slice(0, 200));
+  await hud.click('#live-btn');
+  await hud.click('#live-pop button:nth-of-type(2)');
+  await hud.waitForFunction(() => document.querySelector('#livelog li.msg.crew'), null, { timeout: 5000 }).catch(() => {});
+  const convo = await hud.evaluate(() => [...document.querySelectorAll('#livelog li.msg')].map((x) => x.className + ': ' + x.textContent));
+  check("FRIDAY's conversation shows the task and her report", convo.some((x) => /jarvis/.test(x) && /hacker news/i.test(x)) && convo.some((x) => /crew/.test(x) && /RESULT/.test(x)), convo.slice(-2).map((x) => x.slice(0, 60)).join(' | '));
+  await shot(hud, 'friday-conversation');
   await s.app.close();
 }
 
