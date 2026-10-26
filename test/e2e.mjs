@@ -55,7 +55,8 @@ async function launch(state, args = [], extraEnv = {}) {
     app, state,
     log: () => { try { return fs.readFileSync(logFile, 'utf8'); } catch { return ''; } },
     earsCmds: () => fs.readFileSync(earsLog, 'utf8'),
-    config: () => JSON.parse(fs.readFileSync(path.join(state, 'config.json'), 'utf8')),
+    // The saved config, with the assistant in use's own settings on top, as JARVIS reads it.
+    config: () => { const r = JSON.parse(fs.readFileSync(path.join(state, 'config.json'), 'utf8')); return { ...r, ...((r.assistantSettings || {})[r.assistant || 'jarvis'] || {}) }; },
     /** Make the fake microphone "hear" text: partial updates, then a pause. */
     async say(text, { final = true, step = 0 } = {}) {
       if (step) {
@@ -348,7 +349,7 @@ async function testValidation() {
   check('Kokoro speed 99 clamped', c.kokoroSpeed <= 2, String(c.kokoroSpeed));
   check('letters in chat id become 0', c.telegramChatId === 0, String(c.telegramChatId));
   check('blank name stored empty', c.userName === '', JSON.stringify(c.userName));
-  check('blank Anthropic model falls back to default', /^claude-/.test(c.anthropicModel), c.anthropicModel);
+  check('blank Anthropic model falls back to default', c.anthropicModel === undefined || /^claude-/.test(c.anthropicModel), c.anthropicModel);
 
   // Key typed once counts as stored afterwards (the stale "has key" bug)
   await w.click('#steps li[data-step="ears"]');
@@ -586,9 +587,10 @@ async function testHud() {
   await hud.mouse.click(fri[0], fri[1]);
   await sleep(1300);
   check('clicking FRIDAY in the normal view spotlights her', await hud.evaluate(() => document.getElementById('crew-friday').classList.contains('spot')));
+  check('her card offers the switch', /SWITCH TO FRIDAY/.test(await text(hud, '#spot-go')) && /MAXIMUM/.test(await text(hud, '#spot-role')), await text(hud, '#spot-role'));
   await hud.click('#spot-back');
   await sleep(900);
-  check('BACK TO JARVIS returns to the normal view', await hud.evaluate(() => !document.body.classList.contains('spot') && getComputedStyle(document.getElementById('lc')).opacity === '1'));
+  check('BACK returns to the normal view', await hud.evaluate(() => !document.body.classList.contains('spot') && getComputedStyle(document.getElementById('lc')).opacity === '1'));
 
   // System panel gets real numbers
   await sleep(3500);
@@ -602,13 +604,13 @@ async function testHud() {
   check('settings shows the brain', /claude code/i.test(settings) && /claude code/i.test(brainRow), brainRow);
   await shot(hud, 'hud-2-settings');
   // The big choices: cards show what's set; each opens its page inside the Settings box
-  check('settings cards show the brain and worker', /CLAUDE CODE.*AGENTS/.test(await text(hud, '#sc-brain')), await text(hud, '#sc-brain'));
+  check('settings cards show the brain and worker', /CLAUDE CODE.*WORKER/.test(await text(hud, '#sc-brain')), await text(hud, '#sc-brain'));
   const winsBefore = await s.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length);
   await hud.click('.setcard[data-section="brain"]');
   await hud.waitForFunction(() => document.querySelector('#bc-claude-code').textContent, null, { timeout: 10000 }).catch(() => {});
   check('Brain & worker opens inside the Settings box, no new window', await hud.isVisible('#set-page .sp[data-page="brain"]') && await hud.isHidden('#setcards') && await s.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length) === winsBefore);
   check('the page has a Back button and a title', await hud.isVisible('#sp-back') && await text(hud, '#sp-title') === 'BRAIN & WORKER');
-  check('all four brains are offered, with their state', await hud.locator('.bcard').count() === 4 && /READY|NOT INSTALLED|SIGN IN/.test(await text(hud, '#bc-claude-code')), await text(hud, '#bc-claude-code'));
+  check('all four brains are offered, with their state', await hud.locator('#bcards .bcard').count() === 4 && /READY|NOT INSTALLED|SIGN IN/.test(await text(hud, '#bc-claude-code')), await text(hud, '#bc-claude-code'));
   await hud.click('.bcard[data-b="ollama"]');
   await hud.waitForFunction(() => /Ollama/.test(document.getElementById('b-ol-text').textContent), null, { timeout: 8000 }).catch(() => {});
   check('choosing Ollama shows its guided panel', await hud.isVisible('.bpanel[data-for="ollama"]') && /Ollama/.test(await text(hud, '#b-ol-text')), await text(hud, '#b-ol-text'));
@@ -812,12 +814,27 @@ async function testHud() {
   check('she moves to the centre and grows', Math.abs(at[0]) < 20 && Math.abs(at[1]) < 60 && at[2] > 20, at.map((n) => Math.round(n)).join(', '));
   check('her name card shows', /KAREN/.test(await text(hud, '#spot-name')));
   await shot(hud, 'hud-spotlight');
-  await hud.evaluate(() => window.hud.event({ type: 'talking', agent: 'edith' }));
+  // SWITCH: KAREN takes over, with the same conversation; JARVIS moves out into the web
+  const sw = s.mark();
+  await hud.click('#spot-go');
+  check('SWITCH hands over to KAREN', await s.waitLog(/assistant: KAREN took over/, 20000, sw));
   await sleep(1000);
-  check('"talk to EDITH" moves the spotlight to her', await hud.evaluate(() => document.getElementById('crew-edith').classList.contains('spot') && !document.getElementById('crew-karen').classList.contains('spot')));
-  await hud.keyboard.press('Escape');
-  await sleep(900);
-  check('Esc goes back to JARVIS', await hud.evaluate(() => !document.body.classList.contains('spot')));
+  check('KAREN is the core and JARVIS is one of the others', await text(hud, '.corelabel .jv') === 'KAREN' && await hud.evaluate(() => !!document.getElementById('crew-jarvis') && !document.getElementById('crew-karen') && !document.body.classList.contains('spot')));
+  check('the brand reads K.A.R.E.N', await text(hud, '#brand .word') === 'K.A.R.E.N');
+  check('her preset is in use', s.config().assistant === 'karen' && /claude code · haiku/.test(s.log().slice(sw)), s.config().assistant);
+  await shot(hud, 'hud-karen');
+  // Back to JARVIS from Settings › Assistant
+  await hud.click('#nav a[data-view="settings"]');
+  await hud.click('.setcard[data-section="assistant"]');
+  await sleep(400);
+  check('Settings lists the five assistants', await hud.evaluate(() => document.querySelectorAll('#acards .bcard').length === 5 && /KAREN/.test(document.querySelector('#acards .bcard.on').textContent)));
+  const back = s.mark();
+  await hud.click('#acards .bcard:nth-of-type(1)');
+  check('picking JARVIS there switches back', await s.waitLog(/assistant: JARVIS took over/, 20000, back) && s.config().assistant === 'jarvis');
+  await sleep(800);
+  await hud.click('#sp-back');
+  await hud.click('#nav a[data-view="cc"]');
+  await sleep(600);
   await hud.click('#live-btn');
   await hud.click('#live-pop button:nth-of-type(1)');
   await hud.mouse.move(mid[0], mid[1]);

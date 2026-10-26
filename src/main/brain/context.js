@@ -57,6 +57,12 @@ class Context {
   /** learn: pick out facts for memory before each summary. */
   constructor(kind, onChange = () => {}, { seed = true, learn = false } = {}) {
     this.file = path.join(C.STATE_DIR, `${kind}-context.json`);
+    // Every assistant shares one conversation. It used to be kept per brain; start from the latest.
+    if (kind === 'conversation' && !fs.existsSync(this.file)) {
+      const old = ['claude-code', 'anthropic', 'gemini', 'ollama'].map((k) => path.join(C.STATE_DIR, `${k}-context.json`))
+        .filter((f) => fs.existsSync(f)).sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0];
+      if (old) try { fs.copyFileSync(old, this.file); } catch {}
+    }
     this.onChange = onChange;
     this.learn = learn;
     this.rolledAt = '';    // when the summary was last written
@@ -164,6 +170,19 @@ class Context {
       log(`context: no facts learnt: ${String(e.message || e).slice(0, 160)}`);
       return 0;
     }
+  }
+
+  /**
+   * Another assistant takes over: its fresh session starts from the summary and the latest turns,
+   * without waiting for a new summary. Older lines stay here for the next one.
+   */
+  handover() {
+    const all = this.lines;
+    this.lines = all.slice(-KEEP);
+    this.carried = this.carryText();
+    this.lines = all;
+    this.save();
+    return this.carried;
   }
 
   carryText() {

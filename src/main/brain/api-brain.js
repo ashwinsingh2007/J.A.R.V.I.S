@@ -23,7 +23,8 @@ const REPORT = /^\[JOB REPORT\]/;
 
 class ApiBrain extends EventEmitter {
   /** kind: "anthropic" | "gemini" | "ollama"; worker: runs background jobs, or null */
-  constructor(cfg, kind, worker = null) {
+  /** fresh: forget the chat history (another assistant took over; the summary carries it). */
+  constructor(cfg, kind, worker = null, { fresh = false } = {}) {
     super();
     this.cfg = cfg;
     this.kind = kind;
@@ -37,13 +38,21 @@ class ApiBrain extends EventEmitter {
     this.isReady = true;
     this.abort = null;
     this.historyFile = path.join(C.STATE_DIR, `${kind}-history.json`);
-    try { this.history = JSON.parse(fs.readFileSync(this.historyFile, 'utf8')); } catch { this.history = []; }
-    this.context = new Context(kind, () => this.emit('context', this.contextInfo()), { learn: true });
-    setInterval(() => { if (!this.isBusy) this.maybeRoll(); }, RETRY_MS).unref();
+    try { this.history = fresh ? [] : JSON.parse(fs.readFileSync(this.historyFile, 'utf8')); } catch { this.history = []; }
+    this.context = new Context('conversation', () => this.emit('context', this.contextInfo()), { learn: true });
+    this.rollTimer = setInterval(() => { if (!this.isBusy) this.maybeRoll(); }, RETRY_MS).unref();
     this.splitter = new SentenceSplitter((s) => this.emit('sentence', s));
   }
 
   warmUp() { setTimeout(() => this.emit('ready', 0), 0); }
+
+  /** Another assistant took over: stop for good. */
+  dispose() {
+    clearInterval(this.rollTimer);
+    this.removeAllListeners();
+    this.cancel();
+    if (this.worker) { this.worker.removeAllListeners(); this.worker.stopAll(); }
+  }
 
   /**
    * Tools and prompt note for this turn: the worker can be switched on and off in Settings. Retelling a

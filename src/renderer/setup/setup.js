@@ -5,7 +5,7 @@ const FIRST = new URLSearchParams(location.search).get('first') === '1';
 // After the first run the same screens are the Settings window: free navigation and a Save button.
 const SECTION = new URLSearchParams(location.search).get('section') || '';
 const STEPS = ['welcome', 'look', 'brain', 'ears', 'voice', 'access', 'extras', 'finish'];
-const TEXT = ['userName', 'honorific', 'model', 'effort', 'worker', 'agentModel', 'anthropicModel', 'geminiModel', 'ollamaUrl', 'ollamaModel', 'speechLocale', 'appleSpeech', 'kokoroVoice', 'elevenLabsVoiceId', 'elevenLabsModel', 'edgeVoice', 'nativeVoice', 'radioCountry'];
+const TEXT = ['userName', 'honorific', 'assistant', 'model', 'effort', 'worker', 'agentModel', 'anthropicModel', 'geminiModel', 'ollamaUrl', 'ollamaModel', 'speechLocale', 'appleSpeech', 'kokoroVoice', 'elevenLabsVoiceId', 'elevenLabsModel', 'edgeVoice', 'nativeVoice', 'radioCountry'];
 const NUM = ['commandSilenceSeconds', 'kokoroSpeed', 'telegramChatId'];
 const BOOL = ['requireEndWord', 'telegramVoiceReplies'];
 const SECRET = ['anthropicApiKey', 'geminiApiKey', 'elevenLabsApiKey', 'telegramToken'];
@@ -326,6 +326,13 @@ function problem() {
 }
 
 /** Save, and treat any secret just typed as stored from now on. */
+/** Another assistant: keep the name typed so far, then show that assistant's own brain and voice settings. */
+async function pickAssistant() {
+  await window.setup.save({ userName: $('userName').value.trim(), honorific: $('honorific').value || 'sir', assistant: $('assistant').value });
+  info = await window.setup.get();
+  load();
+}
+
 async function saveAndRemember() {
   const p = gather();
   await window.setup.save(p);
@@ -383,6 +390,7 @@ async function test(kind) {
 }
 
 function bind() {
+  $('assistant').addEventListener('change', pickAssistant);
   document.querySelectorAll('[data-brain]').forEach((c) => c.addEventListener('click', () => { select('brainProvider', 'brain', c.dataset.brain); }));
   document.querySelectorAll('[data-stt]').forEach((c) => c.addEventListener('click', () => select('sttEngine', 'stt', c.dataset.stt)));
   document.querySelectorAll('[data-tts]').forEach((c) => c.addEventListener('click', () => { select('ttsEngine', 'tts', c.dataset.tts); status($('voice-result'), ''); }));

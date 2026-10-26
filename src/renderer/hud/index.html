@@ -33,15 +33,16 @@
     <div id="stage"><canvas id="scene"></canvas>
       <div class="corelabel"><div class="jv">JARVIS</div></div>
       <div id="panels"></div>
-      <!-- a crew member brought to the centre to talk to -->
+      <!-- another assistant brought to the centre, to switch to -->
       <div id="spot" hidden>
         <div class="spot-name" id="spot-name"></div>
         <div class="spot-role" id="spot-role"></div>
         <div class="spot-hint" id="spot-hint"></div>
-        <button class="spot-back" id="spot-back" title="Back to JARVIS (Esc)">BACK TO JARVIS</button>
+        <button class="spot-go" id="spot-go">SWITCH</button>
+        <button class="spot-back" id="spot-back" title="Back (Esc)">BACK</button>
       </div>
     </div>
-    <div id="focus-hint">CLICK A CREW MEMBER TO TALK TO THEM · CLICK ANYWHERE ELSE TO RETURN</div>
+    <div id="focus-hint">CLICK AN ASSISTANT TO SWITCH · CLICK ANYWHERE ELSE TO RETURN</div>
 
     <!-- left column: system readouts + live feed -->
     <div id="lc">
@@ -179,6 +180,7 @@
       <!-- home: the big choices; each opens its page inside this box -->
       <div id="set-home">
       <div class="setcards" id="setcards">
+        <button class="setcard" data-section="assistant"><b>ASSISTANT</b><small id="sc-assistant">—</small><em>CHANGE ›</em></button>
         <button class="setcard" data-section="brain"><b>BRAIN &amp; WORKER</b><small id="sc-brain">—</small><em>CHANGE ›</em></button>
         <button class="setcard" data-section="access"><b>ACCESS</b><small id="sc-access">—</small><em>REVIEW ›</em></button>
         <button class="setcard" data-section="ears"><b>LISTENING</b><small id="sc-ears">—</small><em>CHANGE ›</em></button>
@@ -231,6 +233,13 @@
       <!-- a page inside the box, with a way back to the cards -->
       <div id="set-page" hidden>
         <div class="sp-head"><button class="sp-back" id="sp-back">‹ BACK</button><span class="sp-title" id="sp-title"></span></div>
+
+        <div class="sp" data-page="assistant">
+          <p class="sp-lead">Every assistant does everything, with the same memory and conversation. They differ in how they run: how smart, how fast, and how they sound. What you change in Settings is saved to the one you're using.</p>
+          <div class="bcards" id="acards"></div>
+          <p class="sp-note" id="a-note"></p>
+          <button class="mini" id="a-reset" hidden>RESET TO ITS PRESET</button>
+        </div>
 
         <div class="sp" data-page="brain">
           <p class="sp-lead">What JARVIS thinks with. Pick one; it is checked before you can save.</p>

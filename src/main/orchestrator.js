@@ -15,7 +15,9 @@ const { SystemMonitor, EventInbox } = require('./monitors');
 const { Memory, day } = require('./memory');
 const { Scheduler } = require('./scheduler');
 const { Conversations } = require('./conversations');
-const { assistantOf } = require('./assistants');
+const { ASSISTANTS, assistantOf } = require('./assistants');
+// "switch to FRIDAY", "let KAREN take over", "change to EDITH".
+const SWITCH_TO = /^(?:(?:please |can you |could you )?(?:switch|change|swap)(?: over)? to|let|put|bring in) (jarvis|friday|karen|edith|vision)(?: take over| on| in)?(?: please)?$/;
 
 const STOP_WORDS = ['wait', 'stop', 'hold on', 'cancel', 'never mind', 'nevermind', 'quiet', 'shut up', "that's all", 'thats all', 'enough', 'okay stop', 'ok stop'];
 const FILLERS = ['On it.', 'One moment.', 'Right away.', 'Let me see.'];
@@ -131,10 +133,10 @@ class Orchestrator extends EventEmitter {
     const { wake, brain, speaker, hud } = this;
     wake.on('wake', (byName) => {
       // Barge-in: the name alone stops whatever JARVIS is doing.
-      if (byName && this.awake && (speaker.isSpeaking || brain.isBusy)) {
+      if (byName && this.awake && (speaker.isSpeaking || this.brain.isBusy)) {
         log('barge-in: stopping speech/brain');
         speaker.stop();
-        brain.cancel();
+        this.brain.cancel();
         this.pendingCommand = null;
       }
       if (!this.awake) return;     // asleep: hearing the name alone changes nothing
@@ -153,6 +155,43 @@ class Orchestrator extends EventEmitter {
       if (this.cfg.greetOnStart) speaker.speak(`Online, ${this.cfg.honorific}. Say wake up when you need me.`);
     });
 
+    this.wireBrain(brain);
+
+    speaker.on('start', () => { wake.jarvisSpeaking = true; this.state = 'speaking'; });
+    speaker.on('level', (l) => hud.send('voice', { level: l }));
+    speaker.on('finish', () => {
+      // Small grace so the tail of his own voice isn't taken as the user's.
+      setTimeout(() => { wake.jarvisSpeaking = false; }, 400);
+      this.lastSpokeAt = Date.now();
+      if (this._state === 'listening') return;       // barged in
+      if (!this.brain.isBusy) this.finishedTurn(); else this.state = 'thinking';
+    });
+
+    this.radar.on('update', (sessions) => {
+      this.lastSessions = sessions;
+      hud.sendRaw('sessions', sessions);
+      this.sessionsActive = sessions.filter((s) => s.status === 'working').length;
+      this.announceFinished(sessions);
+      if (this.view.startsWith('cc:')) this.sendConversation();
+    });
+    this.monitor.on('update', (s) => { hud.send('system', s); this.sendStats(); });
+    this.inbox.on('event', (ev) => this.handleHookEvent(ev));
+
+    this.music.on('stations', () => this.sendMusicStations());
+    this.music.on('change', (playing) => { if (playing) this.youtube.stopIfPlaying(); this.sendNowPlaying(); });
+    this.youtube.on('change', (playing) => { if (playing && this.music.playing) this.music.stop(); this.sendNowPlaying(); });
+
+    this.memory.on('change', (facts) => { hud.sendRaw('memory', facts); this.sendStats(); });
+    this.scheduler.on('change', (items) => hud.sendRaw('schedule', items));
+    this.scheduler.on('due', (it, late) => this.fire(it, late));
+
+    hud.on('text', (t) => this.handle(t, { kind: 'text' }));
+    hud.on('action', (a, body) => this.action(a, body));
+  }
+
+  /** The brain's events. A brain is wired again when another assistant takes over. */
+  wireBrain(brain) {
+    const { speaker, hud } = this;
     brain.on('sentence', (s) => {
       if (/^\W*SILENT\W*$/i.test(s)) return;
       if (SOURCES_START.test(s)) this.inSources = true;     // the rest of the reply is a list of links
@@ -256,37 +295,50 @@ class Orchestrator extends EventEmitter {
       if (src && src.kind === 'telegram') this.emit('telegram-reply', src.chat, spoken);
       else this.speakNow(spoken);
     });
+  }
 
-    speaker.on('start', () => { wake.jarvisSpeaking = true; this.state = 'speaking'; });
-    speaker.on('level', (l) => hud.send('voice', { level: l }));
-    speaker.on('finish', () => {
-      // Small grace so the tail of his own voice isn't taken as the user's.
-      setTimeout(() => { wake.jarvisSpeaking = false; }, 400);
-      this.lastSpokeAt = Date.now();
-      if (this._state === 'listening') return;       // barged in
-      if (!brain.isBusy) this.finishedTurn(); else this.state = 'thinking';
-    });
+  /**
+   * Another assistant takes over. A background job can't move between brains, so it waits until the
+   * jobs are done. Returns why it couldn't switch, or ''.
+   */
+  canSwitch() {
+    if (this.progress.size) return `the running job${this.progress.size > 1 ? 's' : ''} finish${this.progress.size > 1 ? '' : 'es'}`;
+    if (this.brain.isBusy) return 'I finish this answer';
+    return '';
+  }
 
-    this.radar.on('update', (sessions) => {
-      this.lastSessions = sessions;
-      hud.sendRaw('sessions', sessions);
-      this.sessionsActive = sessions.filter((s) => s.status === 'working').length;
-      this.announceFinished(sessions);
-      if (this.view.startsWith('cc:')) this.sendConversation();
-    });
-    this.monitor.on('update', (s) => { hud.send('system', s); this.sendStats(); });
-    this.inbox.on('event', (ev) => this.handleHookEvent(ev));
+  /** "switch to FRIDAY", or a click on her in the HUD. main.js builds her brain and calls switchBrain. */
+  requestSwitch(id) {
+    const name = assistantOf(id).name;
+    if (id === this.cfg.assistant) { this.speaker.speak(`I'm already here, ${this.cfg.honorific}.`); this.hud.send('assistant', { id, name }); return; }
+    const wait = this.canSwitch();
+    if (wait) {
+      log(`assistant: ${name} has to wait until ${wait}`);
+      this.speaker.speak(`${name} can take over once ${wait}, ${this.cfg.honorific}.`);
+      this.hud.send('assistant', { id: this.cfg.assistant, name: this.name });
+      return;
+    }
+    log(`assistant: switching to ${name}`);
+    this.speaker.stop();
+    this.brain.context && this.brain.context.handover();
+    this.emit('switch-assistant', id);
+  }
 
-    this.music.on('stations', () => this.sendMusicStations());
-    this.music.on('change', (playing) => { if (playing) this.youtube.stopIfPlaying(); this.sendNowPlaying(); });
-    this.youtube.on('change', (playing) => { if (playing && this.music.playing) this.music.stop(); this.sendNowPlaying(); });
-
-    this.memory.on('change', (facts) => { hud.sendRaw('memory', facts); this.sendStats(); });
-    this.scheduler.on('change', (items) => hud.sendRaw('schedule', items));
-    this.scheduler.on('due', (it, late) => this.fire(it, late));
-
-    hud.on('text', (t) => this.handle(t, { kind: 'text' }));
-    hud.on('action', (a, body) => this.action(a, body));
+  /** The new assistant's brain, made from the shared conversation (main.js builds it). */
+  switchBrain(brain) {
+    const old = this.brain;
+    this.brain = brain;
+    if (old.dispose) old.dispose(); else if (old.kill) old.kill();
+    this.wireBrain(brain);
+    this.wake.setNames();
+    this.speaker.reconfigure();
+    brain.warmUp();
+    log(`assistant: ${this.name} took over (${brain.label})`);
+    this.hud.send('assistant', { id: this.cfg.assistant, name: this.name });
+    this.sendStats();
+    this.sendConversation();
+    if (brain.contextInfo) this.hud.sendRaw('context', brain.contextInfo());
+    if (!this.disabled && !this.muted) this.speaker.speak(`${this.name} here, ${this.cfg.honorific}. ${assistantOf(this.cfg.assistant).hello}`);
   }
 
   action(a, body = {}) {
@@ -303,6 +355,8 @@ class Orchestrator extends EventEmitter {
       case 'memory-forget': if (body.id && this.memory.forget(body.id)) this.brain.reconfigure && this.brain.reconfigure(); break;
       case 'memory-add': if (body.text) this.memory.add(body.text, 'other'); break;
       case 'context-roll': if (this.brain.rollNow) this.brain.rollNow(); break;
+      case 'assistant': if (ASSISTANTS[body.id]) this.requestSwitch(body.id); break;
+      case 'assistant-reset': if (ASSISTANTS[body.id]) this.emit('reset-assistant', body.id); break;
       case 'schedule-cancel': if (body.id) this.scheduler.cancel(body.id); break;
       case 'hands-permit': this.emit('hands-permit'); break;
       case 'test-voice': this.speaker.stop(); this.speaker.speak(`This is how I sound, ${this.cfg.honorific}.`); break;
@@ -751,6 +805,8 @@ class Orchestrator extends EventEmitter {
     const t = c.toLowerCase();
     if (source.kind === 'telegram') return null;
     const done = () => this.finishedTurn();
+    const sw = SWITCH_TO.exec(t.trim().replace(/[.!?]+$/, ''));
+    if (sw) return () => { this.requestSwitch(sw[1]); done(); };
     const p = this.pendingApproval;
     if (p && Date.now() - p.at < 120000) {
       if (['yes', 'yeah', 'yep', 'allow', 'approve', 'go ahead', 'do it', 'okay', 'ok', 'sure', 'proceed'].some((w) => startsWord(t, w))) return () => this.answerApproval(true);

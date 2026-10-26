@@ -205,17 +205,23 @@
   new ResizeObserver(resize).observe(stage);
   resize();
 
-  // ---------- the crew: JARVIS is the main brain inside a loose web of neurons ----------
-  // FRIDAY, EDITH, KAREN and VISION are larger nodes in that web; signals run to each of them from the brain
-  // along the shortest chain of neurons. Each one fires while it has jobs running.
+  // ---------- the assistants: the one in use is the core, inside a loose web of neurons ----------
+  // The other four are larger nodes in that web; signals run to each of them from the core along the
+  // shortest chain of neurons. Clicking one brings it to the centre, to switch to it.
   // x, y: their place in the web (full mode). nx, ny: just outside the reactor ring in the normal view,
   // where the side panels leave room even on a laptop screen.
-  const HUBS = [
-    { id: 'edith', name: 'EDITH', role: 'SECURITY', x: 21, y: -53, nx: 30, ny: -46, about: 'Reviews, fact-checks, links, downloads and privacy' },
-    { id: 'karen', name: 'KAREN', role: 'COMMS', x: 73, y: 24, nx: 42, ny: 30, about: 'Email, chats, social media and your personal brand' },
-    { id: 'friday', name: 'FRIDAY', role: 'TASKS', x: -79, y: -14, nx: -42, ny: -30, about: 'Coding, research, files, websites and heavy jobs' },
-    { id: 'vision', name: 'VISION', role: 'SYSTEM', x: -38, y: 50, nx: -30, ny: 46, about: 'Your Mac: open apps, CPU, memory, disk and junk' },
+  const SLOTS = [{ x: 21, y: -53, nx: 30, ny: -46 }, { x: 73, y: 24, nx: 42, ny: 30 }, { x: -79, y: -14, nx: -42, ny: -30 }, { x: -38, y: 50, nx: -30, ny: 46 }];
+  // Until main sends the list (main/assistants.js).
+  let assistants = [
+    { id: 'jarvis', name: 'JARVIS', tier: 'BALANCED', about: 'Fast and smart. Quick replies, strong background work.', needs: 'Claude Code (or an API key)' },
+    { id: 'friday', name: 'FRIDAY', tier: 'MAXIMUM', about: 'The smartest. Thinks hardest, so she answers more slowly.', needs: 'Claude Code' },
+    { id: 'karen', name: 'KAREN', tier: 'LIGHT', about: 'The fastest and cheapest. Simpler answers.', needs: 'Claude Code' },
+    { id: 'edith', name: 'EDITH', tier: 'PRIVATE', about: 'Runs on a local model on this Mac. Private, but the weakest.', needs: 'Ollama' },
+    { id: 'vision', name: 'VISION', tier: 'NO CLAUDE NEEDED', about: "Runs on Google's Gemini, with a free tier.", needs: 'A Gemini API key' },
   ];
+  let current = 'jarvis';
+  const hubsFor = () => assistants.filter((a) => a.id !== current).slice(0, SLOTS.length).map((a, i) => ({ ...SLOTS[i], id: a.id, name: a.name, role: a.tier, about: a.about, needs: a.needs }));
+  let HUBS = hubsFor();
   const crew = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   crew.id = 'crew';
   crew.setAttribute('viewBox', '-50 -50 100 100');
@@ -301,38 +307,57 @@
         + (d ? `<path class="fire" d="${d}" style="--d:${f(rnd())}s"/>` : '') + sparks
         + `<circle class="hit" cx="${f(h.x)}" cy="${f(h.y)}" r="7"/><circle class="aura" cx="${f(h.x)}" cy="${f(h.y)}" r="5.6"/><circle class="halo" cx="${f(h.x)}" cy="${f(h.y)}" r="3.4"/><circle class="ring" cx="${f(h.x)}" cy="${f(h.y)}" r="2.1"/><circle class="core" cx="${f(h.x)}" cy="${f(h.y)}" r="1.05"/>`
         + `<text class="nm" text-anchor="${anchor}" x="${f(lx)}" y="${f(h.y - 0.3)}">${h.name}</text>`
-        + `<text class="rl" text-anchor="${anchor}" x="${f(lx)}" y="${f(h.y + 2.6)}">${h.role} · STANDBY</text>`
+        + `<text class="rl" text-anchor="${anchor}" x="${f(lx)}" y="${f(h.y + 2.6)}">${h.role}</text>`
         + `<text class="nm2" text-anchor="middle" x="${f(h.x)}" y="${f(h.y + 6.4)}">${h.name}</text>`
-        + `<text class="rl2" text-anchor="middle" x="${f(h.x)}" y="${f(h.y + 8.6)}">${h.role} · STANDBY</text></g>`;
+        + `<text class="rl2" text-anchor="middle" x="${f(h.x)}" y="${f(h.y + 8.6)}">${h.role}</text></g>`;
     }).join('');
-    // the normal view's simple links from the reactor's edge to each crew member
+    // the normal view's simple links from the reactor's edge to each assistant
     const tethers = HUBS.map((h) => {
       const a = Math.atan2(h.ny, h.nx), d = Math.hypot(h.nx, h.ny) - 3.6;
       return `<line class="tether" id="tether-${h.id}" x1="${f(R0 * Math.cos(a))}" y1="${f(R0 * Math.sin(a))}" x2="${f(d * Math.cos(a))}" y2="${f(d * Math.sin(a))}"/>`;
     }).join('');
     return `<g class="field">${field}</g><g class="tethers">${tethers}</g>${mates}`;
   }
-  let crewCounts = {};
-  function setCrew(counts) {
-    crewCounts = counts || {};
-    HUBS.forEach((h) => {
-      const el = $('crew-' + h.id), n = crewCounts[h.id] || 0;
-      el.classList.toggle('on', n > 0);
-      $('tether-' + h.id).classList.toggle('on', n > 0);
-      el.querySelectorAll('.rl, .rl2').forEach((t) => { t.textContent = `${h.role} · ${n > 0 ? n + ' RUNNING' : 'STANDBY'}`; });
-    });
-    if (spotted) spotStatus();
+  // The assistant in use changed: it becomes the core, the others move into the slots around it.
+  function setAssistants(e) {
+    if (Array.isArray(e.list) && e.list.length) assistants = e.list;
+    if (e.id) current = e.id;
+    const me = assistants.find((a) => a.id === current) || assistants[0];
+    if (spotted) unspot(false);
+    HUBS = hubsFor();
+    crew.innerHTML = buildCrew();
+    crew.classList.toggle('busy', (stats.agents || []).length > 0);
+    document.querySelector('#brand .word').textContent = me.name.split('').join('.');
+    document.querySelector('.corelabel .jv').textContent = me.name;
+    document.title = me.name.split('').join('.');
+    $('ask-input').placeholder = `Type to ${me.name}…`;
+    $('sc-assistant').textContent = `${me.name} · ${me.tier}`;
+    $('power').querySelector('b').textContent = `${body.classList.contains('disabled') ? 'ENABLE' : 'DISABLE'} ${me.name}`;
+    renderAssistantCards();
   }
+  // Settings › Assistant: one card each; clicking one switches.
+  function renderAssistantCards() {
+    $('acards').replaceChildren(...assistants.map((a) => {
+      const b = document.createElement('button');
+      b.className = 'bcard' + (a.id === current ? ' on' : '');
+      const n = document.createElement('b'); n.textContent = `${a.name} · ${a.tier}`;
+      const d = document.createElement('small'); d.textContent = `${a.about} Needs ${a.needs}.`;
+      b.append(n, d);
+      if (a.changed) { const c = document.createElement('i'); c.className = 'chip'; c.textContent = 'YOUR CHANGES'; b.append(c); }
+      b.addEventListener('click', () => { if (a.id !== current) { $('a-note').textContent = `Switching to ${a.name}…`; post({ type: 'action', name: 'assistant', id: a.id }); } });
+      return b;
+    }));
+    const me = assistants.find((a) => a.id === current);
+    $('a-note').textContent = me ? `${me.name} is in use.` : '';
+    $('a-reset').hidden = !(me && me.changed);
+    $('a-reset').textContent = me ? `RESET ${me.name} TO ITS PRESET` : '';
+  }
+  $('a-reset').addEventListener('click', () => { if (confirm('Forget your changes to this assistant and go back to its preset?')) post({ type: 'action', name: 'assistant-reset', id: current }); });
 
-  // ---------- spotlight: a crew member comes forward to talk to ----------
-  // Clicking one (or saying "talk to KAREN") brings them to the centre while the core steps back;
-  // their chat opens and whatever the user says or types goes to them until they go back to JARVIS.
+  // ---------- spotlight: another assistant comes forward, to switch to ----------
+  // Clicking one brings it to the centre while the core steps back; SWITCH makes it the one in use.
   let spotted = '';
-  function spotStatus() {
-    const h = HUBS.find((x) => x.id === spotted), n = crewCounts[spotted] || 0;
-    $('spot-hint').textContent = n ? `WORKING · ${n} RUNNING` : `LISTENING · SAY OR TYPE TO ${h.name}`;
-  }
-  function spot(id, tell = true) {
+  function spot(id) {
     const h = HUBS.find((x) => x.id === id);
     if (!h) return;
     if (body.dataset.view !== 'cc') showView('cc');
@@ -341,20 +366,18 @@
     body.classList.add('spot');
     HUBS.forEach((x) => $('crew-' + x.id).classList.toggle('spot', x.id === id));
     $('spot-name').textContent = h.name;
-    $('spot-role').textContent = h.about;
-    spotStatus();
+    $('spot-role').textContent = `${h.role} · ${h.about}`;
+    $('spot-hint').textContent = `NEEDS ${String(h.needs).toUpperCase()} · SAME MEMORY AND CONVERSATION`;
+    $('spot-go').textContent = `SWITCH TO ${h.name}`;
+    $('spot-go').disabled = false;
     $('spot').hidden = false;
-    if (tell) post({ type: 'action', name: 'talk', agent: id });
-    setTimeout(() => askInput.focus(), 400);
   }
-  function unspot(tell = true) {
+  function unspot() {
     if (!spotted) return;
-    const was = spotted;
     spotted = '';
     body.classList.remove('spot');
     HUBS.forEach((x) => $('crew-' + x.id).classList.remove('spot'));
     $('spot').hidden = true;
-    if (tell) post({ type: 'action', name: 'talk', agent: '', was });
     armFocus();
   }
   crew.addEventListener('click', (ev) => {
@@ -365,6 +388,13 @@
     spot(m.dataset.id);
   });
   $('spot-back').addEventListener('click', (ev) => { ev.stopPropagation(); unspot(); });
+  $('spot-go').addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    if (!spotted) return;
+    $('spot-go').disabled = true;
+    $('spot-hint').textContent = 'SWITCHING…';
+    post({ type: 'action', name: 'assistant', id: spotted });
+  });
 
   // ---------- animation loop ----------
   const lerp = (a, b, t) => a + (b - a) * t;
@@ -477,7 +507,7 @@
     const label = disabled ? 'DISABLED' : (s === 'idle' ? (conversation ? 'AWAKE' : 'ASLEEP') : (STATE_LABEL[s] || s.toUpperCase()));
     $('st-state').textContent = label; $('r-state').textContent = label;
     $('brand2').textContent = 'HOME · ' + (SYS_WORD[s] || s.toUpperCase());
-    $('power').querySelector('b').textContent = disabled ? 'ENABLE JARVIS' : 'DISABLE JARVIS'; $('power').classList.toggle('off', disabled); document.body.classList.toggle('disabled', disabled);
+    $('power').querySelector('b').textContent = `${disabled ? 'ENABLE' : 'DISABLE'} ${(assistants.find((a) => a.id === current) || assistants[0]).name}`; $('power').classList.toggle('off', disabled); document.body.classList.toggle('disabled', disabled);
     $('mic').classList.toggle('off', s === 'muted' || disabled); $('mic').title = s === 'muted' ? 'Microphone off — click to unmute' : 'Microphone on — click to mute';
     if (s !== 'booting') bootSignal();
     if (moved) armCaptions();
@@ -652,8 +682,9 @@
     };
     const grp = (t) => { const g = document.createElement('div'); g.className = 'grp'; g.textContent = t; livePop.appendChild(g); };
     const jobs = (liveNow && liveNow.jobs) || 0;
-    grp('JARVIS');
-    add('JARVIS', stats.brainReady ? 'idle' : '', 'jarvis', 'you and JARVIS');
+    const me = (assistants.find((a) => a.id === current) || assistants[0]).name;
+    grp(me);
+    add(me, stats.brainReady ? 'idle' : '', 'jarvis', `you and ${me}`);
     add('BACKGROUND JOBS', jobs ? 'working' : 'idle', 'jobs', jobs ? `${jobs} running` : 'what JARVIS did for you');
     const claude = sessData.filter((x) => sessKind(x) === 'claude');
     if (claude.length) { grp('CLAUDE CODE'); claude.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach((x) => add(x.name, x.status, 'cc:' + x.cwd, x.ago)); }
@@ -868,7 +899,8 @@
         case 'voice': voiceLevel = Math.max(voiceLevel * 0.5, Math.min(1, +e.level || 0)); break;
         case 'sessions': setSessions(e.data); break;
         case 'memory': setMemory(e.data); break;
-        case 'talking': if (e.agent) { if (e.agent !== spotted) spot(e.agent, false); } else unspot(false); break;
+        case 'assistants': setAssistants(e); break;
+        case 'assistant': setAssistants({ id: e.id }); break;
         case 'context': setContext(e.data); break;
         case 'schedule': setSchedule(e.data); break;
         case 'info': Object.assign(info, e); setStats({}); break;

@@ -38,10 +38,11 @@ function choose(cfg, found) {
   return found.claude.path ? 'claude-code' : cfg.anthropicApiKey ? 'anthropic' : cfg.geminiApiKey ? 'gemini' : 'ollama';
 }
 
-function create(cfg, found) {
+/** opts.fresh: another assistant took over, so start a new session from the shared conversation. */
+function create(cfg, found, opts = {}) {
   const kind = choose(cfg, found);
   log(`brain: provider ${kind} (setting: ${cfg.brainProvider})`);
-  if (kind === 'claude-code') return new ClaudeCodeBrain(cfg, found.claude.path);
+  if (kind === 'claude-code') return new ClaudeCodeBrain(cfg, found.claude.path, opts);
   if (kind === 'ollama' && found.ollama.models.length && !found.ollama.models.some((m) => m === cfg.ollamaModel || m.startsWith(cfg.ollamaModel + ':'))) {
     log(`brain: ollama model ${cfg.ollamaModel} not installed; using ${found.ollama.models[0]}`);
     cfg = { ...cfg, ollamaModel: found.ollama.models[0] };
@@ -50,7 +51,7 @@ function create(cfg, found) {
   // The worker setting is read per turn, so switching her off in Settings applies at once.
   const worker = found.claude.path && found.claude.loggedIn ? new Worker(cfg, found.claude.path) : null;
   log(`brain: worker ${worker ? `on Claude Code · ${cfg.agentModel}${cfg.worker === 'off' ? ' (switched off)' : ''}` : 'none (Claude Code not available)'}`);
-  return new ApiBrain(cfg, kind, worker);
+  return new ApiBrain(cfg, kind, worker, opts);
 }
 
 module.exports = { detect, create, choose };

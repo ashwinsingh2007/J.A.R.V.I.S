@@ -44,7 +44,19 @@ Claude Code is the default and gets the full feature set, using your Claude subs
 
 Speech stays on the Mac by default. Apple's recogniser does the listening, Kokoro does the talking, and echo cancellation stops it from hearing its own voice.
 
-It has a personality: a calm British butler with a dry sense of humour who keeps answers short. When it looks something up, it tells you what it found in its own words and leaves out the list of links.
+It has a personality, and you pick which one. There are five assistants. Each of them does everything, with the same tools, memory and conversation. What differs is how they run and how they sound:
+
+| Assistant | What it's like | Runs on |
+|---|---|---|
+| JARVIS (the default) | Balanced. Quick replies and strong background work. A calm British butler with a dry sense of humour | Claude Code: Sonnet, with Opus for background jobs |
+| FRIDAY | The smartest. She thinks hardest, so she takes longer to answer | Claude Code: Opus on high effort |
+| KAREN | The fastest and cheapest, with simpler answers | Claude Code: Haiku, with Sonnet for background jobs |
+| EDITH | Private. Her brain runs on a local model on your Mac, and she is the weakest of the five | Ollama |
+| VISION | For when you don't have Claude | Google's Gemini, which has a free tier |
+
+Pick one in Setup, switch by clicking another one on the HUD's home screen, or say "switch to FRIDAY". Each one answers to its own name and has its own voice. Settings you change are saved to the assistant you're using, and Settings › Assistant can put one back to its preset. A switch waits until any running background job has finished.
+
+Whichever one you use, it keeps answers short. When it looks something up, it tells you what it found in its own words and leaves out the list of links.
 
 It remembers people, preferences, projects and routines as they come up in conversation. Before older turns are summarised, a separate pass reads what you said in them and saves the facts that last, so a short summary doesn't lose them. If a fact changed (you moved city, a trip got moved), the new one replaces the old. Only your own words are read for this. Emails, web pages and job reports can't add to memory, and passwords, keys and card numbers are never kept.
 
@@ -142,6 +154,7 @@ The first launch opens Setup, where you give your name and choose the brain, how
 | Say | What happens |
 |---|---|
 | "Jarvis, wake up" | It starts listening, and every sentence is a command. |
+| "Switch to FRIDAY" | Another assistant takes over, with the same memory and conversation. Say its name from then on. |
 | Pause for 3 seconds, or end with "over" | Sends what you said. |
 | "Jarvis" while it's talking | Stops it. |
 | "Sleep" | Stops taking commands; only the wake word works. |

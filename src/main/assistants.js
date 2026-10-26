@@ -11,6 +11,7 @@ const SCOPED = ['brainProvider', 'model', 'effort', 'agentModel', 'worker', 'ant
 const ASSISTANTS = {
   jarvis: {
     name: 'JARVIS',
+    hello: 'Quick and thorough, as ever.',
     tier: 'BALANCED',
     about: 'Fast and smart. Quick replies, strong background work.',
     needs: 'Claude Code (or an API key)',
@@ -23,6 +24,7 @@ const ASSISTANTS = {
   },
   friday: {
     name: 'FRIDAY',
+    hello: 'I think hardest, so give me a moment on the big ones.',
     tier: 'MAXIMUM',
     about: 'The smartest. Thinks hardest, so she answers more slowly.',
     needs: 'Claude Code',
@@ -35,6 +37,7 @@ const ASSISTANTS = {
   },
   karen: {
     name: 'KAREN',
+    hello: 'Quick and light. Say if you need something heavier.',
     tier: 'LIGHT',
     about: 'The fastest and cheapest. Simpler answers.',
     needs: 'Claude Code',
@@ -47,6 +50,7 @@ const ASSISTANTS = {
   },
   edith: {
     name: 'EDITH',
+    hello: 'I run right here on your Mac.',
     tier: 'PRIVATE',
     about: 'Runs on a local model on this Mac. Private, but the weakest.',
     needs: 'Ollama',
@@ -59,6 +63,7 @@ const ASSISTANTS = {
   },
   vision: {
     name: 'VISION',
+    hello: "I run on Google's Gemini.",
     tier: 'NO CLAUDE NEEDED',
     about: "Runs on Google's Gemini, with a free tier. For when you don't have Claude.",
     needs: 'A Gemini API key',

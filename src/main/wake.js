@@ -62,11 +62,16 @@ class Wake extends EventEmitter {
     this.carry = '';          // text from a recognition task that ended mid-command
     this.lastChange = Date.now();
     this.timer = null;
-    const alt = cfg.wakeWords.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-    this.wakeRe = new RegExp(`(?:^|[\\s,.!?])(${alt})(?=$|[\\s,.!?'])`, 'g');
-    this.nameLastRe = new RegExp(`\\b(wake|make|walk|back) ?up\\W*(\\w+\\W*)?(${alt})\\b`);
+    this.setNames();
     ears.on('text', (t, f) => this.handle(t, f));
     ears.on('restarted', () => this.taskRestarted());
+  }
+
+  /** The assistant's name, and its mishearings, from cfg.wakeWords. Called again when another assistant takes over. */
+  setNames() {
+    const alt = this.cfg.wakeWords.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+    this.wakeRe = new RegExp(`(?:^|[\\s,.!?])(${alt})(?=$|[\\s,.!?'])`, 'g');
+    this.nameLastRe = new RegExp(`\\b(wake|make|walk|back) ?up\\W*(\\w+\\W*)?(${alt})\\b`);
   }
 
   setConversation(on) {

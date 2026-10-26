@@ -7,7 +7,7 @@
   const $ = (id) => document.getElementById(id);
   const post = (msg) => { try { window.webkit.messageHandlers.jarvis.postMessage(msg); } catch (e) { /* demo */ } };
   const ask = (name, extra = {}) => post({ type: 'action', name, ...extra });
-  const TITLES = { brain: 'BRAIN & WORKER', access: 'ACCESS', ears: 'LISTENING', voice: 'VOICE', extras: 'TELEGRAM & EXTRAS' };
+  const TITLES = { assistant: 'ASSISTANT', brain: 'BRAIN & WORKER', access: 'ACCESS', ears: 'LISTENING', voice: 'VOICE', extras: 'TELEGRAM & EXTRAS' };
 
   let info = null;           // setupInfo() from main: cfg (secrets as has_*), found, installed, brain, workerAvailable
   let page = '';

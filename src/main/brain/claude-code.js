@@ -38,7 +38,8 @@ function stepText(d) {
 }
 
 class ClaudeCodeBrain extends EventEmitter {
-  constructor(cfg, claudePath) {
+  /** fresh: start a new session (another assistant took over) instead of resuming the last one. */
+  constructor(cfg, claudePath, { fresh = false } = {}) {
     super();
     this.cfg = cfg;
     this.claudePath = claudePath;
@@ -53,11 +54,19 @@ class ClaudeCodeBrain extends EventEmitter {
     this.jobs = new Map();       // task_id -> { description } until its result arrives
     this.agentTools = new Map(); // Agent tool_use_id -> task_id, to place subagent messages
     this.splitter = new SentenceSplitter((s) => { if (!this.discard) this.emit('sentence', s); });
-    try { this._sessionId = fs.readFileSync(C.SESSION_FILE, 'utf8').trim() || null; } catch { this._sessionId = null; }
-    this.context = new Context('claude-code', () => this.emit('context', this.contextInfo()), { learn: true });
+    try { this._sessionId = fresh ? null : fs.readFileSync(C.SESSION_FILE, 'utf8').trim() || null; } catch { this._sessionId = null; }
+    if (fresh) try { fs.writeFileSync(C.SESSION_FILE, ''); } catch {}
+    this.context = new Context('conversation', () => this.emit('context', this.contextInfo()), { learn: true });
     this.contextTokens = 0;      // the main thread's context size at its last reply
     // A new day rolls the session over even if nobody talks.
-    setInterval(() => this.maybeRoll(), RETRY_MS).unref();
+    this.rollTimer = setInterval(() => this.maybeRoll(), RETRY_MS).unref();
+  }
+
+  /** Another assistant took over: stop for good. */
+  dispose() {
+    clearInterval(this.rollTimer);
+    this.removeAllListeners();
+    this.kill();
   }
 
   get isReady() { return !!this.proc; }

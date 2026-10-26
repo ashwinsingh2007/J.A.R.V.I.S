@@ -177,8 +177,11 @@ function save(patch) {
   for (const [k, v] of Object.entries(patch)) {
     if (k === 'assistant') continue;
     if (SCOPED.includes(k)) {
+      // Only real changes are kept: a value that matches the preset is the preset.
       raw.assistantSettings = raw.assistantSettings || {};
-      raw.assistantSettings[who] = { ...(raw.assistantSettings[who] || {}), [k]: v };
+      const mine = { ...(raw.assistantSettings[who] || {}), [k]: v };
+      if (k in assistantOf(who).settings ? JSON.stringify(v) === JSON.stringify(assistantOf(who).settings[k]) : JSON.stringify(v) === JSON.stringify(DEFAULTS[k])) delete mine[k];
+      raw.assistantSettings[who] = mine;
     } else raw[k] = SECRET_KEYS.has(k) ? encrypt(v) : v;
   }
   writeRaw(raw);
