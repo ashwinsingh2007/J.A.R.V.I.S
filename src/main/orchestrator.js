@@ -317,6 +317,11 @@ class Orchestrator extends EventEmitter {
       case 'memory-forget': if (body.id && this.memory.forget(body.id)) this.brain.reconfigure && this.brain.reconfigure(); break;
       case 'memory-add': if (body.text) this.memory.add(body.text, 'other'); break;
       case 'context-roll': if (this.brain.rollNow) this.brain.rollNow(); break;
+      // The HUD's spotlight: clicking a crew member talks to them, closing it comes back to JARVIS.
+      case 'talk':
+        if (CREW.includes(body.agent) && this.crewChat) { this.talkingTo = { agent: body.agent, at: Date.now() }; this.view = body.agent; this.sendConversation(); log(`talking to ${body.agent} (HUD)`); }
+        else if (!body.agent) this.endTalking();
+        break;
       case 'schedule-cancel': if (body.id) this.scheduler.cancel(body.id); break;
       case 'hands-permit': this.emit('hands-permit'); break;
       case 'test-voice': this.speaker.stop(); this.speaker.speak(`This is how I sound, ${this.cfg.honorific}.`); break;

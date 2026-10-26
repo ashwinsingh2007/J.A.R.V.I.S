@@ -209,10 +209,10 @@
   // FRIDAY, EDITH, KAREN and VISION are larger nodes in that web; signals run to each of them from the brain
   // along the shortest chain of neurons. Each one fires while it has jobs running.
   const HUBS = [
-    { id: 'edith', name: 'EDITH', role: 'SECURITY', x: 21, y: -53 },
-    { id: 'karen', name: 'KAREN', role: 'COMMS', x: 73, y: 24 },
-    { id: 'friday', name: 'FRIDAY', role: 'TASKS', x: -79, y: -14 },
-    { id: 'vision', name: 'VISION', role: 'BROWSER', x: -38, y: 50 },
+    { id: 'edith', name: 'EDITH', role: 'SECURITY', x: 21, y: -53, about: 'Reviews, fact-checks, links, downloads and privacy' },
+    { id: 'karen', name: 'KAREN', role: 'COMMS', x: 73, y: 24, about: 'Email, chats, social media and your personal brand' },
+    { id: 'friday', name: 'FRIDAY', role: 'TASKS', x: -79, y: -14, about: 'Coding, research, files and heavy jobs' },
+    { id: 'vision', name: 'VISION', role: 'BROWSER', x: -38, y: 50, about: 'Anything inside a website, in your Chrome' },
   ];
   const crew = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   crew.id = 'crew';
@@ -295,21 +295,66 @@
       const d = pts.length > 1 ? curve(pts) : '';
       const sparks = d ? [0, 1].map((k) => `<circle class="spark" r="0.6"><animateMotion dur="${f(2.4 + pts.length * 0.35)}s" begin="${f(k * 1.3 + rnd())}s" repeatCount="indefinite" path="${d}"/></circle>`).join('') : '';
       const right = h.x >= 0, lx = h.x + (right ? 5.5 : -5.5), anchor = right ? 'start' : 'end';
-      return `<g class="mate" id="crew-${h.id}" style="--i:${n}">`
+      return `<g class="mate" id="crew-${h.id}" data-id="${h.id}" style="--i:${n};--hx:${h.x};--hy:${h.y}">`
         + (d ? `<path class="fire" d="${d}" style="--d:${f(rnd())}s"/>` : '') + sparks
-        + `<circle class="halo" cx="${f(h.x)}" cy="${f(h.y)}" r="3.4"/><circle class="ring" cx="${f(h.x)}" cy="${f(h.y)}" r="2.1"/><circle class="core" cx="${f(h.x)}" cy="${f(h.y)}" r="1.05"/>`
+        + `<circle class="hit" cx="${f(h.x)}" cy="${f(h.y)}" r="7"/><circle class="aura" cx="${f(h.x)}" cy="${f(h.y)}" r="5.6"/><circle class="halo" cx="${f(h.x)}" cy="${f(h.y)}" r="3.4"/><circle class="ring" cx="${f(h.x)}" cy="${f(h.y)}" r="2.1"/><circle class="core" cx="${f(h.x)}" cy="${f(h.y)}" r="1.05"/>`
         + `<text class="nm" text-anchor="${anchor}" x="${f(lx)}" y="${f(h.y - 0.3)}">${h.name}</text>`
         + `<text class="rl" text-anchor="${anchor}" x="${f(lx)}" y="${f(h.y + 2.6)}">${h.role} · STANDBY</text></g>`;
     }).join('');
     return `<g class="field">${field}</g>${mates}`;
   }
+  let crewCounts = {};
   function setCrew(counts) {
+    crewCounts = counts || {};
     HUBS.forEach((h) => {
-      const el = $('crew-' + h.id), n = (counts && counts[h.id]) || 0;
+      const el = $('crew-' + h.id), n = crewCounts[h.id] || 0;
       el.classList.toggle('on', n > 0);
       el.querySelector('.rl').textContent = `${h.role} · ${n > 0 ? n + ' RUNNING' : 'STANDBY'}`;
     });
+    if (spotted) spotStatus();
   }
+
+  // ---------- spotlight: a crew member comes forward to talk to ----------
+  // Clicking one (or saying "talk to KAREN") brings them to the centre while the core steps back;
+  // their chat opens and whatever the user says or types goes to them until they go back to JARVIS.
+  let spotted = '';
+  function spotStatus() {
+    const h = HUBS.find((x) => x.id === spotted), n = crewCounts[spotted] || 0;
+    $('spot-hint').textContent = n ? `WORKING · ${n} RUNNING` : `LISTENING · SAY OR TYPE TO ${h.name}`;
+  }
+  function spot(id, tell = true) {
+    const h = HUBS.find((x) => x.id === id);
+    if (!h) return;
+    if (body.dataset.view !== 'cc') showView('cc');
+    spotted = id;
+    body.classList.remove('focus');
+    body.classList.add('spot');
+    HUBS.forEach((x) => $('crew-' + x.id).classList.toggle('spot', x.id === id));
+    $('spot-name').textContent = h.name;
+    $('spot-role').textContent = h.about;
+    spotStatus();
+    $('spot').hidden = false;
+    if (tell) post({ type: 'action', name: 'talk', agent: id });
+    setTimeout(() => askInput.focus(), 400);
+  }
+  function unspot(tell = true) {
+    if (!spotted) return;
+    const was = spotted;
+    spotted = '';
+    body.classList.remove('spot');
+    HUBS.forEach((x) => $('crew-' + x.id).classList.remove('spot'));
+    $('spot').hidden = true;
+    if (tell) post({ type: 'action', name: 'talk', agent: '', was });
+    armFocus();
+  }
+  crew.addEventListener('click', (ev) => {
+    const m = ev.target.closest('.mate');
+    if (!m) return;
+    ev.stopPropagation();
+    if (m.dataset.id === spotted) return;
+    spot(m.dataset.id);
+  });
+  $('spot-back').addEventListener('click', (ev) => { ev.stopPropagation(); unspot(); });
 
   // ---------- animation loop ----------
   const lerp = (a, b, t) => a + (b - a) * t;
@@ -818,6 +863,7 @@
         case 'voice': voiceLevel = Math.max(voiceLevel * 0.5, Math.min(1, +e.level || 0)); break;
         case 'sessions': setSessions(e.data); break;
         case 'memory': setMemory(e.data); break;
+        case 'talking': if (e.agent) { if (e.agent !== spotted) spot(e.agent, false); } else unspot(false); break;
         case 'context': setContext(e.data); break;
         case 'schedule': setSchedule(e.data); break;
         case 'info': Object.assign(info, e); setStats({}); break;
@@ -988,12 +1034,26 @@
     body.classList.remove('focus');
     if (!focus.on || !focus.allowed) return;
     focus.timer = setTimeout(function tryFocus() {
-      const busy = body.dataset.view !== 'cc' || !livePop.hidden || document.activeElement?.matches('input, select, textarea');
-      if (busy) focus.timer = setTimeout(tryFocus, focus.ms);
-      else body.classList.add('focus');
+      const busy = body.dataset.view !== 'cc' || !livePop.hidden || !!spotted || document.activeElement?.matches('input, select, textarea');
+      if (busy) { focus.timer = setTimeout(tryFocus, focus.ms); return; }
+      // Where the panels are, before they slide away: moving onto one brings them back.
+      focus.zones = ['lc', 'tr', 'brand', 'ask', 'bl', 'br'].map((id) => $(id) && $(id).getBoundingClientRect()).filter((r) => r && r.width);
+      body.classList.add('focus');
     }, focus.ms);
   }
-  for (const type of ['mousemove', 'mousedown', 'wheel', 'keydown']) document.addEventListener(type, armFocus, { passive: true });
+  // While focused, the pointer can move over the crew to click one. Moving onto where a panel lives
+  // (unless it's on a crew member), a click elsewhere, a key or the wheel brings the panels back.
+  const nearCrew = (x, y) => HUBS.some((h) => { const r = $('crew-' + h.id).querySelector('.hit').getBoundingClientRect(); return Math.hypot(x - (r.x + r.width / 2), y - (r.y + r.height / 2)) < Math.max(60, r.width / 2 + 24) || $('crew-' + h.id).querySelector('.nm').getBoundingClientRect().right + 8 > x && x > $('crew-' + h.id).querySelector('.nm').getBoundingClientRect().left - 8 && Math.abs(y - (r.y + r.height / 2)) < 40; });
+  document.addEventListener('mousemove', (ev) => {
+    if (!body.classList.contains('focus')) { armFocus(); return; }
+    body.classList.add('pointer');
+    clearTimeout(focus.hintTimer);
+    focus.hintTimer = setTimeout(() => body.classList.remove('pointer'), 2500);
+    const x = ev.clientX, y = ev.clientY;
+    if ((focus.zones || []).some((r) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) && !nearCrew(x, y)) armFocus();
+  }, { passive: true });
+  document.addEventListener('mousedown', (ev) => { if (!ev.target.closest('#crew .mate')) armFocus(); }, { passive: true });
+  for (const type of ['wheel', 'keydown']) document.addEventListener(type, armFocus, { passive: true });
   armFocus();
 
   // ---------- the input bar: typed messages go to JARVIS like spoken ones ----------
@@ -1010,7 +1070,7 @@
   askInput.addEventListener('keydown', (ev) => {
     if (ev.key !== 'Escape') return;
     ev.stopPropagation();
-    if (askInput.value) askInput.value = ''; else askInput.blur();
+    if (askInput.value) askInput.value = ''; else if (spotted) unspot(); else askInput.blur();
     $('ask-send').disabled = true;
   });
   // Cmd+K, or "/" when not already typing somewhere, puts the cursor in the bar.
@@ -1023,7 +1083,7 @@
     }
   });
 
-  document.addEventListener('keydown', (ev) => { if (ev.key !== 'Escape') return; if (!livePop.hidden) { livePop.hidden = true; return; } post({ type: 'action', name: 'stop' }); });
+  document.addEventListener('keydown', (ev) => { if (ev.key !== 'Escape') return; if (!livePop.hidden) { livePop.hidden = true; return; } if (spotted) { unspot(); return; } post({ type: 'action', name: 'stop' }); });
 
   // ---------- theme: reactor colours follow the CSS theme ----------
   function applyThemeToScene(t) {

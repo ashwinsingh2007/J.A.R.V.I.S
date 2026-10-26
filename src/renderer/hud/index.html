@@ -33,7 +33,15 @@
     <div id="stage"><canvas id="scene"></canvas>
       <div class="corelabel"><div class="jv">JARVIS</div></div>
       <div id="panels"></div>
+      <!-- a crew member brought to the centre to talk to -->
+      <div id="spot" hidden>
+        <div class="spot-name" id="spot-name"></div>
+        <div class="spot-role" id="spot-role"></div>
+        <div class="spot-hint" id="spot-hint"></div>
+        <button class="spot-back" id="spot-back" title="Back to JARVIS (Esc)">BACK TO JARVIS</button>
+      </div>
     </div>
+    <div id="focus-hint">CLICK A CREW MEMBER TO TALK TO THEM · CLICK ANYWHERE ELSE TO RETURN</div>
 
     <!-- left column: system readouts + live feed -->
     <div id="lc">
