@@ -208,11 +208,13 @@
   // ---------- the crew: JARVIS is the main brain inside a loose web of neurons ----------
   // FRIDAY, EDITH, KAREN and VISION are larger nodes in that web; signals run to each of them from the brain
   // along the shortest chain of neurons. Each one fires while it has jobs running.
+  // x, y: their place in the web (full mode). nx, ny: just outside the reactor ring in the normal view,
+  // where the side panels leave room even on a laptop screen.
   const HUBS = [
-    { id: 'edith', name: 'EDITH', role: 'SECURITY', x: 21, y: -53, about: 'Reviews, fact-checks, links, downloads and privacy' },
-    { id: 'karen', name: 'KAREN', role: 'COMMS', x: 73, y: 24, about: 'Email, chats, social media and your personal brand' },
-    { id: 'friday', name: 'FRIDAY', role: 'TASKS', x: -79, y: -14, about: 'Coding, research, files and heavy jobs' },
-    { id: 'vision', name: 'VISION', role: 'BROWSER', x: -38, y: 50, about: 'Anything inside a website, in your Chrome' },
+    { id: 'edith', name: 'EDITH', role: 'SECURITY', x: 21, y: -53, nx: 30, ny: -46, about: 'Reviews, fact-checks, links, downloads and privacy' },
+    { id: 'karen', name: 'KAREN', role: 'COMMS', x: 73, y: 24, nx: 42, ny: 30, about: 'Email, chats, social media and your personal brand' },
+    { id: 'friday', name: 'FRIDAY', role: 'TASKS', x: -79, y: -14, nx: -42, ny: -30, about: 'Coding, research, files and heavy jobs' },
+    { id: 'vision', name: 'VISION', role: 'BROWSER', x: -38, y: 50, nx: -30, ny: 46, about: 'Anything inside a website, in your Chrome' },
   ];
   const crew = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   crew.id = 'crew';
@@ -295,13 +297,20 @@
       const d = pts.length > 1 ? curve(pts) : '';
       const sparks = d ? [0, 1].map((k) => `<circle class="spark" r="0.6"><animateMotion dur="${f(2.4 + pts.length * 0.35)}s" begin="${f(k * 1.3 + rnd())}s" repeatCount="indefinite" path="${d}"/></circle>`).join('') : '';
       const right = h.x >= 0, lx = h.x + (right ? 5.5 : -5.5), anchor = right ? 'start' : 'end';
-      return `<g class="mate" id="crew-${h.id}" data-id="${h.id}" style="--i:${n};--hx:${h.x};--hy:${h.y}">`
+      return `<g class="mate" id="crew-${h.id}" data-id="${h.id}" style="--i:${n};--hx:${h.x};--hy:${h.y};--nx:${h.nx};--ny:${h.ny}">`
         + (d ? `<path class="fire" d="${d}" style="--d:${f(rnd())}s"/>` : '') + sparks
         + `<circle class="hit" cx="${f(h.x)}" cy="${f(h.y)}" r="7"/><circle class="aura" cx="${f(h.x)}" cy="${f(h.y)}" r="5.6"/><circle class="halo" cx="${f(h.x)}" cy="${f(h.y)}" r="3.4"/><circle class="ring" cx="${f(h.x)}" cy="${f(h.y)}" r="2.1"/><circle class="core" cx="${f(h.x)}" cy="${f(h.y)}" r="1.05"/>`
         + `<text class="nm" text-anchor="${anchor}" x="${f(lx)}" y="${f(h.y - 0.3)}">${h.name}</text>`
-        + `<text class="rl" text-anchor="${anchor}" x="${f(lx)}" y="${f(h.y + 2.6)}">${h.role} · STANDBY</text></g>`;
+        + `<text class="rl" text-anchor="${anchor}" x="${f(lx)}" y="${f(h.y + 2.6)}">${h.role} · STANDBY</text>`
+        + `<text class="nm2" text-anchor="middle" x="${f(h.x)}" y="${f(h.y + 6.4)}">${h.name}</text>`
+        + `<text class="rl2" text-anchor="middle" x="${f(h.x)}" y="${f(h.y + 8.6)}">${h.role} · STANDBY</text></g>`;
     }).join('');
-    return `<g class="field">${field}</g>${mates}`;
+    // the normal view's simple links from the reactor's edge to each crew member
+    const tethers = HUBS.map((h) => {
+      const a = Math.atan2(h.ny, h.nx), d = Math.hypot(h.nx, h.ny) - 3.6;
+      return `<line class="tether" id="tether-${h.id}" x1="${f(R0 * Math.cos(a))}" y1="${f(R0 * Math.sin(a))}" x2="${f(d * Math.cos(a))}" y2="${f(d * Math.sin(a))}"/>`;
+    }).join('');
+    return `<g class="field">${field}</g><g class="tethers">${tethers}</g>${mates}`;
   }
   let crewCounts = {};
   function setCrew(counts) {
@@ -309,7 +318,8 @@
     HUBS.forEach((h) => {
       const el = $('crew-' + h.id), n = crewCounts[h.id] || 0;
       el.classList.toggle('on', n > 0);
-      el.querySelector('.rl').textContent = `${h.role} · ${n > 0 ? n + ' RUNNING' : 'STANDBY'}`;
+      $('tether-' + h.id).classList.toggle('on', n > 0);
+      el.querySelectorAll('.rl, .rl2').forEach((t) => { t.textContent = `${h.role} · ${n > 0 ? n + ' RUNNING' : 'STANDBY'}`; });
     });
     if (spotted) spotStatus();
   }
