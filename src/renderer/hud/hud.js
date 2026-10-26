@@ -601,11 +601,9 @@
   renderSessions();
 
   const unmd = (t) => String(t || '').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/`([^`]*)`/g, '$1').replace(/\*\*/g, '');
-  // ---------- right panel: conversations (JARVIS, the crew, Claude Code sessions) ----------
+  // ---------- right panel: conversations (JARVIS, background jobs, Claude Code sessions) ----------
   const livelog = $('livelog');
-  const CREW_IDS = ['friday', 'karen', 'edith', 'vision'];
-  const CREW_ROLE = { friday: 'tasks', karen: 'comms', edith: 'security', vision: 'system' };
-  let liveStuck = true, liveNow = null, liveSig = '', askTo = '';
+  let liveStuck = true, liveNow = null, liveSig = '';
   livelog.addEventListener('scroll', () => { liveStuck = livelog.scrollHeight - livelog.scrollTop - livelog.clientHeight < 24; });
   function setConversation(c) {
     if (!c || !c.entries) return;
@@ -615,9 +613,6 @@
     $('live-ago').textContent = c.ago || '';
     $('live-pin').textContent = '';
     watchedCwd = c.key.startsWith('cc:') ? c.key.slice(3) : null;
-    // Typing while a crew member's chat is open talks to them directly.
-    askTo = CREW_IDS.includes(c.key) ? c.key : '';
-    $('ask-input').placeholder = askTo ? `Type to ${askTo.toUpperCase()}…` : 'Type to JARVIS…';
     document.querySelectorAll('.card').forEach((el) => el.classList.toggle('watching', !!watchedCwd && el.dataset.cwd === watchedCwd));
     if (!livePop.hidden) buildPicker();
     const sig = c.key + JSON.stringify(c.entries);
@@ -627,7 +622,7 @@
     livelog.textContent = '';
     if (!c.entries.length) {
       const e = document.createElement('li'); e.className = 'empty';
-      e.textContent = c.key === 'jarvis' ? 'NO CONVERSATION YET' : c.key.startsWith('cc:') ? 'NO MESSAGES YET' : `NOTHING YET. TYPE BELOW OR SAY "${c.name}, …" TO TALK TO ${c.name} DIRECTLY`;
+      e.textContent = c.key === 'jarvis' ? 'NO CONVERSATION YET' : c.key.startsWith('cc:') ? 'NO MESSAGES YET' : 'NO BACKGROUND JOBS YET';
       livelog.appendChild(e); return;
     }
     c.entries.forEach((en) => {
@@ -656,10 +651,10 @@
       livePop.appendChild(b);
     };
     const grp = (t) => { const g = document.createElement('div'); g.className = 'grp'; g.textContent = t; livePop.appendChild(g); };
-    const crewNow = (liveNow && liveNow.crew) || {};
+    const jobs = (liveNow && liveNow.jobs) || 0;
     grp('JARVIS');
     add('JARVIS', stats.brainReady ? 'idle' : '', 'jarvis', 'you and JARVIS');
-    CREW_IDS.forEach((id) => add(id.toUpperCase(), crewNow[id] ? 'working' : 'idle', id, crewNow[id] ? `${crewNow[id]} running` : CREW_ROLE[id]));
+    add('BACKGROUND JOBS', jobs ? 'working' : 'idle', 'jobs', jobs ? `${jobs} running` : 'what JARVIS did for you');
     const claude = sessData.filter((x) => sessKind(x) === 'claude');
     if (claude.length) { grp('CLAUDE CODE'); claude.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach((x) => add(x.name, x.status, 'cc:' + x.cwd, x.ago)); }
   }
@@ -679,7 +674,7 @@
   function setMemory(facts) {
     facts = Array.isArray(facts) ? facts : [];
     const ul = $('mem-list');
-    ul.replaceChildren(...(facts.length ? [...facts].reverse().map((f) => memRow(f.text, [f.for ? 'FOR ' + f.for.toUpperCase() : '', f.topic && f.topic !== 'other' ? f.topic.toUpperCase() : '', f.learnt ? 'LEARNT' : '', String(f.added || '').slice(0, 10)].filter(Boolean).join(' · '),
+    ul.replaceChildren(...(facts.length ? [...facts].reverse().map((f) => memRow(f.text, [f.topic && f.topic !== 'other' ? f.topic.toUpperCase() : '', f.learnt ? 'LEARNT' : '', String(f.added || '').slice(0, 10)].filter(Boolean).join(' · '),
       () => post({ type: 'action', name: 'memory-forget', id: f.id }), 'Forget this')) : [emptyRow('NOTHING REMEMBERED YET')]));
     $('n-memory').textContent = facts.length;
     $('mem-count').textContent = facts.length ? facts.length + ' FACT' + (facts.length === 1 ? '' : 'S') : '';
@@ -763,7 +758,7 @@
   function setStats(st) {
     Object.assign(stats, st || {});
     const ag = Array.isArray(stats.agents) ? stats.agents : [];
-    setCrew(stats.crew || (ag.length ? { friday: ag.length } : {}));
+    crew.classList.toggle('busy', ag.length > 0);
     $('br-worker').textContent = ag.length ? `${ag.length} JOB${ag.length === 1 ? '' : 'S'} · ${String(ag[0]).toUpperCase().slice(0, 28)}` : 'NO JOBS RUNNING';
     renderServices();
   }
@@ -994,7 +989,7 @@
     if (e.hands) setVals.hands = e.hands;
     const v = setVals, up = (s) => String(s || '—').toUpperCase();
     const cc = /^claude code/.test(v.brain || '');
-    const worker = cc ? `AGENTS · ${up(v.agentModel)}` : v.workerAvailable && v.worker !== 'off' ? `FRIDAY · ${up(v.agentModel)}` : 'NO WORKER';
+    const worker = cc || (v.workerAvailable && v.worker !== 'off') ? `WORKER · ${up(v.agentModel)}` : 'NO WORKER';
     $('sc-brain').textContent = `${up(v.brain)} · ${worker}`;
     const h = v.hands || {};
     $('sc-access').textContent = h.missing ? 'MIC · SPEECH' : `MIC · SPEECH · APPS ${h.ax ? '✓' : '✗'} · SCREEN ${h.screen ? '✓' : '✗'}`;
@@ -1073,7 +1068,7 @@
     ev.preventDefault();
     const text = askInput.value.trim();
     if (!text) return;
-    post({ type: 'action', name: 'type', text, ...(askTo ? { to: askTo } : {}) });
+    post({ type: 'action', name: 'type', text });
     askInput.value = '';
     $('ask-send').disabled = true;
   });
@@ -1128,7 +1123,7 @@
     ev({ type: 'youtube_presets', presets: [ { id: 'lofigirl', name: 'Lofi Girl', note: '24/7 lofi hip-hop live' }, { id: 'cafebgm', name: 'Cafe Music BGM', note: 'jazz & bossa café live' } ] });
     ev({ type: 'music', playing: true, source: 'radio', id: 'lofi', name: 'Lofi Beats', note: 'chill lo-fi instrumentals · radio', title: 'Kupla - Valentine', volume: 24 });
     ev({ type: 'info', claude: '2.1.309 (Claude Code)', model: 'opus', voice: 'kokoro bm_george' });
-    ev({ type: 'stats', turns: 22, toolCalls: 14, memories: 38, sessionsActive: 2, brainModel: 'opus', effort: 'low', brainReady: true, tts: 'kokoro bm_george', stt: 'apple on-device', telegram: '@my_jarvis_bot', agents: ['checking your Gmail'], crew: { karen: 1 } });
+    ev({ type: 'stats', turns: 22, toolCalls: 14, memories: 38, sessionsActive: 2, brainModel: 'opus', effort: 'low', brainReady: true, tts: 'kokoro bm_george', stt: 'apple on-device', telegram: '@my_jarvis_bot', agents: ['checking your Gmail'] });
     ev({ type: 'system', cpu: 36, ram: 72, ramUsedGB: 12.5, ramTotalGB: 17.2, disk: 89, diskFreeGB: 24, battery: 70, charging: true, uptime: '4d 20h', host: 'macbook' });
     ev({ type: 'history', data: [
       { t: '09:30', you: 'what are my sessions doing', jarvis: 'Two are busy, sir. The web app is running its tests and the API server is mid-build. The blog and the docs are idle.' },
@@ -1137,14 +1132,14 @@
       { t: '11:06', you: '(agent)', jarvis: 'Three new emails. Only the one from your landlord needs a reply today.' },
       { t: '11:18', you: 'remind me at five to call the bank', jarvis: 'Done. I\'ll remind you at five.' },
     ] });
-    ev({ type: 'context', data: { tokens: 41200, limit: 70000, lines: 9, rolledAt: new Date(Date.now() - 3 * 3600e3).toISOString(), summary: 'Waiting on the user\n- Their go to send the reply to the landlord that KAREN drafted.\n\nWhat the crew found\n- FRIDAY: the payments test fails because of a missing comma in config.json (11:40).\n\nFacts the user stated\n- Flying to Delhi on Friday morning.' } });
+    ev({ type: 'context', data: { tokens: 41200, limit: 70000, lines: 9, rolledAt: new Date(Date.now() - 3 * 3600e3).toISOString(), summary: 'Waiting on the user\n- Their go to send the reply to the landlord that JARVIS drafted.\n\nWhat the background jobs found\n- The payments test fails because of a missing comma in config.json (11:40).\n\nFacts the user stated\n- Flying to Delhi on Friday morning.' } });
     ev({ type: 'memory', data: [
       { id: 'm1', text: 'Prefers lo-fi music while working.', topic: 'preference', added: '2026-10-21T09:12' },
       { id: 'm2', text: 'Lives in Bengaluru and works from home on Fridays.', topic: 'place', added: '2026-10-22T18:40' },
       { id: 'm3', text: 'Sister is called Priya; her birthday is on 14 November.', topic: 'person', added: '2026-10-23T20:05' },
       { id: 'm4', text: '"The web app" means the project in ~/Projects/web-app.', topic: 'project', added: '2026-10-24T11:30' },
       { id: 'm5', text: 'Goes for a run most mornings around seven.', topic: 'routine', added: '2026-10-24T07:55' },
-      { id: 'm6', text: 'Wants LinkedIn posts casual and short, with no hashtags.', topic: 'preference', added: '2026-10-25T16:20', for: 'karen', learnt: true },
+      { id: 'm6', text: 'Wants LinkedIn posts casual and short, with no hashtags.', topic: 'preference', added: '2026-10-25T16:20', learnt: true },
     ] });
     const at = (h, m, d = 0) => { const x = new Date(); x.setDate(x.getDate() + d); x.setHours(h, m, 0, 0); const p = (n) => String(n).padStart(2, '0'); return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())}T${p(h)}:${p(m)}`; };
     ev({ type: 'schedule', data: [
@@ -1167,13 +1162,13 @@
     setTimeout(() => { ev({ type: 'boot', ok: true }); ev({ type: 'sessions', data: fake }); }, 900);
     const tailEntries = [
       { t: '19:56', who: 'you', name: 'YOU', text: 'Check my Gmail and tell me what needs a reply.' },
-      { t: '19:56', who: 'jarvis', name: 'JARVIS', text: "KAREN's going through your inbox now, sir." },
+      { t: '19:56', who: 'jarvis', name: 'JARVIS', text: "Going through your inbox now, sir." },
       { t: '19:58', who: 'jarvis', name: 'JARVIS', text: 'Three new emails. Only the one from your bank needs a reply.' },
       { t: '20:01', who: 'you', name: 'YOU', text: 'Draft a polite reply saying I will call them tomorrow.' },
       { t: '20:01', who: 'jarvis', name: 'JARVIS', text: 'Drafting it now. I will read it to you before anything is sent.' },
     ];
     let tailN = 2;
-    setInterval(() => { tailN = Math.min(tailEntries.length, tailN + 1); ev({ type: 'conversation', key: 'jarvis', name: 'JARVIS', status: tailN < tailEntries.length ? 'working' : 'idle', ago: '', crew: { karen: 1 }, entries: tailEntries.slice(0, tailN) }); }, 1500);
+    setInterval(() => { tailN = Math.min(tailEntries.length, tailN + 1); ev({ type: 'conversation', key: 'jarvis', name: 'JARVIS', status: tailN < tailEntries.length ? 'working' : 'idle', ago: '', jobs: 1, entries: tailEntries.slice(0, tailN) }); }, 1500);
     const tools = [['Bash', 'sessions.sh'], ['Read', '~/.claude/projects/…/transcript.jsonl'], ['WebSearch', 'kokoro onnx british voices'], ['Bash', 'send.sh web-app "run the tests"'], ['Bash', 'mac.sh screenshot'], ['Agent', 'agent: checking your Gmail']];
     const cycle = ['idle', 'listening', 'thinking', 'speaking'];
     let i = 0;

@@ -40,19 +40,9 @@ class SentenceSplitter {
   }
 }
 
-// The crew members JARVIS hands jobs to. Each is a background agent with its own persona (prompts/crew/<id>.md).
-const CREW = ['friday', 'karen', 'edith', 'vision'];
-const crewName = (id) => (CREW.includes(id) ? id.toUpperCase() : 'FRIDAY');
-// VISION looks after the Mac itself: a shell for system.sh and the usual Mac tools, and reading files.
-// No browser and no web, so pages and emails never reach the crew member who can clean folders.
-// A separate `claude -p` for him also runs without --chrome and without any MCP server.
-const VISION_TOOLS = ['Bash', 'Read', 'Grep', 'Glob'];
-const VISION_ARGS = ['--tools', VISION_TOOLS.join(','), '--strict-mcp-config'];
-
 /** Placeholders, and the screen-control parts (between <!--screen--> markers) only when allowed. */
 function fill(text, cfg) {
   text = text.replace(/<!--screen-->([\s\S]*?)<!--\/screen-->\n?/g, (_, inner) => (cfg.screenControl ? inner : ''));
-  if (text.includes('{{CREW}}')) text = text.replaceAll('{{CREW}}', read('crew.md', '').trim());
   return text.replaceAll('{{SCRIPTS}}', paths.scripts).replaceAll('{{HONORIFIC}}', cfg.honorific).replaceAll('{{HOME}}', C.HOME)
     .replaceAll('{{ROOT}}', paths.root).replaceAll('{{STATE}}', C.STATE_DIR);
 }
@@ -61,22 +51,19 @@ function read(file, fallback) {
   try { return fs.readFileSync(path.join(paths.prompts, file), 'utf8'); } catch { return fallback; }
 }
 
-/** Instructions for one crew member: their persona, the shared agent rules, and who else is on the crew. */
-function agentPrompt(cfg, who = 'friday') {
-  if (!CREW.includes(who)) who = 'friday';
-  const persona = read(`crew/${who}.md`, `You are ${crewName(who)}, part of JARVIS's crew.`).trim();
-  const rules = read('agent.md', 'Do the task fully, then end with one short paragraph starting with RESULT:.');
-  let text = fill(`${persona}\n\n${rules}\n\n{{CREW}}`, cfg);
+/** Instructions for the background worker, with what JARVIS knows about the user. */
+function workerPrompt(cfg) {
+  let text = fill(read('worker.md', 'Do the task fully, then end with one short paragraph starting with RESULT:.'), cfg);
   if (cfg.userName) text += `\n\nThe user's name is ${cfg.userName}.`;
-  const mem = new (require('../memory').Memory)().promptText(who);
-  if (mem) text += `\n\nWHAT YOU KNOW ABOUT THE USER (from memory, everyone's and your own; use it in your work, never recite it):\n${mem}`;
+  const mem = new (require('../memory').Memory)().promptText();
+  if (mem) text += `\n\nWHAT YOU KNOW ABOUT THE USER (from memory; use it in your work, never recite it):\n${mem}`;
   return text;
 }
 
 /**
  * System prompt with placeholders filled and the memory file appended.
  * file: system.md for capable models, local.md (shorter) for small local ones.
- * worker: keep the parts between <!--worker--> markers (FRIDAY is available).
+ * worker: keep the parts between <!--worker--> markers (the background worker is available).
  */
 function systemPrompt(cfg, extra = '', { file = 'system.md', worker = false } = {}) {
   let text;
@@ -89,7 +76,7 @@ function systemPrompt(cfg, extra = '', { file = 'system.md', worker = false } = 
   return text;
 }
 
-/** Claude Code settings for the brain and FRIDAY: the user's deny rules and PreToolUse hooks, plus ours. */
+/** Claude Code settings for the brain and its worker: the user's deny rules and PreToolUse hooks, plus ours. */
 function claudeSettings() {
   let user = {};
   try { user = JSON.parse(fs.readFileSync(`${C.HOME}/.claude/settings.json`, 'utf8')); } catch {}
@@ -103,7 +90,7 @@ function claudeSettings() {
 
 /**
  * Tools Claude Code may not use: new terminals only come from the user, and screen control only when allowed.
- * The brain also has no web search: searching is FRIDAY's job, so JARVIS hands it over instead.
+ * The brain also has no web search: searching is the worker's job, so JARVIS hands it over instead.
  */
 function claudeDisallowed(cfg, { brain = false } = {}) {
   return `Bash(${paths.scripts}/open-session.sh*),Bash(*open-session.sh*)` + (cfg.screenControl ? '' : ',Bash(*hands.sh*),Bash(*jarvis-hands*)')
@@ -125,4 +112,4 @@ function summarise(name, input = {}) {
   }
 }
 
-module.exports = { CREW, crewName, VISION_TOOLS, VISION_ARGS, SentenceSplitter, systemPrompt, agentPrompt, summarise, claudeSettings, claudeDisallowed, fill, read };
+module.exports = { SentenceSplitter, systemPrompt, workerPrompt, summarise, claudeSettings, claudeDisallowed, fill, read };

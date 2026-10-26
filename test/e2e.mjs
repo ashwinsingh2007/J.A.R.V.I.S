@@ -481,9 +481,9 @@ async function testVoice() {
   await s.quiet(hud);
   m = s.mark();
   await s.say('use a background agent to run the date command and tell me the current year over');
-  check('brain starts a background agent', await s.waitLog(/brain: (friday|karen|edith|vision) started/, 60000, m));
+  check('brain starts a background agent', await s.waitLog(/brain: worker started/, 60000, m));
   check('brain answers before the agent finishes', await s.waitLog(/timing: claude done/, 60000, m) && !s.log().slice(m).match(/brain: \w+ completed/));
-  check('agent completes', await s.waitLog(/brain: (friday|karen|edith|vision) completed/, 120000, m));
+  check('agent completes', await s.waitLog(/brain: worker completed/, 120000, m));
   const bg = await s.waitLog(/brain: background turn '(.*)/, 60000, m);
   const spokenAt = s.log().indexOf('brain: background turn', m);
   check('agent result is spoken', bg && /20\d\d|year/i.test(bg[1]) && await s.waitLog(/native synth/, 10000, spokenAt), bg && bg[1]);
@@ -494,7 +494,7 @@ async function testVoice() {
   await s.quiet(hud);
   m = s.mark();
   await s.say('in the background, run the shell command ping -c 20 localhost three separate times one after another, then tell me the word finished over');
-  check('long job starts', await s.waitLog(/brain: (friday|karen|edith|vision) started/, 60000, m));
+  check('long job starts', await s.waitLog(/brain: worker started/, 60000, m));
   await s.waitLog(/timing: claude done/, 60000, m);
   const ack = await text(hud, '#reply');
   check('reply hides the machinery', ack && !/\b(agent|subagent|worker|background task|task id)\b/i.test(ack), ack.slice(0, 120));
@@ -506,7 +506,7 @@ async function testVoice() {
   let st = await s.waitLog(/status: '(.*)'/, 5000, sm);
   if (!st) { await s.quiet(hud); await s.say("what's the status over"); st = await s.waitLog(/status: '(.*)'/, 5000, sm); }   // a progress line may have talked over it
   check('status question answered at once, without the brain', st && !s.log().slice(sm).includes('brain: asked'), st && st[1]);
-  check('long job completes', await s.waitLog(/brain: (friday|karen|edith|vision) completed/, 180000, m));
+  check('long job completes', await s.waitLog(/brain: worker completed/, 180000, m));
 
   // Classic dictation ends its task after a short pause; the command must survive that
   await s.quiet(hud);
@@ -583,10 +583,9 @@ async function testHud() {
     if (w === 1470) await shot(hud, 'hud-home-crew-laptop');
   }
   const fri = await hud.evaluate(() => { const r = document.querySelector('#crew-friday .core').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
-  let nm = s.mark();
   await hud.mouse.click(fri[0], fri[1]);
   await sleep(1300);
-  check('clicking FRIDAY in the normal view spotlights her', await hud.evaluate(() => document.getElementById('crew-friday').classList.contains('spot')) && await s.waitLog(/talking to friday \(HUD\)/, 3000, nm));
+  check('clicking FRIDAY in the normal view spotlights her', await hud.evaluate(() => document.getElementById('crew-friday').classList.contains('spot')));
   await hud.click('#spot-back');
   await sleep(900);
   check('BACK TO JARVIS returns to the normal view', await hud.evaluate(() => !document.body.classList.contains('spot') && getComputedStyle(document.getElementById('lc')).opacity === '1'));
@@ -756,7 +755,7 @@ async function testHud() {
   await s.waitLog(/timing: claude done/, 60000, tm);
   await hud.evaluate(() => document.activeElement && document.activeElement.blur());
 
-  // The right panel shows the conversation, not tool traffic, and lists JARVIS and the crew
+  // The right panel shows the conversation, not tool traffic, and lists JARVIS and the background jobs
   await sleep(500);
   check('the right panel shows my words and the reply', await hud.evaluate(() => {
     const li = [...document.querySelectorAll('#livelog li.msg')];
@@ -764,10 +763,10 @@ async function testHud() {
   }), await text(hud, '#live-name'));
   await hud.click('#live-btn');
   const picks = await hud.evaluate(() => [...document.querySelectorAll('#live-pop button')].map((b) => b.querySelector('span:nth-child(2)').textContent));
-  check('the picker lists JARVIS and the crew', ['JARVIS', 'FRIDAY', 'KAREN', 'EDITH', 'VISION'].every((n) => picks.includes(n)), picks.slice(0, 6).join(', '));
-  await hud.click('#live-pop button:nth-of-type(3)');
+  check('the picker lists JARVIS and the background jobs', ['JARVIS', 'BACKGROUND JOBS'].every((n) => picks.includes(n)), picks.slice(0, 6).join(', '));
+  await hud.click('#live-pop button:nth-of-type(2)');
   await sleep(600);
-  check('picking KAREN shows her conversation', await text(hud, '#live-name') === 'KAREN', await text(hud, '#live-name'));
+  check('picking the background jobs shows them', await text(hud, '#live-name') === 'BACKGROUND JOBS', await text(hud, '#live-name'));
   await hud.click('#live-btn');
   await hud.click('#live-pop button:nth-of-type(1)');
   await sleep(300);
@@ -806,23 +805,19 @@ async function testHud() {
 
   // Spotlight: clicking KAREN brings her to the centre and talks to her
   const karen = await hud.evaluate(() => { const r = document.querySelector('#crew-karen .core').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
-  let sm = s.mark();
   await hud.mouse.click(karen[0], karen[1]);
   await sleep(1300);
   check('clicking KAREN spotlights her', await hud.evaluate(() => document.body.classList.contains('spot') && document.getElementById('crew-karen').classList.contains('spot')));
   const at = await hud.evaluate(() => { const c = document.querySelector('#crew-karen .core').getBoundingClientRect(), st = document.getElementById('stage').getBoundingClientRect(); return [c.x + c.width / 2 - (st.x + st.width / 2), c.y + c.height / 2 - (st.y + st.height / 2), c.width]; });
   check('she moves to the centre and grows', Math.abs(at[0]) < 20 && Math.abs(at[1]) < 60 && at[2] > 20, at.map((n) => Math.round(n)).join(', '));
-  check('her name card shows', /KAREN/.test(await text(hud, '#spot-name')) && /SAY OR TYPE TO KAREN/.test(await text(hud, '#spot-hint')));
-  check('JARVIS puts the user through to her', await s.waitLog(/talking to karen \(HUD\)/, 3000, sm));
-  check('her chat opens and typing goes to her', /KAREN/.test(await text(hud, '#live-name')) && /Type to KAREN/.test(await hud.getAttribute('#ask-input', 'placeholder')));
+  check('her name card shows', /KAREN/.test(await text(hud, '#spot-name')));
   await shot(hud, 'hud-spotlight');
   await hud.evaluate(() => window.hud.event({ type: 'talking', agent: 'edith' }));
   await sleep(1000);
   check('"talk to EDITH" moves the spotlight to her', await hud.evaluate(() => document.getElementById('crew-edith').classList.contains('spot') && !document.getElementById('crew-karen').classList.contains('spot')));
-  sm = s.mark();
   await hud.keyboard.press('Escape');
   await sleep(900);
-  check('Esc goes back to JARVIS', await hud.evaluate(() => !document.body.classList.contains('spot')) && await s.waitLog(/talking to (karen|edith): ended/, 3000, sm));
+  check('Esc goes back to JARVIS', await hud.evaluate(() => !document.body.classList.contains('spot')));
   await hud.click('#live-btn');
   await hud.click('#live-pop button:nth-of-type(1)');
   await hud.mouse.move(mid[0], mid[1]);
@@ -947,10 +942,10 @@ async function testProactive() {
   await s.app.close();
 }
 
-// JARVIS on a local Ollama brain with FRIDAY, a Claude Code worker on Opus, doing the heavy job.
+// JARVIS on a local Ollama brain with the background worker on Claude Code and Opus, doing the heavy job.
 // Needs Ollama running with llama3.2 and a signed-in Claude Code; skipped otherwise.
-async function testFriday() {
-  console.log('\nOLLAMA BRAIN + FRIDAY ON OPUS');
+async function testWorker() {
+  console.log('\nOLLAMA BRAIN + WORKER ON OPUS');
   const tags = await fetch('http://127.0.0.1:11434/api/tags').then((r) => r.json()).catch(() => null);
   if (!tags || !(tags.models || []).some((m) => m.name.startsWith('llama3.2'))) { console.log('  - skipped: Ollama with llama3.2 is not running'); return; }
   const state = makeState({ onboarded: true, brainProvider: 'ollama', ollamaModel: 'llama3.2', worker: 'claude-code', agentModel: 'opus', ttsEngine: 'native' });
@@ -958,7 +953,7 @@ async function testFriday() {
   const hud = await windowByUrl(s.app, /hud\/index\.html/, 20000);
   if (!hud) { check('HUD opens', false); await s.app.close(); return; }
   check('brain is Ollama', await s.waitLog(/brain: provider ollama/, 10000));
-  check('FRIDAY is the worker, on Opus', await s.waitLog(/brain: worker FRIDAY on Claude Code · opus/, 10000));
+  check('the worker runs on Claude Code and Opus', await s.waitLog(/brain: worker on Claude Code · opus/, 10000));
   await hud.waitForFunction(() => document.body.dataset.state !== 'booting', null, { timeout: 15000 }).catch(() => {});
   let m = s.mark();
   await s.say('jarvis wake up');
@@ -970,85 +965,35 @@ async function testFriday() {
   m = s.mark();
   await s.say('what is two plus two over');
   const small = await s.waitLog(/timing: ollama done ([\d.]+)s/, 60000, m);
-  check('a small question is answered by the local brain', small && !/friday: started/.test(s.log().slice(m)), small && `${small[1]} s`);
+  check('a small question is answered by the local brain', small && !/worker: started/.test(s.log().slice(m)), small && `${small[1]} s`);
   await s.quiet(hud, 30000);
 
-  // A heavy job goes to FRIDAY
+  // A heavy job goes to the worker
   m = s.mark();
   await s.say('please research the current top story on hacker news, read the article, and tell me what it is about over');
-  const started = await s.waitLog(/friday: started '([^']*)'.*model=(\w+)/, 90000, m);
-  check('a heavy job is handed to FRIDAY', started, started && started[1]);
-  check('FRIDAY runs on Opus', started && started[2] === 'opus', started && started[2]);
+  const started = await s.waitLog(/worker: started '([^']*)'.*model=(\w+)/, 90000, m);
+  check('a heavy job is handed to the worker', started, started && started[1]);
+  check('the worker runs on Opus', started && started[2] === 'opus', started && started[2]);
   await sleep(4000);
   check('the HUD shows the job', /1 JOB/.test(await text(hud, '#br-worker')), await text(hud, '#br-worker'));
-  check('FRIDAY lights up in the crew', await hud.evaluate(() => document.getElementById('crew-friday').classList.contains('on')));
+  check('the neuron web fires while it works', await hud.evaluate(() => document.getElementById('crew').classList.contains('busy')));
   await s.quiet(hud, 30000);
   const sm = s.mark();
   await s.say("what's the status over");
   const st = await s.waitLog(/status: '(.*)'/, 8000, sm);
-  check('"what\'s the status?" answers from FRIDAY\'s progress', st, st && st[1]);
-  const done = await s.waitLog(/friday: (completed|failed) '([^']*)'/, 300000, m);
-  check('FRIDAY finishes the job', done && done[1] === 'completed', done && done[1]);
-  const told = await s.waitLog(/proactive: \(FRIDAY\)[\s\S]*timing: ollama done/, 90000, m);
+  check('"what\'s the status?" answers from the job\'s progress', st, st && st[1]);
+  const done = await s.waitLog(/worker: (completed|failed) '([^']*)'/, 300000, m);
+  check('the worker finishes the job', done && done[1] === 'completed', done && done[1]);
+  const told = await s.waitLog(/proactive: \(job\)[\s\S]*timing: ollama done/, 90000, m);
   await sleep(1000);
   const reply = await text(hud, '#reply');
   check('JARVIS tells the user the result in its own words', told && reply.length > 20 && !/RESULT/.test(reply), reply.slice(0, 200));
   await hud.click('#live-btn');
   await hud.click('#live-pop button:nth-of-type(2)');
-  await hud.waitForFunction(() => document.querySelector('#livelog li.msg.crew'), null, { timeout: 5000 }).catch(() => {});
+  await hud.waitForFunction(() => document.querySelector('#livelog li.msg.job'), null, { timeout: 5000 }).catch(() => {});
   const convo = await hud.evaluate(() => [...document.querySelectorAll('#livelog li.msg')].map((x) => x.className + ': ' + x.textContent));
-  check("FRIDAY's conversation shows the task and her report", convo.some((x) => /jarvis/.test(x) && /hacker news/i.test(x)) && convo.some((x) => /crew/.test(x) && /RESULT/.test(x)), convo.slice(-2).map((x) => x.slice(0, 60)).join(' | '));
-  await shot(hud, 'friday-conversation');
-  await s.app.close();
-}
-
-async function testDirect() {
-  console.log('\nTALKING TO THE CREW DIRECTLY (Claude Code brain, crew on Haiku)');
-  const state = makeState({ onboarded: true, brainProvider: 'claude-code', agentModel: 'haiku', ttsEngine: 'native', checkIns: 'off' });
-  const s = await launch(state);
-  const hud = await windowByUrl(s.app, /hud\/index\.html/, 20000);
-  if (!hud) { check('HUD opens', false); await s.app.close(); return; }
-  await hud.waitForFunction(() => document.body.dataset.state !== 'booting', null, { timeout: 15000 }).catch(() => {});
-  const type = async (t) => { await hud.fill('#ask-input', t); await hud.press('#ask-input', 'Enter'); };
-  const chat = () => hud.evaluate(() => [...document.querySelectorAll('#livelog li.msg')].map((x) => x.className.replace('msg ', '') + ': ' + x.querySelector('.x').textContent));
-
-  // By name: "EDITH, ..." goes straight to her, not through JARVIS
-  let m = s.mark();
-  await type('edith, reply with exactly the word pineapple and nothing else');
-  check('"EDITH, ..." goes to EDITH directly', await s.waitLog(/edith chat: 'reply with exactly/, 8000, m));
-  check('JARVIS does not route it', !/brain: asked 'edith/.test(s.log().slice(m)));
-  check('EDITH replies', await s.waitLog(/edith chat: replied/, 120000, m));
-  await sleep(800);
-  let c = await chat();
-  check("her chat shows the user's message and her reply", c.some((x) => /^you: reply with exactly/.test(x)) && c.some((x) => /^crew: .*pineapple/i.test(x)), c.slice(-2).join(' | '));
-  check('the panel shows EDITH and typing goes to her', /EDITH/.test(await text(hud, '#live-name')) && /Type to EDITH/.test(await hud.getAttribute('#ask-input', 'placeholder')));
-
-  // "Talk to FRIDAY": everything goes to her, and she remembers the conversation
-  m = s.mark();
-  await type('talk to friday');
-  check('"talk to FRIDAY" puts the user through', await s.waitLog(/talking to friday/, 5000, m));
-  await type('remember that the code word is mango. just say ok.');
-  check('the next message goes to FRIDAY', await s.waitLog(/friday chat: 'remember that the code word/, 8000, m));
-  await s.waitLog(/friday chat: replied/, 120000, m);
-  m = s.mark();
-  await type('what is the code word? answer with one word.');
-  const resumed = await s.waitLog(/friday chat: 'what is the code word.*session=([\w-]+)/, 8000, m);
-  check('her second message resumes her own session', resumed && resumed[1] !== 'new', resumed && resumed[1]);
-  await s.waitLog(/friday chat: replied/, 120000, m);
-  await sleep(800);
-  c = await chat();
-  check('FRIDAY remembers what was said earlier', /mango/i.test(c[c.length - 1] || ''), c[c.length - 1]);
-  await shot(hud, 'direct-friday');
-  m = s.mark();
-  await type("that's all, friday");
-  check('"that\'s all, FRIDAY" comes back to JARVIS', await s.waitLog(/talking to friday: ended/, 5000, m));
-  check('typing goes to JARVIS again', /Type to JARVIS/.test(await hud.getAttribute('#ask-input', 'placeholder')));
-
-  // "Friday" as a day stays with JARVIS
-  m = s.mark();
-  await type('friday at nine works for me');
-  check('"friday at nine ..." is for JARVIS', await s.waitLog(/brain: asked 'friday at nine/, 8000, m));
-  await s.waitLog(/timing: claude done/, 90000, m);
+  check('the background jobs show the task and its report', convo.some((x) => /jarvis/.test(x) && /hacker news/i.test(x)) && convo.some((x) => /job/.test(x) && /RESULT/.test(x)), convo.slice(-2).map((x) => x.slice(0, 60)).join(' | '));
+  await shot(hud, 'worker-conversation');
   await s.app.close();
 }
 
@@ -1061,8 +1006,7 @@ try {
   if (which === 'themes' || which === 'all') await testThemes();
   if (which === 'voice' || which === 'all') await testVoice();
   if (which === 'proactive' || which === 'all') await testProactive();
-  if (which === 'friday' || which === 'all') await testFriday();
-  if (which === 'direct' || which === 'all') await testDirect();
+  if (which === 'worker' || which === 'all') await testWorker();
 } catch (e) {
   check('test run crashed', false, e.message.split('\n')[0]);
 }

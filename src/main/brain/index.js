@@ -46,10 +46,10 @@ function create(cfg, found) {
     log(`brain: ollama model ${cfg.ollamaModel} not installed; using ${found.ollama.models[0]}`);
     cfg = { ...cfg, ollamaModel: found.ollama.models[0] };
   }
-  // FRIDAY takes heavy jobs off a brain that isn't Claude Code, when Claude Code is here to run her.
+  // The background worker takes heavy jobs off a brain that isn't Claude Code, when Claude Code is here to run it.
   // The worker setting is read per turn, so switching her off in Settings applies at once.
   const worker = found.claude.path && found.claude.loggedIn ? new Worker(cfg, found.claude.path) : null;
-  log(`brain: worker ${worker ? `FRIDAY on Claude Code · ${cfg.agentModel}${cfg.worker === 'off' ? ' (switched off)' : ''}` : 'none (Claude Code not available)'}`);
+  log(`brain: worker ${worker ? `on Claude Code · ${cfg.agentModel}${cfg.worker === 'off' ? ' (switched off)' : ''}` : 'none (Claude Code not available)'}`);
   return new ApiBrain(cfg, kind, worker);
 }
 

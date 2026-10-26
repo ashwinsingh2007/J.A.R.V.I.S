@@ -49,16 +49,15 @@ const TOOL_NOTE = `In this mode you do not have Bash. Use the tools instead:
 - open opens websites and apps. web_fetch reads a page. read_file reads a file. remember saves a fact.
 - You have no background agents and no Agent tool: ignore TIER 2. Do short jobs yourself with these tools. For anything that needs clicking or typing in a website, say in one sentence that it needs the Claude Code brain.`;
 
-// With the crew available, TIER 2 goes through the delegate tool instead of the Agent tool.
+// With the background worker available, TIER 2 goes through the delegate tool instead of the Agent tool.
 const DELEGATE = {
   name: 'delegate',
-  description: "Hand a task to JARVIS's crew, who do it in the background on a stronger model and report back. to: friday (coding, web search and research, files, heavy jobs, and anything inside a website in the user's signed-in Chrome), karen (all communication: email, WhatsApp and other chats, every social media account, posts, replies and self-branding), edith (reviews, fact-checks, safety and security), vision (this Mac: open apps, CPU, memory, disk, installed apps, cleaning junk). Use it for every task beyond a simple answer.",
+  description: "Hand a task to your background worker, which has every tool (web, files, coding, websites in the user's signed-in Chrome, email and social media, checking and cleaning the Mac), runs on a stronger model and reports back. Use it for every task beyond a simple answer.",
   schema: {
     type: 'object',
     properties: {
-      to: { type: 'string', enum: ['friday', 'karen', 'edith', 'vision'], description: 'Who takes the job. If unsure, friday.' },
       description: { type: 'string', description: 'What they are doing, in plain words with an -ing verb, read aloud in status updates. For example "checking your Gmail".' },
-      task: { type: 'string', description: 'One complete, self-contained instruction. The crew cannot see this conversation, so include every detail. Only say the user confirmed sending, posting, deleting or paying if they did.' },
+      task: { type: 'string', description: 'One complete, self-contained instruction with every part of the job. The worker cannot see this conversation, so include every detail. Only say the user confirmed sending, posting, deleting or paying if they did.' },
     },
     required: ['description', 'task'],
   },
@@ -67,7 +66,7 @@ const DELEGATE = {
 const DELEGATE_NOTE = `In this mode you do not have Bash. Use the tools instead:
 - run_script runs the helper scripts described above (give the script name, not the path, and the arguments as a list).
 - open opens websites and apps. web_fetch reads a page. read_file reads a file. remember saves a fact.
-- TIER 2 works through the delegate tool, not the Agent tool. Pick the crew member with "to" (friday, karen, edith or vision); they take the job in the background and report back, and you then tell the user the result in your own words. Everything TIER 2 says about agents applies: say ONE short sentence of what's happening, then call delegate, then end the turn with two or three words such as "On it." Never wait for the crew.
+- TIER 2 works through the delegate tool, not the Agent tool. The worker takes the job in the background and reports back, and you then tell the user the result in your own words. Everything TIER 2 says about agents applies: say ONE short sentence of what's happening, then call delegate, then end the turn with two or three words such as "On it." Never wait for the worker.
 - Every task goes to delegate: web searches, websites, email and messages, coding, files, anything beyond a simple answer.
 - Ask the user before delegating anything that sends, posts, deletes, publishes, pays or changes account settings, exactly as the rules above say; when they agree, write "The user confirmed: …" in the task.`;
 
@@ -123,7 +122,7 @@ async function execute(name, input = {}) {
   }
 }
 
-/** Tool specs and the note for the system prompt, with or without the crew. */
+/** Tool specs and the note for the system prompt, with or without the background worker. */
 const forBrain = (hasWorker) => (hasWorker ? { specs: [...SPECS, DELEGATE], note: DELEGATE_NOTE } : { specs: SPECS, note: TOOL_NOTE });
 
 module.exports = { SPECS, TOOL_NOTE, execute, forBrain };

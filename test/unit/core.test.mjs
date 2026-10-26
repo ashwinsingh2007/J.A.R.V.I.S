@@ -16,7 +16,7 @@ const require = createRequire(import.meta.url);
 const C = require('../../src/main/config');
 const util = require('../../src/main/util');
 util.initPaths(ROOT);
-const { SentenceSplitter, systemPrompt, agentPrompt } = require('../../src/main/brain/common');
+const { SentenceSplitter, systemPrompt, workerPrompt } = require('../../src/main/brain/common');
 const { matches, isCommand, WAKE_PHRASES, SLEEP_PHRASES, STANDBY_PHRASES } = require('../../src/main/wake');
 const { Memory } = require('../../src/main/memory');
 const { Scheduler, nextDue } = require('../../src/main/scheduler');
@@ -98,9 +98,9 @@ test('config sanitising replaces junk with defaults', () => {
 test('screen-control instructions follow the setting', () => {
   const on = { ...C.DEFAULTS, screenControl: true }, off = { ...C.DEFAULTS, screenControl: false };
   assert.match(systemPrompt(on), /hands\.sh/);
-  assert.match(agentPrompt(on), /hands\.sh/);
+  assert.match(workerPrompt(on), /hands\.sh/);
   assert.doesNotMatch(systemPrompt(off), /hands\.sh/);
-  assert.doesNotMatch(agentPrompt(off) + systemPrompt(on), /<!--\/?screen-->/);
+  assert.doesNotMatch(workerPrompt(off) + systemPrompt(on), /<!--\/?screen-->/);
 });
 
 test('repeating items move to their next time', () => {

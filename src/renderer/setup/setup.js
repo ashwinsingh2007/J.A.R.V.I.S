@@ -107,7 +107,7 @@ function bestBrain() {
   return 'ollama';
 }
 
-/** FRIDAY runs on Claude Code: as its background agents when it is the brain, or as a separate worker. */
+/** The background worker runs on Claude Code: as its background agents when it is the brain, or as a separate worker. */
 function renderWorker() {
   const f = info.found, cc = !!(f.claude.path && f.claude.loggedIn), brainIsCC = choice.brainProvider === 'claude-code';
   $('worker-field').hidden = brainIsCC;
@@ -115,10 +115,10 @@ function renderWorker() {
   if (!cc) $('worker').value = 'off';
   $('agent-field').hidden = !cc || (!brainIsCC && $('worker').value === 'off');
   $('worker-help').textContent = !cc
-    ? 'FRIDAY runs on Claude Code, which is not set up on this Mac. Without her, JARVIS does short jobs itself and tells you when something needs more.'
-    : brainIsCC ? 'With Claude Code as the brain, FRIDAY runs as its background agents.'
+    ? 'The background worker runs on Claude Code, which is not set up on this Mac. Without it, JARVIS does short jobs itself and tells you when something needs more.'
+    : brainIsCC ? 'With Claude Code as the brain, the worker runs as its background agent.'
     : $('worker').value === 'off' ? 'Off: JARVIS does short jobs itself and tells you when something needs more.'
-    : 'FRIDAY uses your Claude plan. JARVIS still asks you before anything that sends, posts, deletes or pays.';
+    : 'The worker uses your Claude plan. JARVIS still asks you before anything that sends, posts, deletes or pays.';
 }
 
 // ---------- Ollama, done for the user ----------
@@ -294,7 +294,7 @@ function renderSummary() {
   const p = gather();
   const brain = { auto: `Automatic (${autoPick()})`, 'claude-code': `Claude Code · ${p.model}`, anthropic: `Anthropic API · ${p.anthropicModel}`, gemini: `Gemini · ${p.geminiModel}`, ollama: `Ollama · ${p.ollamaModel}` }[p.brainProvider];
   const cc = info.found.claude.path && info.found.claude.loggedIn;
-  const worker = !cc ? 'off' : p.brainProvider === 'claude-code' ? `background agents · ${p.agentModel}` : p.worker === 'off' ? 'off' : `FRIDAY on Claude Code · ${p.agentModel}`;
+  const worker = !cc ? 'off' : p.brainProvider === 'claude-code' ? `background agents · ${p.agentModel}` : p.worker === 'off' ? 'off' : `on Claude Code · ${p.agentModel}`;
   const rows = [
     ['Name', p.userName ? `${p.userName} (“${p.honorific}”)` : `“${p.honorific}”`],
     ['Look', `${choice.theme[0].toUpperCase() + choice.theme.slice(1)} · ${choice.themeMode === 'system' ? 'match macOS' : choice.themeMode}`],

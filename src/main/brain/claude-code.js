@@ -1,7 +1,7 @@
 // Brain provider: Claude Code itself. One long-lived `claude -p` process with
 // stream-json on stdin and stdout, so the ~4 s start-up is paid once. It runs
-// in bypassPermissions mode and hands tasks to the crew, background subagents
-// ("friday", "karen", "edith", "vision") that live inside this same process. When one finishes,
+// in bypassPermissions mode and hands tasks to its background worker, a subagent
+// ("worker") with every tool that lives inside this same process. When a job finishes,
 // Claude Code starts a turn on its own; those turns are reported as
 // 'background' events instead of answers to the user.
 //
@@ -22,10 +22,10 @@ const EventEmitter = require('events');
 const C = require('../config');
 const { log, env, run, jsonLines } = require('../util');
 const { Context } = require('./context');
-const { CREW, crewName, VISION_TOOLS, SentenceSplitter, systemPrompt, agentPrompt, summarise, claudeSettings, claudeDisallowed } = require('./common');
+const { SentenceSplitter, systemPrompt, workerPrompt, summarise, claudeSettings, claudeDisallowed } = require('./common');
 
 const ENDED = new Set(['completed', 'failed', 'killed', 'stopped', 'cancelled']);
-// A fresh brain starts at about 23k tokens (prompt, tools, crew); this leaves about 45k for the conversation.
+// A fresh brain starts at about 23k tokens (prompt, tools, worker); this leaves about 45k for the conversation.
 const ROLL_TOKENS = 70000;
 const RETRY_MS = 10 * 60 * 1000;
 
@@ -50,7 +50,7 @@ class ClaudeCodeBrain extends EventEmitter {
     this.discard = false;        // the user's turn was cancelled: swallow the rest
     this.bgText = '';
     this.tasks = new Map();      // running background agents: task_id -> description
-    this.jobs = new Map();       // task_id -> { agent, description } until its result arrives
+    this.jobs = new Map();       // task_id -> { description } until its result arrives
     this.agentTools = new Map(); // Agent tool_use_id -> task_id, to place subagent messages
     this.splitter = new SentenceSplitter((s) => { if (!this.discard) this.emit('sentence', s); });
     try { this._sessionId = fs.readFileSync(C.SESSION_FILE, 'utf8').trim() || null; } catch { this._sessionId = null; }
@@ -190,24 +190,16 @@ class ClaudeCodeBrain extends EventEmitter {
     log(`brain: asked '${prompt.slice(0, 80)}' session=${this._sessionId || 'new'}`);
   }
 
+  /** The one background worker: every tool, and the whole job from start to finish. */
   agents() {
-    const roles = {
-      friday: "coding, web search and research, files, scripts, heavy multi-step jobs, and anything done inside a website in the user's signed-in Chrome (forms, shopping, bookings, YouTube)",
-      karen: 'all communication and online presence: email, WhatsApp, Telegram, Slack, every social media account (messages, comments, posts, replies), self-branding and profiles',
-      edith: 'code and work reviews, fact-checks, safety of links, emails, apps and downloads, privacy and security',
-      vision: 'this Mac itself: open apps, CPU, memory, disk, battery, what is installed, and cleaning junk',
-    };
-    const out = {};
-    for (const id of CREW) {
-      out[id] = {
-        description: `${crewName(id)}, of JARVIS's crew: ${roles[id]}. Give a complete, self-contained instruction.`,
-        prompt: agentPrompt(this.cfg, id),
+    return JSON.stringify({
+      worker: {
+        description: "JARVIS's background worker, with every tool: coding, web search and research, files, websites in the user's signed-in Chrome, email, chats and social media, checking and cleaning the Mac, reviews and checks. Give it one complete, self-contained instruction with every part of the job.",
+        prompt: workerPrompt(this.cfg),
         model: this.cfg.agentModel,
         background: true,
-      };
-      if (id === 'vision') out[id].tools = VISION_TOOLS;
-    }
-    return JSON.stringify(out);
+      },
+    });
   }
 
   ensure() {
@@ -271,7 +263,7 @@ class ClaudeCodeBrain extends EventEmitter {
   dropTasks() {
     if (!this.tasks.size) return;
     log(`brain: ${this.tasks.size} background agent(s) lost`);
-    for (const [id, description] of this.tasks) this.emit('task', { id, description, status: 'killed', agent: (this.jobs.get(id) || {}).agent || 'friday' });
+    for (const [id, description] of this.tasks) this.emit('task', { id, description, status: 'killed' });
     this.tasks.clear();
     this.jobs.clear();
     this.agentTools.clear();
@@ -281,12 +273,11 @@ class ClaudeCodeBrain extends EventEmitter {
     if (obj.subtype === 'task_started') {
       // Only agents the brain itself started; their own sub-tasks don't count.
       if (obj.owned_by_subagent || obj.parent_task_id || !obj.is_backgrounded) return;
-      const agent = CREW.includes(obj.subagent_type) ? obj.subagent_type : 'friday';
       this.tasks.set(obj.task_id, obj.description || 'task');
-      this.jobs.set(obj.task_id, { agent, description: obj.description || 'task' });
+      this.jobs.set(obj.task_id, { description: obj.description || 'task' });
       if (obj.tool_use_id) this.agentTools.set(obj.tool_use_id, obj.task_id);
-      log(`brain: ${agent} started '${obj.description}'`);
-      this.emit('task', { id: obj.task_id, description: obj.description, status: 'running', agent, task: String(obj.prompt || '') });
+      log(`brain: worker started '${obj.description}'`);
+      this.emit('task', { id: obj.task_id, description: obj.description, status: 'running', task: String(obj.prompt || '') });
       return;
     }
     // The finished job's report. The brain retells it on its own; this copy is for the HUD.
@@ -295,8 +286,8 @@ class ClaudeCodeBrain extends EventEmitter {
       if (job && !job.reported && typeof obj.summary === 'string') {
         job.reported = true;
         if (!this.tasks.has(obj.task_id)) this.jobs.delete(obj.task_id);
-        this.context.add(job.agent, obj.summary);
-        this.emit('crew-result', { id: obj.task_id, agent: job.agent, description: job.description, text: obj.summary, ok: obj.status === 'completed' });
+        this.context.add('worker', obj.summary);
+        this.emit('job-report', { id: obj.task_id, description: job.description, text: obj.summary, ok: obj.status === 'completed' });
       }
     }
     if (obj.subtype === 'task_progress') {
@@ -311,10 +302,9 @@ class ClaudeCodeBrain extends EventEmitter {
     this.tasks.delete(obj.task_id);
     for (const [tool, id] of this.agentTools) if (id === obj.task_id) this.agentTools.delete(tool);
     const job = this.jobs.get(obj.task_id) || {};
-    const agent = job.agent || 'friday';
     if (job.reported) this.jobs.delete(obj.task_id);
-    log(`brain: ${agent} ${status} '${description}'`);
-    this.emit('task', { id: obj.task_id, description, status, agent });
+    log(`brain: worker ${status} '${description}'`);
+    this.emit('task', { id: obj.task_id, description, status });
     setImmediate(() => this.maybeRestart());
   }
 

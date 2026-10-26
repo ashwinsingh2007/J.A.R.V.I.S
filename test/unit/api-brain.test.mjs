@@ -146,12 +146,12 @@ test('a local brain hands a heavy job to FRIDAY, stops there, and retells her re
   assert.equal(jobs[0].description, 'checking your Gmail');
   assert.match(jobs[0].task, /The user's own words: "check my gmail and tell me what needs a reply"/);
   done = new Promise((r) => brain.once('done', (text) => r(text)));
-  await brain.ask('[FRIDAY REPORT] FRIDAY finished "checking your Gmail".\n\nRESULT (done): two emails need a reply.');
+  await brain.ask('[JOB REPORT] Your background job "checking your Gmail" finished.\n\nRESULT (done): two emails need a reply.');
   assert.equal(await done, 'Two emails need a reply, sir.');
   assert.equal(bodies[1].tools, undefined, 'retelling a report has no tools');
 });
 
-test('with FRIDAY switched off, a local brain gets no delegate tool and the short prompt has no worker section', async (t) => {
+test('with the worker switched off, a local brain gets no delegate tool and the short prompt has no worker section', async (t) => {
   const EventEmitter = (await import('node:events')).default;
   const brain = new ApiBrain({ ...C.DEFAULTS, worker: 'off' }, 'ollama', new EventEmitter());
   brain.reset();
