@@ -216,3 +216,17 @@ test('the user can make their own assistant and rewrite any persona', () => {
   assert.match(systemPrompt(c), /Think of the JARVIS who served Tony Stark/);
   fs.rmSync(C.CONFIG_FILE);
 });
+
+test('the Agents tab can set any assistant\'s brain and voice, not only the one in use', () => {
+  fs.writeFileSync(C.CONFIG_FILE, JSON.stringify({ onboarded: true, assistant: 'jarvis' }));
+  C.saveSettings('karen', { brainProvider: 'gemini', geminiModel: ' gemini-pro-latest ', kokoroSpeed: 9, effort: 'extreme', model: 'haiku', wakeWords: ['x'], ttsEngine: 'edge' });
+  const raw = JSON.parse(fs.readFileSync(C.CONFIG_FILE, 'utf8'));
+  // haiku is KAREN's preset, so it isn't stored; junk and non-assistant keys are dropped.
+  assert.deepEqual(raw.assistantSettings.karen, { brainProvider: 'gemini', geminiModel: 'gemini-pro-latest', kokoroSpeed: 2 });
+  assert.equal(C.load().brainProvider, 'auto');
+  C.save({ assistant: 'karen' });
+  assert.deepEqual([C.load().brainProvider, C.load().geminiModel], ['gemini', 'gemini-pro-latest']);
+  C.saveSettings('nobody', { model: 'opus' });
+  assert.ok(!JSON.parse(fs.readFileSync(C.CONFIG_FILE, 'utf8')).assistantSettings.nobody);
+  fs.rmSync(C.CONFIG_FILE);
+});

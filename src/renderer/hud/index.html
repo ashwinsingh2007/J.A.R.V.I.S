@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>J.A.R.V.I.S</title>
-<link rel="stylesheet" href="hud.css?v=24">
+<link rel="stylesheet" href="hud.css?v=25">
 <link rel="stylesheet" href="../themes.css">
 <script src="../themes.js"></script>
 <script>(function(){var q=new URLSearchParams(location.search);jarvisTheme.apply(q.get('theme')||undefined,q.get('mode')||undefined);})();</script>
@@ -22,6 +22,7 @@
     <a data-view="sessions">SESSIONS <em id="n-sessions">0</em></a>
     <a data-view="history">HISTORY <em id="n-turns">0</em></a>
     <a data-view="memory">MEMORY <em id="n-memory">0</em></a>
+    <a data-view="agents">AGENTS <em id="n-agents">0</em></a>
     <a data-view="settings">SETTINGS</a>
     <a data-view="music" id="nav-music"><span class="eq"><i></i><i></i><i></i><i></i></span>MUSIC <em id="n-music"></em></a>
   </nav>
@@ -172,246 +173,290 @@
     </div>
   </section>
 
-  <!-- VIEW: settings -->
-  <section class="view" id="v-settings">
-    <div class="panel narrow settings">
-      <h3>SETTINGS <span class="saved" id="set-saved">SAVED</span></h3>
-
-      <!-- home: the big choices; each opens its page inside this box -->
-      <div id="set-home">
-      <div class="setcards" id="setcards">
-        <button class="setcard" data-section="assistant"><b>ASSISTANT</b><small id="sc-assistant">—</small><em>CHANGE ›</em></button>
-        <button class="setcard" data-section="extensions"><b>SKILLS &amp; MCP</b><small id="sc-ext">FROM YOUR CLAUDE CODE</small><em>MANAGE ›</em></button>
-        <button class="setcard" data-section="brain"><b>BRAIN &amp; WORKER</b><small id="sc-brain">—</small><em>CHANGE ›</em></button>
-        <button class="setcard" data-section="access"><b>ACCESS</b><small id="sc-access">—</small><em>REVIEW ›</em></button>
-        <button class="setcard" data-section="ears"><b>LISTENING</b><small id="sc-ears">—</small><em>CHANGE ›</em></button>
-        <button class="setcard" data-section="voice"><b>VOICE</b><small id="sc-voice">—</small><em>CHANGE ›</em></button>
-        <button class="setcard" data-section="extras"><b>TELEGRAM &amp; EXTRAS</b><small id="sc-extras">—</small><em>CHANGE ›</em></button>
-      </div>
-
-      <h3 class="sub">GENERAL</h3>
-      <ul class="rows form">
-        <li><b>Form of address</b><select data-key="honorific"><option value="sir">sir</option><option value="ma'am">ma'am</option><option value="boss">boss</option><option value="friend">friend</option></select></li>
-        <li><b>Greet me when JARVIS starts</b><label class="tog"><input data-key="greetOnStart" type="checkbox"><span></span></label></li>
-        <li><b>Announce finished sessions</b><label class="tog"><input data-key="announceSessions" type="checkbox"><span></span></label></li>
-        <li><b>Morning briefing</b><label class="tog"><input data-key="morningBriefing" type="checkbox"><span></span></label></li>
-        <li><b>Check-ins when quiet</b><select data-key="checkIns"><option value="off">off</option><option value="sometimes">sometimes</option><option value="often">often</option></select></li>
-        <li><b>Progress updates on long jobs</b><select data-key="progressUpdates"><option value="off">off</option><option value="normal">normal</option><option value="chatty">chatty</option></select></li>
-        <li><b>Use apps outside Chrome</b><label class="tog"><input data-key="screenControl" type="checkbox"><span></span></label></li>
-        <li id="hands-row"><b>Screen access</b><small id="hands-state">—</small><button id="hands-permit" class="mini" hidden>ALLOW</button></li>
-      </ul>
-
-      <h3 class="sub">APPEARANCE</h3>
-      <div class="looks" id="look-themes">
-        <button data-theme-pick="jarvis"><i style="--sw:#39c3ff"></i>JARVIS</button>
-        <button data-theme-pick="terminal"><i style="--sw:#33ff66"></i>TERMINAL</button>
-        <button data-theme-pick="neon"><i style="--sw:#ff3dc8"></i>NEON</button>
-        <button data-theme-pick="stark"><i style="--sw:#ffb240"></i>STARK</button>
-        <button data-theme-pick="minimal"><i style="--sw:#9a9ca3"></i>MINIMAL</button>
-      </div>
-      <div class="looks modes" id="look-modes">
-        <button data-mode-pick="dark">DARK</button>
-        <button data-mode-pick="light">LIGHT</button>
-        <button data-mode-pick="system">MATCH MACOS</button>
-      </div>
-      <ul class="rows form">
-        <li><b>Full mode when idle</b><label class="tog"><input data-key="autoHide" type="checkbox"><span></span></label></li>
-      </ul>
-
-      <h3 class="sub">SYSTEM</h3>
-      <ul class="rows">
-        <li><b>Brain</b><small data-kv="model">—</small></li>
-        <li><b>Voice</b><small data-kv="tts">—</small></li>
-        <li><b>Speech to text</b><small data-kv="stt">—</small></li>
-        <li><b>Telegram</b><small data-kv="telegram">—</small></li>
-        <li><b>Claude Code CLI</b><small data-kv="claude">—</small></li>
-        <li><b>Host</b><small data-kv="host">—</small></li>
-        <li><b>Config file</b><small>~/.jarvis/config.json</small></li>
-        <li><b>Log file</b><small>~/.jarvis/jarvis.log</small></li>
-      </ul>
-      </div>
-
-      <!-- a page inside the box, with a way back to the cards -->
-      <div id="set-page" hidden>
-        <div class="sp-head"><button class="sp-back" id="sp-back">‹ BACK</button><span class="sp-title" id="sp-title"></span></div>
-
-        <div class="sp" data-page="assistant">
-          <p class="sp-lead">Every assistant does everything, with the same memory and conversation. They differ in how they run: how smart, how fast, how they sound and who they are. Pick one to change it. Brain and voice settings are saved to the one you're using.</p>
-          <div class="bcards" id="acards"></div>
-          <div class="aedit" id="a-edit">
-            <h3 class="sub" id="a-edit-title">—</h3>
-            <ul class="rows form">
-              <li data-own><b>Name</b><input class="key" id="a-name" maxlength="20" autocomplete="off"></li>
-              <li data-own><b>Tier line</b><input class="key" id="a-tier" maxlength="24" autocomplete="off"></li>
-              <li data-own><b>About</b><input class="key" id="a-about" maxlength="200" autocomplete="off"></li>
-              <li><b>Wake words</b><input class="key" id="a-wake" placeholder="its name, and how it gets misheard" autocomplete="off"></li>
-            </ul>
-            <h4 class="sp-sub">PERSONA</h4>
-            <p class="sp-note">Who it is and how it talks. It is added to the safety rules, which always apply.</p>
-            <textarea id="a-persona" rows="6" maxlength="4000" spellcheck="true"></textarea>
-            <h4 class="sp-sub">SKILLS <span class="cnt" id="a-skill-count"></span></h4>
-            <div class="pickbar"><input class="key" id="a-skill-find" placeholder="find a skill" autocomplete="off"><button class="mini" id="a-skill-all">ALL</button><button class="mini" id="a-skill-none">NONE</button></div>
-            <ul class="picks" id="a-skills"></ul>
-            <h4 class="sp-sub">MCP SERVERS <span class="cnt" id="a-mcp-count"></span></h4>
-            <ul class="picks" id="a-mcp"></ul>
-            <p class="sp-note">Get more skills and servers under Settings › Skills &amp; MCP. SAVE applies these too.</p>
-            <div class="ctx-acts">
-              <button class="mini" id="a-save">SAVE</button>
-              <button class="mini" id="a-use">USE IT</button>
-              <button class="mini" id="a-reset" hidden>RESET TO ITS PRESET</button>
-              <button class="mini" id="a-delete" hidden>DELETE</button>
-            </div>
-            <h4 class="sp-sub">MAKE A NEW ONE FROM IT</h4>
-            <ul class="rows form"><li><b>New name</b><input class="key" id="a-new-name" maxlength="20" placeholder="for example COACH" autocomplete="off"><button class="mini" id="a-create">CREATE</button></li></ul>
+  <!-- VIEW: agents -->
+  <section class="view" id="v-agents">
+    <div class="panel ui agents">
+      <aside class="side ag-list">
+        <h2>Agents</h2>
+        <p class="side-note">Every agent does everything, with the same memory and conversation. They differ in how they think, how they sound and who they are.</p>
+        <div id="acards"></div>
+      </aside>
+      <div class="main" id="a-edit">
+        <header class="ag-top">
+          <div class="ag-face" id="a-face">J</div>
+          <div class="ag-id">
+            <h2 id="a-edit-title">—</h2>
+            <p class="ag-tier" id="a-edit-tier"></p>
+            <p class="lead" id="a-edit-about"></p>
           </div>
-          <p class="sp-note" id="a-note"></p>
-        </div>
+          <div class="ag-acts">
+            <button class="btn primary" id="a-use">Use it</button>
+            <span class="badge on" id="a-inuse" hidden>In use</span>
+          </div>
+        </header>
 
-        <div class="sp" data-page="extensions">
-          <p class="sp-lead">The skills and MCP servers your assistants can use. They come from your Claude Code, so what you add here works there too. Skills added from GitHub are JARVIS's own. Each assistant picks its own under Settings › Assistant. A skill or server can do anything JARVIS can, so only add ones you trust.</p>
-          <p class="sp-note" id="x-note"></p>
-          <h4 class="sp-sub">SKILLS <span class="cnt" id="x-skill-count"></span></h4>
-          <ul class="picks" id="x-skills"></ul>
-          <ul class="rows form"><li><b>From GitHub</b><input class="key" id="x-gh" placeholder="owner/repo" autocomplete="off"><button class="mini" id="x-gh-add">ADD</button></li></ul>
-          <h4 class="sp-sub">PLUGINS</h4>
+        <h3>Brain</h3>
+        <div class="group">
           <ul class="rows form">
-            <li><b>Marketplace</b><select id="x-market"></select></li>
-            <li><b>Find</b><input class="key" id="x-find" placeholder="search plugins" autocomplete="off"></li>
+            <li><b>Thinks with<small>What answers you straight away</small></b><select data-s="brainProvider" id="ag-brain">
+              <option value="auto">Best available</option><option value="claude-code">Claude Code</option>
+              <option value="anthropic">Anthropic API</option><option value="gemini">Gemini</option><option value="ollama">Ollama (on this Mac)</option></select></li>
+            <li data-brain="auto claude-code"><b>Model</b><select data-s="model"><option value="haiku">Haiku (fastest)</option><option value="sonnet">Sonnet (balanced)</option><option value="opus">Opus (smartest)</option></select></li>
+            <li data-brain="auto claude-code"><b>Effort<small>How hard it thinks before answering</small></b><select data-s="effort"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></li>
+            <li data-brain="anthropic"><b>Model</b><input class="key" data-s="anthropicModel" list="ag-anthropic-models" spellcheck="false"><datalist id="ag-anthropic-models"><option value="claude-opus-5-5"><option value="claude-sonnet-5-5"><option value="claude-haiku-5-5"></datalist></li>
+            <li data-brain="gemini"><b>Model</b><input class="key" data-s="geminiModel" list="ag-gemini-models" spellcheck="false"><datalist id="ag-gemini-models"><option value="gemini-flash-latest"><option value="gemini-pro-latest"></datalist></li>
+            <li data-brain="ollama"><b>Model</b><input class="key" data-s="ollamaModel" list="ag-ollama-models" spellcheck="false"><datalist id="ag-ollama-models"></datalist></li>
           </ul>
-          <ul class="picks" id="x-plugins"></ul>
-          <ul class="rows form"><li><b>Add a marketplace</b><input class="key" id="x-market-src" placeholder="anthropics/skills" autocomplete="off"><button class="mini" id="x-market-add">ADD</button></li></ul>
-          <h4 class="sp-sub">MCP SERVERS <button class="mini" id="x-check">CHECK</button></h4>
-          <ul class="picks" id="x-mcp"></ul>
+          <p class="note" id="ag-brain-note"></p>
+        </div>
+
+        <h3>Background worker</h3>
+        <div class="group">
+          <p class="note">Long jobs, like your email, research or your browser, go to the worker. It runs them in the background on Claude Code and reports back.</p>
           <ul class="rows form">
-            <li><b>Name</b><input class="key" id="x-mcp-name" placeholder="for example notes" autocomplete="off"></li>
-            <li><b>Address or command</b><input class="key" id="x-mcp-target" placeholder="https://… or npx -y some-server" autocomplete="off"><button class="mini" id="x-mcp-add">ADD</button></li>
+            <li data-brain="anthropic gemini ollama"><b>Worker</b><select data-s="worker"><option value="claude-code">Claude Code</option><option value="off">Off</option></select></li>
+            <li id="ag-agent-row"><b>Worker model</b><select data-s="agentModel"><option value="opus">Opus (most capable)</option><option value="sonnet">Sonnet</option><option value="haiku">Haiku (fastest)</option></select></li>
           </ul>
         </div>
 
-        <div class="sp" data-page="brain">
-          <p class="sp-lead">What JARVIS thinks with. Pick one; it is checked before you can save.</p>
-          <div class="bcards" id="bcards">
-            <button class="bcard" data-b="claude-code"><b>CLAUDE CODE</b><small>The most capable: your sessions, your Chrome, long jobs in the background. Uses your Claude plan.</small><i class="chip" id="bc-claude-code"></i></button>
-            <button class="bcard" data-b="ollama"><b>OLLAMA</b><small>Free and private: the model runs on this Mac. Good for everyday questions.</small><i class="chip" id="bc-ollama"></i></button>
-            <button class="bcard" data-b="gemini"><b>GEMINI</b><small>Google's models with your own key. Has a free tier.</small><i class="chip" id="bc-gemini"></i></button>
-            <button class="bcard" data-b="anthropic"><b>ANTHROPIC API</b><small>Claude with your own API key, pay per use.</small><i class="chip" id="bc-anthropic"></i></button>
-          </div>
-          <div class="bpanel" data-for="claude-code">
-            <p class="sp-note" id="b-cc-note"></p>
-            <ul class="rows form" id="b-cc-fields">
-              <li><b>Voice model</b><select id="b-model"><option>sonnet</option><option>opus</option><option>haiku</option></select></li>
-              <li><b>Effort</b><select id="b-effort"><option>low</option><option>medium</option><option>high</option></select></li>
-            </ul>
-          </div>
-          <div class="bpanel" data-for="ollama">
-            <p class="sp-note" id="b-ol-text"></p>
-            <button class="mini" id="b-ol-action" hidden></button>
-            <div class="hbar" id="b-ol-bar" hidden><div><i></i></div><span id="b-ol-phase"></span></div>
-            <ul class="mlist" id="b-ol-models"></ul>
-            <ul class="rows form"><li><b>Server</b><input class="key" id="b-ol-url" spellcheck="false"><button class="mini" id="b-ol-check">CHECK</button></li></ul>
-          </div>
-          <div class="bpanel" data-for="gemini">
-            <ul class="rows form">
-              <li><b>API key</b><input class="key" id="b-gemini-key" type="password" placeholder="AIza…" autocomplete="off"><button class="mini" data-btest="gemini">TEST</button></li>
-              <li><b>Model</b><input class="key" id="b-gemini-model" list="b-gemini-models" spellcheck="false"><datalist id="b-gemini-models"></datalist></li>
-            </ul>
-            <p class="sp-note">Get a free key at aistudio.google.com. Leave the model as gemini-flash-latest for the newest Flash model.</p>
-          </div>
-          <div class="bpanel" data-for="anthropic">
-            <ul class="rows form">
-              <li><b>API key</b><input class="key" id="b-anthropic-key" type="password" placeholder="sk-ant-…" autocomplete="off"><button class="mini" data-btest="anthropic">TEST</button></li>
-              <li><b>Model</b><input class="key" id="b-anthropic-model" list="b-anthropic-models" spellcheck="false"><datalist id="b-anthropic-models"></datalist></li>
-            </ul>
-            <p class="sp-note">Get a key at console.anthropic.com.</p>
-          </div>
-          <h3 class="sub">THE BACKGROUND WORKER</h3>
-          <p class="sp-note">JARVIS answers straight away, so its brain can be a smaller, faster model. Long jobs, like your email, research or your browser, go to the background worker. It runs them in the background on a stronger model and reports back.</p>
+        <h3>Voice</h3>
+        <div class="group">
           <ul class="rows form">
-            <li id="b-worker-row"><b>Worker</b><select id="b-worker"><option value="claude-code">Claude Code</option><option value="off">off</option></select></li>
-            <li id="b-agent-row"><b>Worker model</b><select id="b-agent"><option value="opus">opus (most capable)</option><option value="sonnet">sonnet</option><option value="haiku">haiku (fastest)</option></select></li>
+            <li data-engine="kokoro"><b>Voice</b><select data-s="kokoroVoice">
+              <option value="bm_george">George (British male)</option><option value="bm_lewis">Lewis (British male)</option>
+              <option value="bm_daniel">Daniel (British male)</option><option value="bm_fable">Fable (British male)</option>
+              <option value="bf_emma">Emma (British female)</option><option value="bf_isabella">Isabella (British female)</option>
+              <option value="am_michael">Michael (American male)</option><option value="af_heart">Heart (American female)</option></select></li>
+            <li data-engine="kokoro"><b>Speed</b><span class="unit"><input data-s="kokoroSpeed" type="number" min="0.5" max="2" step="0.05"><i>×</i></span></li>
+            <li data-engine="edge"><b>Voice</b><select data-s="edgeVoice">
+              <option>en-GB-RyanNeural</option><option>en-GB-ThomasNeural</option><option>en-GB-SoniaNeural</option><option>en-IE-EmilyNeural</option>
+              <option>en-US-GuyNeural</option><option>en-US-JennyNeural</option><option>en-IN-PrabhatNeural</option><option>en-IN-NeerjaNeural</option></select></li>
+            <li data-engine="native"><b>Voice</b><select data-s="nativeVoice" id="ag-native"></select></li>
+            <li data-engine="elevenlabs"><b>Voice id</b><input class="key" data-s="elevenLabsVoiceId" spellcheck="false"></li>
+            <li><b>Wake words<small>Its name, and how it gets misheard</small></b><input class="key" id="a-wake" autocomplete="off"></li>
           </ul>
-          <p class="sp-note" id="b-worker-note"></p>
-          <div class="sp-actions"><button class="setup-btn" id="b-save">SAVE</button><button class="setup-btn" id="b-restart" hidden>RESTART NOW</button><span class="sp-msg" id="b-msg"></span></div>
+          <p class="note" id="ag-voice-note"></p>
         </div>
 
-        <div class="sp" data-page="access">
-          <p class="sp-lead">What macOS lets JARVIS do. Allow what you need; optional ones can wait.</p>
-          <ul class="rows form" id="hud-perms">
-            <li data-perm="mic"><b>Microphone</b><small class="pd">To hear you</small><i class="chip"></i><button class="mini"></button></li>
-            <li data-perm="speech"><b>Speech recognition</b><small class="pd">Speech to text, on this Mac</small><i class="chip"></i><button class="mini"></button></li>
-            <li data-perm="notifications"><b>Notifications</b><small class="pd">Reminders when the HUD is closed</small><i class="chip"></i><button class="mini"></button></li>
-            <li data-perm="ax"><b>Accessibility</b><small class="pd">Use other apps when you ask</small><i class="chip"></i><button class="mini"></button></li>
-            <li data-perm="screen"><b>Screen Recording</b><small class="pd">Look at a window when a job needs it</small><i class="chip"></i><button class="mini"></button></li>
-            <li data-perm="iterm"><b>Control iTerm</b><small class="pd">Read and type into your sessions</small><i class="chip"></i><button class="mini"></button></li>
+        <h3>Persona</h3>
+        <div class="group plain">
+          <p class="note">Who it is and how it talks. It is added to the safety rules, which always apply.</p>
+          <textarea id="a-persona" rows="6" maxlength="4000" spellcheck="true"></textarea>
+          <ul class="rows form" id="a-own">
+            <li data-own><b>Name</b><input class="key" id="a-name" maxlength="20" autocomplete="off"></li>
+            <li data-own><b>Tier line</b><input class="key" id="a-tier" maxlength="24" autocomplete="off"></li>
+            <li data-own><b>About</b><input class="key" id="a-about" maxlength="200" autocomplete="off"></li>
           </ul>
-          <p class="sp-note">After a "Don't Allow", the button opens the right page in System Settings. Turn JARVIS on there and come back.</p>
         </div>
 
-        <div class="sp" data-page="ears">
-      <ul class="rows form">
-        <li><b>Speech to text</b><select data-key="sttEngine">
-          <option value="apple">On-device (Apple)</option><option value="elevenlabs">ElevenLabs Scribe</option></select></li>
-        <li data-stt="elevenlabs"><b>ElevenLabs key</b><input class="key" id="l-el-key" type="password" placeholder="stored — leave empty to keep" autocomplete="off"><button class="mini" data-ktest="elevenlabs" data-kfield="l-el-key">SAVE &amp; TEST</button></li>
-        <li><b>Recogniser</b><select data-key="appleSpeech">
-          <option value="instant">Instant: words as you speak</option><option value="accurate">Accurate: about once a second</option></select></li>
-        <li><b>Language</b><select data-key="speechLocale">
-          <option value="en-US">English (US)</option><option value="en-GB">English (UK)</option><option value="en-IN">English (India)</option>
-          <option value="en-AU">English (Australia)</option><option value="hi-IN">Hindi</option><option value="de-DE">German</option>
-          <option value="fr-FR">French</option><option value="es-ES">Spanish</option></select></li>
-        <li><b>Pause before sending</b><span class="unit"><input data-key="commandSilenceSeconds" type="number" min="0.5" max="15" step="0.5"><i>s</i></span></li>
-        <li><b>Only send when I say “over”</b><label class="tog"><input data-key="requireEndWord" type="checkbox"><span></span></label></li>
-      </ul>
+        <h3>Skills <span class="cnt" id="a-skill-count"></span></h3>
+        <div class="pickbar"><input class="key" id="a-skill-find" placeholder="Find a skill" autocomplete="off"><button class="btn" id="a-skill-all">All</button><button class="btn" id="a-skill-none">None</button></div>
+        <ul class="picks" id="a-skills"></ul>
 
-        </div>
+        <h3>MCP servers <span class="cnt" id="a-mcp-count"></span></h3>
+        <ul class="picks" id="a-mcp"></ul>
+        <p class="note">Get more skills and servers in Settings › Skills &amp; MCP.</p>
 
-        <div class="sp" data-page="voice">
-      <ul class="rows form">
-        <li><b>Engine</b><select data-key="ttsEngine">
-          <option value="kokoro">Kokoro (local)</option><option value="elevenlabs">ElevenLabs</option>
-          <option value="edge">Edge neural</option><option value="native">macOS voice</option></select></li>
-        <li data-tts="kokoro"><b>Voice</b><select data-key="kokoroVoice">
-          <option value="bm_george">George (British male)</option><option value="bm_lewis">Lewis (British male)</option>
-          <option value="bm_daniel">Daniel (British male)</option><option value="bm_fable">Fable (British male)</option>
-          <option value="bf_emma">Emma (British female)</option><option value="am_michael">Michael (American male)</option>
-          <option value="af_heart">Heart (American female)</option></select></li>
-        <li data-tts="kokoro"><b>Speed</b><span class="unit"><input data-key="kokoroSpeed" type="number" min="0.5" max="2" step="0.05"><i>×</i></span></li>
-        <li data-tts="edge"><b>Voice</b><select data-key="edgeVoice">
-          <option>en-GB-RyanNeural</option><option>en-GB-ThomasNeural</option><option>en-GB-SoniaNeural</option><option>en-US-GuyNeural</option>
-          <option>en-US-JennyNeural</option><option>en-IN-PrabhatNeural</option><option>en-IN-NeerjaNeural</option></select></li>
-        <li data-tts="native"><b>Voice</b><select data-key="nativeVoice"></select></li>
-        <li data-tts="elevenlabs"><b>Model</b><select data-key="elevenLabsModel">
-          <option value="eleven_flash_v2_5">Flash v2.5 (fastest)</option><option value="eleven_turbo_v2_5">Turbo v2.5</option>
-          <option value="eleven_multilingual_v2">Multilingual v2 (best)</option></select></li>
-        <li data-tts="elevenlabs"><b>ElevenLabs key</b><input class="key" id="v-el-key" type="password" placeholder="stored — leave empty to keep" autocomplete="off"><button class="mini" data-ktest="elevenlabs" data-kfield="v-el-key">SAVE &amp; TEST</button></li>
-        <li><b>Try it</b><button class="mini" id="test-voice">▶ TEST VOICE</button></li>
-      </ul>
+        <h3>Make a new agent from this one</h3>
+        <div class="pickbar"><input class="key" id="a-new-name" maxlength="20" placeholder="Its name, for example COACH" autocomplete="off"><button class="btn" id="a-create">Create</button></div>
 
-        </div>
-
-        <div class="sp" data-page="extras">
-          <h3 class="sub">TELEGRAM</h3>
-          <p class="sp-note">Message JARVIS from your phone. It answers only the chat id below.</p>
-          <ul class="rows form">
-            <li><b>Bot token</b><input class="key" id="x-tg-token" type="password" placeholder="stored — leave empty to keep" autocomplete="off"><button class="mini" data-btest="telegram">TEST</button></li>
-            <li><b>Chat id</b><input class="key" id="x-tg-chat" type="number" placeholder="sent by your bot"></li>
-            <li><b>Voice replies</b><label class="tog"><input id="x-tg-voice" type="checkbox"><span></span></label></li>
-          </ul>
-          <h3 class="sub">CLAUDE CODE SESSIONS</h3>
-          <ul class="rows form"><li><b>Session hooks</b><small id="x-hooks">—</small><button class="mini" id="x-hooks-btn">INSTALL</button></li></ul>
-          <h3 class="sub">RADIO</h3>
-          <ul class="rows form"><li><b>Country for popular stations</b><select id="x-radio"><option value="IN">India</option><option value="US">United States</option><option value="GB">United Kingdom</option><option value="DE">Germany</option><option value="FR">France</option><option value="CA">Canada</option><option value="AU">Australia</option><option value="AE">UAE</option></select></li></ul>
-          <div class="sp-actions"><button class="setup-btn" id="x-save">SAVE</button><button class="setup-btn" id="x-restart" hidden>RESTART NOW</button><span class="sp-msg" id="x-msg"></span></div>
-        </div>
+        <footer class="savebar">
+          <span class="msg" id="a-note"></span>
+          <button class="btn danger" id="a-delete" hidden>Delete</button>
+          <button class="btn" id="a-reset" hidden>Reset to preset</button>
+          <button class="btn primary" id="a-save">Save changes</button>
+        </footer>
       </div>
-      <div class="hint" id="set-hint">Changes apply at once. Switching the brain or Telegram asks for a restart.</div>
     </div>
   </section>
 
+  <!-- VIEW: settings -->
+  <section class="view" id="v-settings">
+    <div class="panel ui settings">
+      <aside class="side" id="setnav">
+        <h2>Settings <span class="saved" id="set-saved">Saved</span></h2>
+        <button class="navitem" data-section="general">General<small>Greetings, check-ins, updates</small></button>
+        <button class="navitem" data-section="look">Appearance<small id="sc-look">—</small></button>
+        <button class="navitem" data-section="brain">Brains &amp; keys<small id="sc-brain">—</small></button>
+        <button class="navitem" data-section="extensions">Skills &amp; MCP<small id="sc-ext">From your Claude Code</small></button>
+        <button class="navitem" data-section="access">Access<small id="sc-access">—</small></button>
+        <button class="navitem" data-section="ears">Listening<small id="sc-ears">—</small></button>
+        <button class="navitem" data-section="voice">Voice<small id="sc-voice">—</small></button>
+        <button class="navitem" data-section="extras">Telegram &amp; extras<small id="sc-extras">—</small></button>
+        <button class="navitem" data-section="system">System<small>Versions and files</small></button>
+      </aside>
+
+      <div class="main" id="set-page">
+        <h2 id="sp-title">General</h2>
+
+        <div class="sp" data-page="general">
+          <p class="lead">How JARVIS talks to you. Changes apply at once.</p>
+          <div class="group">
+            <ul class="rows form">
+              <li><b>Form of address</b><select data-key="honorific"><option value="sir">sir</option><option value="ma'am">ma'am</option><option value="boss">boss</option><option value="friend">friend</option></select></li>
+              <li><b>Greet me when JARVIS starts</b><label class="tog"><input data-key="greetOnStart" type="checkbox"><span></span></label></li>
+              <li><b>Announce finished sessions</b><label class="tog"><input data-key="announceSessions" type="checkbox"><span></span></label></li>
+              <li><b>Morning briefing</b><label class="tog"><input data-key="morningBriefing" type="checkbox"><span></span></label></li>
+              <li><b>Check-ins when quiet</b><select data-key="checkIns"><option value="off">off</option><option value="sometimes">sometimes</option><option value="often">often</option></select></li>
+              <li><b>Progress updates on long jobs</b><select data-key="progressUpdates"><option value="off">off</option><option value="normal">normal</option><option value="chatty">chatty</option></select></li>
+              <li><b>Use apps outside Chrome<small>Lets jobs click and type in other apps</small></b><label class="tog"><input data-key="screenControl" type="checkbox"><span></span></label></li>
+              <li id="hands-row"><b>Screen access</b><small id="hands-state">—</small><button id="hands-permit" class="btn" hidden>Allow</button></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="sp" data-page="look">
+          <p class="lead">The colours of the HUD and this window.</p>
+          <h3>Theme</h3>
+          <div class="looks" id="look-themes">
+            <button data-theme-pick="jarvis"><i style="--sw:#39c3ff"></i>JARVIS</button>
+            <button data-theme-pick="terminal"><i style="--sw:#33ff66"></i>Terminal</button>
+            <button data-theme-pick="neon"><i style="--sw:#ff3dc8"></i>Neon</button>
+            <button data-theme-pick="stark"><i style="--sw:#ffb240"></i>Stark</button>
+            <button data-theme-pick="minimal"><i style="--sw:#9a9ca3"></i>Minimal</button>
+          </div>
+          <h3>Mode</h3>
+          <div class="looks modes" id="look-modes">
+            <button data-mode-pick="dark">Dark</button>
+            <button data-mode-pick="light">Light</button>
+            <button data-mode-pick="system">Match macOS</button>
+          </div>
+          <div class="group">
+            <ul class="rows form">
+              <li><b>Full mode when idle<small>The HUD fills the screen when you leave it alone</small></b><label class="tog"><input data-key="autoHide" type="checkbox"><span></span></label></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="sp" data-page="brain">
+          <p class="lead">The brains your agents can think with, and their keys. Which brain and model each agent uses is set in Agents.</p>
+          <div class="group">
+            <ul class="rows form">
+              <li><b>Claude Code<small id="b-cc-note"></small></b><i class="chip" id="bc-claude-code"></i></li>
+              <li><b>Anthropic API key<small>Get one at console.anthropic.com</small></b><i class="chip" id="bc-anthropic"></i></li>
+              <li class="sub"><input class="key wide" id="b-anthropic-key" type="password" placeholder="sk-ant-…" autocomplete="off"><button class="btn" data-btest="anthropic">Test</button></li>
+              <li><b>Gemini API key<small>Free at aistudio.google.com</small></b><i class="chip" id="bc-gemini"></i></li>
+              <li class="sub"><input class="key wide" id="b-gemini-key" type="password" placeholder="AIza…" autocomplete="off"><button class="btn" data-btest="gemini">Test</button></li>
+            </ul>
+          </div>
+          <h3>Ollama</h3>
+          <div class="group">
+            <ul class="rows form">
+              <li><b>Ollama<small id="b-ol-text"></small></b><i class="chip" id="bc-ollama"></i><button class="btn" id="b-ol-action" hidden></button></li>
+              <li><b>Server</b><input class="key" id="b-ol-url" spellcheck="false"><button class="btn" id="b-ol-check">Check</button></li>
+            </ul>
+            <div class="hbar" id="b-ol-bar" hidden><div><i></i></div><span id="b-ol-phase"></span></div>
+            <ul class="mlist" id="b-ol-models"></ul>
+          </div>
+          <div class="sp-actions"><button class="btn primary" id="b-save">Save</button><button class="btn" id="b-restart" hidden>Restart now</button><span class="sp-msg" id="b-msg"></span></div>
+        </div>
+
+        <div class="sp" data-page="extensions">
+          <p class="lead">The skills and MCP servers your agents can use. They come from your Claude Code, so what you add here works there too. Each agent picks its own in Agents. A skill or server can do anything JARVIS can, so only add ones you trust.</p>
+          <p class="note" id="x-note"></p>
+          <h3>Skills <span class="cnt" id="x-skill-count"></span></h3>
+          <ul class="picks" id="x-skills"></ul>
+          <div class="pickbar"><input class="key" id="x-gh" placeholder="Add skills from GitHub: owner/repo" autocomplete="off"><button class="btn" id="x-gh-add">Add</button></div>
+          <h3>Plugins</h3>
+          <div class="pickbar"><select id="x-market"></select><input class="key" id="x-find" placeholder="Search plugins" autocomplete="off"></div>
+          <ul class="picks" id="x-plugins"></ul>
+          <div class="pickbar"><input class="key" id="x-market-src" placeholder="Add a marketplace: anthropics/skills" autocomplete="off"><button class="btn" id="x-market-add">Add</button></div>
+          <h3>MCP servers <button class="btn small" id="x-check">Check</button></h3>
+          <ul class="picks" id="x-mcp"></ul>
+          <div class="pickbar">
+            <input class="key name" id="x-mcp-name" placeholder="Name" autocomplete="off">
+            <input class="key" id="x-mcp-target" placeholder="https://… or npx -y some-server" autocomplete="off">
+            <button class="btn" id="x-mcp-add">Add</button>
+          </div>
+        </div>
+
+        <div class="sp" data-page="access">
+          <p class="lead">What macOS lets JARVIS do. Allow what you need; optional ones can wait.</p>
+          <div class="group">
+            <ul class="rows form" id="hud-perms">
+              <li data-perm="mic"><b>Microphone<small class="pd">To hear you</small></b><i class="chip"></i><button class="btn"></button></li>
+              <li data-perm="speech"><b>Speech recognition<small class="pd">Speech to text, on this Mac</small></b><i class="chip"></i><button class="btn"></button></li>
+              <li data-perm="notifications"><b>Notifications<small class="pd">Reminders when the HUD is closed</small></b><i class="chip"></i><button class="btn"></button></li>
+              <li data-perm="ax"><b>Accessibility<small class="pd">Use other apps when you ask</small></b><i class="chip"></i><button class="btn"></button></li>
+              <li data-perm="screen"><b>Screen Recording<small class="pd">Look at a window when a job needs it</small></b><i class="chip"></i><button class="btn"></button></li>
+              <li data-perm="iterm"><b>Control iTerm<small class="pd">Read and type into your sessions</small></b><i class="chip"></i><button class="btn"></button></li>
+            </ul>
+          </div>
+          <p class="note">After a "Don't Allow", the button opens the right page in System Settings. Turn JARVIS on there and come back.</p>
+        </div>
+
+        <div class="sp" data-page="ears">
+          <p class="lead">How JARVIS hears you.</p>
+          <div class="group">
+            <ul class="rows form">
+              <li><b>Speech to text</b><select data-key="sttEngine"><option value="apple">On-device (Apple)</option><option value="elevenlabs">ElevenLabs Scribe</option></select></li>
+              <li data-stt="elevenlabs"><b>ElevenLabs key</b><input class="key" id="l-el-key" type="password" placeholder="stored, leave empty to keep" autocomplete="off"><button class="btn" data-ktest="elevenlabs" data-kfield="l-el-key">Save &amp; test</button></li>
+              <li><b>Recogniser</b><select data-key="appleSpeech"><option value="instant">Instant: words as you speak</option><option value="accurate">Accurate: about once a second</option></select></li>
+              <li><b>Language</b><select data-key="speechLocale">
+                <option value="en-US">English (US)</option><option value="en-GB">English (UK)</option><option value="en-IN">English (India)</option>
+                <option value="en-AU">English (Australia)</option><option value="hi-IN">Hindi</option><option value="de-DE">German</option>
+                <option value="fr-FR">French</option><option value="es-ES">Spanish</option></select></li>
+              <li><b>Pause before sending</b><span class="unit"><input data-key="commandSilenceSeconds" type="number" min="0.5" max="15" step="0.5"><i>s</i></span></li>
+              <li><b>Only send when I say “over”</b><label class="tog"><input data-key="requireEndWord" type="checkbox"><span></span></label></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="sp" data-page="voice">
+          <p class="lead">The speech engine every agent uses. Each agent's own voice is set in Agents.</p>
+          <div class="group">
+            <ul class="rows form">
+              <li><b>Engine</b><select data-key="ttsEngine">
+                <option value="kokoro">Kokoro (local)</option><option value="elevenlabs">ElevenLabs</option>
+                <option value="edge">Edge neural</option><option value="native">macOS voice</option></select></li>
+              <li data-tts="elevenlabs"><b>Model</b><select data-key="elevenLabsModel">
+                <option value="eleven_flash_v2_5">Flash v2.5 (fastest)</option><option value="eleven_turbo_v2_5">Turbo v2.5</option>
+                <option value="eleven_multilingual_v2">Multilingual v2 (best)</option></select></li>
+              <li data-tts="elevenlabs"><b>ElevenLabs key</b><input class="key" id="v-el-key" type="password" placeholder="stored, leave empty to keep" autocomplete="off"><button class="btn" data-ktest="elevenlabs" data-kfield="v-el-key">Save &amp; test</button></li>
+              <li><b>Try it</b><button class="btn" id="test-voice">▶ Test voice</button></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="sp" data-page="extras">
+          <h3>Telegram</h3>
+          <p class="note">Message JARVIS from your phone. It answers only the chat id below.</p>
+          <div class="group">
+            <ul class="rows form">
+              <li><b>Bot token</b><input class="key" id="x-tg-token" type="password" placeholder="stored, leave empty to keep" autocomplete="off"><button class="btn" data-btest="telegram">Test</button></li>
+              <li><b>Chat id</b><input class="key" id="x-tg-chat" type="number" placeholder="sent by your bot"></li>
+              <li><b>Voice replies</b><label class="tog"><input id="x-tg-voice" type="checkbox"><span></span></label></li>
+            </ul>
+          </div>
+          <h3>Claude Code sessions</h3>
+          <div class="group"><ul class="rows form"><li><b>Session hooks<small id="x-hooks">—</small></b><button class="btn" id="x-hooks-btn">Install</button></li></ul></div>
+          <h3>Radio</h3>
+          <div class="group"><ul class="rows form"><li><b>Country for popular stations</b><select id="x-radio"><option value="IN">India</option><option value="US">United States</option><option value="GB">United Kingdom</option><option value="DE">Germany</option><option value="FR">France</option><option value="CA">Canada</option><option value="AU">Australia</option><option value="AE">UAE</option></select></li></ul></div>
+          <div class="sp-actions"><button class="btn primary" id="x-save">Save</button><button class="btn" id="x-restart" hidden>Restart now</button><span class="sp-msg" id="x-msg"></span></div>
+        </div>
+
+        <div class="sp" data-page="system">
+          <div class="group">
+            <ul class="rows">
+              <li><b>Brain</b><small data-kv="model">—</small></li>
+              <li><b>Voice</b><small data-kv="tts">—</small></li>
+              <li><b>Speech to text</b><small data-kv="stt">—</small></li>
+              <li><b>Telegram</b><small data-kv="telegram">—</small></li>
+              <li><b>Claude Code CLI</b><small data-kv="claude">—</small></li>
+              <li><b>Host</b><small data-kv="host">—</small></li>
+              <li><b>Config file</b><small>~/.jarvis/config.json</small></li>
+              <li><b>Log file</b><small>~/.jarvis/jarvis.log</small></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
   <div id="notice"></div>
 </main>
 
 <script src="three.min.js"></script>
-<script src="hud.js?v=24"></script>
-<script src="settings.js?v=1"></script>
+<script src="hud.js?v=25"></script>
+<script src="settings.js?v=2"></script>
 </body>
 </html>
