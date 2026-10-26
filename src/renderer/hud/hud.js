@@ -592,7 +592,11 @@
     HUBS.forEach((x) => $('crew-' + x.id).classList.toggle('spot', x.id === id));
     $('spot-name').textContent = h.name;
     $('spot-role').textContent = `${h.role} · ${h.about}`;
-    $('spot-hint').textContent = `NEEDS ${String(h.needs).toUpperCase()} · SAME MEMORY AND CONVERSATION`;
+    // Say so up front when its brain isn't set up here (main checks again when SWITCH is pressed).
+    const st = ((assistants.find((x) => x.id === id) || {}).settings) || {};
+    const notHere = st.brainProvider && st.brainProvider !== 'auto' && env.ready && env.ready[st.brainProvider] === false;
+    $('spot-hint').textContent = notHere ? `NEEDS ${String(h.needs).toUpperCase()}, NOT SET UP ON THIS MAC · SETTINGS › BRAINS & KEYS` : `NEEDS ${String(h.needs).toUpperCase()} · SAME MEMORY AND CONVERSATION`;
+    $('spot-hint').classList.toggle('bad', !!notHere);
     $('spot-go').textContent = `SWITCH TO ${h.name}`;
     $('spot-go').disabled = false;
     $('spot').hidden = false;
