@@ -57,6 +57,23 @@ class Conversations {
     this.save();
   }
 
+  /** The user talking to a crew member directly: their message, answered later by directResult. */
+  directAsk(agent, text) {
+    const id = `direct-${agent}-${Date.now()}`;
+    this.jobs.push({ id, agent, t: hhmm(), description: 'talking with you', task: String(text || '').slice(0, 4000), status: 'running', step: '', result: '', direct: true });
+    this.jobs = this.jobs.slice(-KEEP * 2);
+    this.save();
+    return id;
+  }
+
+  directResult(id, text, ok) {
+    const j = this.jobs.find((x) => x.id === id);
+    if (!j) return;
+    j.result = String(text || '').slice(0, 6000);
+    j.status = ok === false ? 'failed' : 'completed';
+    this.save();
+  }
+
   running(agent) { return this.jobs.filter((j) => j.agent === agent && j.status === 'running').length; }
 
   /** Entries for the panel: { t, who, name, text } with who = you | jarvis | crew | working. */
@@ -71,7 +88,7 @@ class Conversations {
     }
     const out = [];
     for (const j of this.jobs.filter((x) => x.agent === key).slice(-15)) {
-      out.push({ t: j.t, who: 'jarvis', name: 'JARVIS', text: j.task || j.description });
+      out.push(j.direct ? { t: j.t, who: 'you', name: 'YOU', text: j.task } : { t: j.t, who: 'jarvis', name: 'JARVIS', text: j.task || j.description });
       if (j.result) out.push({ t: '', who: 'crew', name: key.toUpperCase(), text: j.result });
       else if (j.status === 'running') out.push({ t: '', who: 'working', name: key.toUpperCase(), text: j.step ? `Working: ${j.step}` : `Working on ${j.description}…` });
       else out.push({ t: '', who: 'working', name: key.toUpperCase(), text: `${j.status === 'failed' ? 'Failed' : 'Stopped'} without a report.` });

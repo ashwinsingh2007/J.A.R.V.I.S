@@ -99,6 +99,10 @@ JARVIS is the head of a small crew. He chats with you, answers simple questions 
 
 Each one has their own persona (in `prompts/crew/`), works in the background on Opus by default, and reports back while you keep talking. Ask "what's the status?" any time. When part of a job belongs to someone else, they hand it back to JARVIS and he passes it on. Anything that sends, posts, deletes or pays still waits for your yes. With Claude Code as the brain the crew runs as its background agents; with any other brain they run as separate Claude Code processes, so Claude Code needs to be installed. You can pick the crew's model, or switch the crew off, in Setup and in the HUD's Settings.
 
+### Talking to the crew directly
+
+You can also skip JARVIS and talk to any of them yourself. Start with their name ("KAREN, what's new on LinkedIn?"), say "talk to EDITH" to stay with her until you say "that's all, EDITH", or type in their chat in the right panel. On Telegram, "/karen ..." works too. Each one keeps their own ongoing conversation with you, so they remember what you two said, and JARVIS hears what was said so he isn't lost when you come back. Control words like "stop" still go to JARVIS, and anything that sends or posts still waits for your yes.
+
 ### How it keeps the conversation
 
 JARVIS keeps the latest dozen turns word for word and folds older ones into a running summary: what you asked, what's waiting for your answer, what the crew found, and facts you told him. When the conversation gets long, or a new day starts, the brain starts a fresh session that carries the summary and those recent turns, so it stays quick and doesn't trip over stale details. This only happens while nothing is running. The summary sits in `~/.jarvis/` and "New conversation" clears it.
