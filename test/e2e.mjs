@@ -772,8 +772,35 @@ async function testHud() {
   for (let i = 0; i < 9; i++) { await hud.evaluate(() => { window.hud.event({ type: 'state', state: 'idle' }); window.hud.event({ type: 'transcript', text: '' }); }); await sleep(1000); }
   check('captions clear after a quiet spell, even with repeat updates', await text(hud, '#reply') === '' && await text(hud, '#transcript') === '');
   await hud.mouse.move(mid[0] + 30, mid[1] + 20);
+  await sleep(800);
+  check('moving over the crew keeps full mode, with a hint', await isFocus() && await hud.evaluate(() => getComputedStyle(document.getElementById('focus-hint')).opacity === '1'));
+
+  // Spotlight: clicking KAREN brings her to the centre and talks to her
+  const karen = await hud.evaluate(() => { const r = document.querySelector('#crew-karen .core').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+  let sm = s.mark();
+  await hud.mouse.click(karen[0], karen[1]);
+  await sleep(1300);
+  check('clicking KAREN spotlights her', await hud.evaluate(() => document.body.classList.contains('spot') && document.getElementById('crew-karen').classList.contains('spot')));
+  const at = await hud.evaluate(() => { const c = document.querySelector('#crew-karen .core').getBoundingClientRect(), st = document.getElementById('stage').getBoundingClientRect(); return [c.x + c.width / 2 - (st.x + st.width / 2), c.y + c.height / 2 - (st.y + st.height / 2), c.width]; });
+  check('she moves to the centre and grows', Math.abs(at[0]) < 20 && Math.abs(at[1]) < 60 && at[2] > 20, at.map((n) => Math.round(n)).join(', '));
+  check('her name card shows', /KAREN/.test(await text(hud, '#spot-name')) && /SAY OR TYPE TO KAREN/.test(await text(hud, '#spot-hint')));
+  check('JARVIS puts the user through to her', await s.waitLog(/talking to karen \(HUD\)/, 3000, sm));
+  check('her chat opens and typing goes to her', /KAREN/.test(await text(hud, '#live-name')) && /Type to KAREN/.test(await hud.getAttribute('#ask-input', 'placeholder')));
+  await shot(hud, 'hud-spotlight');
+  await hud.evaluate(() => window.hud.event({ type: 'talking', agent: 'edith' }));
+  await sleep(1000);
+  check('"talk to EDITH" moves the spotlight to her', await hud.evaluate(() => document.getElementById('crew-edith').classList.contains('spot') && !document.getElementById('crew-karen').classList.contains('spot')));
+  sm = s.mark();
+  await hud.keyboard.press('Escape');
+  await sleep(900);
+  check('Esc goes back to JARVIS', await hud.evaluate(() => !document.body.classList.contains('spot')) && await s.waitLog(/talking to (karen|edith): ended/, 3000, sm));
+  await hud.click('#live-btn');
+  await hud.click('#live-pop button:nth-of-type(1)');
+  await hud.mouse.move(mid[0], mid[1]);
+  await sleep(2400);
+  await hud.mouse.move(log[0], log[1] - 250);
   await sleep(300);
-  check('moving the mouse brings the panels back', !(await isFocus()));
+  check('moving onto a panel brings the panels back', !(await isFocus()));
   await hud.click('#nav a[data-view="settings"]');
   await hud.click('label:has([data-key="autoHide"])');
   await sleep(600);
