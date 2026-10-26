@@ -39,15 +39,18 @@ function transcript(lines) {
 }
 
 class Context {
-  constructor(kind) {
+  /** onChange: called after every change, so the HUD can show it. */
+  constructor(kind, onChange = () => {}) {
     this.file = path.join(C.STATE_DIR, `${kind}-context.json`);
+    this.onChange = onChange;
+    this.rolledAt = '';    // when the summary was last written
     this.summary = '';
     this.lines = [];       // { t, who, text } since the last summary
     this.carried = '';     // what the current session started with
     this.day = today();
     try {
       const o = JSON.parse(fs.readFileSync(this.file, 'utf8'));
-      for (const k of ['summary', 'lines', 'carried', 'day']) if (k in o) this[k] = o[k];
+      for (const k of ['summary', 'lines', 'carried', 'day', 'rolledAt']) if (k in o) this[k] = o[k];
     } catch { this.seed(); }
   }
 
@@ -62,7 +65,8 @@ class Context {
   }
 
   save() {
-    try { fs.writeFileSync(this.file, JSON.stringify({ summary: this.summary, lines: this.lines, carried: this.carried, day: this.day }), { mode: 0o600 }); } catch {}
+    try { fs.writeFileSync(this.file, JSON.stringify({ summary: this.summary, lines: this.lines, carried: this.carried, day: this.day, rolledAt: this.rolledAt }), { mode: 0o600 }); } catch {}
+    this.onChange();
   }
 
   clear() {
@@ -70,7 +74,9 @@ class Context {
     this.lines = [];
     this.carried = '';
     this.day = today();
+    this.rolledAt = '';
     try { fs.unlinkSync(this.file); } catch {}
+    this.onChange();
   }
 
   /** One line of the conversation. who: user | jarvis | event | a crew id. */
@@ -113,6 +119,7 @@ class Context {
     this.lines = this.lines.slice(old.length);
     this.carried = this.carryText();
     this.day = today();
+    this.rolledAt = new Date().toISOString();
     this.save();
     log(`context: rolled ${old.length} line(s) into the summary, carrying ${this.lines.length}`);
     return this.carried;

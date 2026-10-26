@@ -238,6 +238,8 @@ class Orchestrator extends EventEmitter {
     });
     // The Claude Code brain's copy of a crew report, for the right panel; the brain retells it itself.
     brain.on('crew-result', (r) => { this.conv.result(r); this.sendConversation(); });
+    // The rolling conversation summary, for the Memory view.
+    brain.on('context', (c) => hud.sendRaw('context', c));
     // A background agent finished and the brain summed it up on its own.
     brain.on('background', (text) => {
       const spoken = clean(cutSources(text.replace(/^.*?RESULT(?:\s*\(\w+\))?:\s*/s, '')));
@@ -298,6 +300,7 @@ class Orchestrator extends EventEmitter {
       case 'settings': if (body.patch && typeof body.patch === 'object') this.emit('settings', body.patch); break;
       case 'memory-forget': if (body.id && this.memory.forget(body.id)) this.brain.reconfigure && this.brain.reconfigure(); break;
       case 'memory-add': if (body.text) this.memory.add(body.text, 'other'); break;
+      case 'context-roll': if (this.brain.rollNow) this.brain.rollNow(); break;
       case 'schedule-cancel': if (body.id) this.scheduler.cancel(body.id); break;
       case 'hands-permit': this.emit('hands-permit'); break;
       case 'test-voice': this.speaker.stop(); this.speaker.speak(`This is how I sound, ${this.cfg.honorific}.`); break;
@@ -403,6 +406,7 @@ class Orchestrator extends EventEmitter {
     this.scheduler.start();
     this.hud.sendRaw('memory', this.memory.facts);
     this.hud.sendRaw('schedule', this.scheduler.items);
+    if (this.brain.contextInfo) this.hud.sendRaw('context', this.brain.contextInfo());
     setInterval(() => this.checkInTick(), Number(process.env.JARVIS_TEST_CHECKIN_TICK_MS) || 60000);
     if (withVoice) this.ears.start();
     else { this.state = 'idle'; this.hud.send('boot', { ok: true }); }

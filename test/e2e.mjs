@@ -799,6 +799,8 @@ async function testProactive() {
   const local = (d) => { const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
   const past = new Date(Date.now() - 60000), later = new Date(Date.now() + 3 * 3600000);
   fs.writeFileSync(path.join(state, 'memory.md'), '- The user likes lo-fi music while working.\n- The user lives in Bengaluru.\n');
+  const turns = Array.from({ length: 16 }, (_, i) => ({ t: '26 Oct 10:00', who: i % 2 ? 'jarvis' : 'user', text: i ? `turn ${i}` : 'I fly to Delhi on Friday morning.' }));
+  fs.writeFileSync(path.join(state, 'claude-code-context.json'), JSON.stringify({ summary: 'Facts the user stated\n- Has a dentist appointment on Monday.', lines: turns, carried: '', day: new Date().toLocaleDateString('en-CA'), rolledAt: new Date().toISOString() }));
   fs.writeFileSync(path.join(state, 'schedule.json'), JSON.stringify({ items: [
     { id: 'rtest1', kind: 'reminder', text: 'stretch your legs', due: local(past), repeat: null },
     { id: 'rtest2', kind: 'reminder', text: 'drink some water', due: local(past), repeat: 'daily' },
@@ -840,7 +842,15 @@ async function testProactive() {
   await hud.click('#sched-list li:last-child .x');
   await sleep(800);
   check('scheduled item cancelled from the HUD', sched().length === 2 - 1 + 0 || sched().length === 1, sched().map((i) => i.text).join(', '));
+  check('memory view shows the conversation summary', /dentist appointment/.test(await text(hud, '#ctx-summary')));
+  check('memory view shows the context size', /CONTEXT \d+K? \/ 70K TOKENS/.test(await text(hud, '#ctx-meta')), await text(hud, '#ctx-meta'));
   await shot(hud, 'hud-memory');
+  let mc = s.mark();
+  await hud.click('#ctx-roll');
+  check('summarise now folds older turns into the summary', await s.waitLog(/context: rolled \d+ line/, 120000, mc));
+  check('summarise now starts a fresh session', await s.waitLog(/context: fresh session/, 30000, mc));
+  await sleep(800);
+  check('the new summary keeps the older facts', /Delhi/.test(await text(hud, '#ctx-summary')) && /dentist/i.test(await text(hud, '#ctx-summary')), (await text(hud, '#ctx-summary')).slice(0, 200));
 
   // By voice: remember, remind
   await s.quiet(hud, 60000);

@@ -376,8 +376,19 @@ body.disabled #stage, body.disabled canvas { opacity: 0.35; filter: grayscale(0.
 .panel.settings > * { flex-shrink: 0; }
 
 /* memory view */
-.mem-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 18px; min-height: 0; }
-@media (max-width: 900px) { .mem-grid { grid-template-columns: minmax(0, 1fr); overflow-y: auto; } }
+.mem-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 1fr); gap: 18px; min-height: 0; }
+@media (max-width: 1200px) { .mem-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); overflow-y: auto; } }
+@media (max-width: 900px) { .mem-grid { grid-template-columns: minmax(0, 1fr); } }
+.panel.ctx { display: flex; flex-direction: column; min-height: 0; }
+.ctx-meter { height: 3px; background: var(--line2); margin: 2px 0 10px; }
+.ctx-meter i { display: block; height: 100%; width: 0; background: var(--cyan); transition: width .4s ease; }
+.ctx-meter i.full { background: var(--amber, #ffb347); }
+.ctx-meta { font: var(--lab) var(--mono); color: var(--faint); letter-spacing: 0.1em; margin: 0 0 12px; line-height: 1.6; }
+.ctx-summary { flex: 1; min-height: 0; overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text); line-height: 1.5; padding-right: 4px; }
+.ctx-summary.empty { color: var(--faint); font: var(--lab) var(--mono); letter-spacing: 0.15em; white-space: normal; }
+.ctx-acts { display: flex; gap: 10px; margin-top: 12px; }
+.ctx-acts .mini { margin-left: 0; }
+.ctx-acts .mini:disabled { opacity: .4; cursor: default; }
 .mem-add { display: flex; gap: 10px; margin-bottom: 14px; }
 .mem-add input { flex: 1; min-width: 0; background: transparent; border: 1px solid var(--line); color: var(--text); font: inherit; padding: 8px 10px; }
 .mem-add input:focus { outline: none; border-color: var(--cyan); }

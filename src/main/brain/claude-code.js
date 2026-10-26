@@ -54,7 +54,7 @@ class ClaudeCodeBrain extends EventEmitter {
     this.agentTools = new Map(); // Agent tool_use_id -> task_id, to place subagent messages
     this.splitter = new SentenceSplitter((s) => { if (!this.discard) this.emit('sentence', s); });
     try { this._sessionId = fs.readFileSync(C.SESSION_FILE, 'utf8').trim() || null; } catch { this._sessionId = null; }
-    this.context = new Context('claude-code');
+    this.context = new Context('claude-code', () => this.emit('context', this.contextInfo()));
     this.contextTokens = 0;      // the main thread's context size at its last reply
     // A new day rolls the session over even if nobody talks.
     setInterval(() => this.maybeRoll(), RETRY_MS).unref();
@@ -84,11 +84,23 @@ class ClaudeCodeBrain extends EventEmitter {
     this.kill();
   }
 
+  /** What the HUD's Memory view shows about the conversation. */
+  contextInfo() {
+    const c = this.context;
+    return { summary: c.summary, rolledAt: c.rolledAt, lines: c.lines.length, tokens: this.contextTokens, limit: ROLL_TOKENS, rolling: !!this.rolling || !!this.rollWanted };
+  }
+
+  /** Summarise now, from the HUD. Runs as soon as nothing is running. */
+  rollNow() { this.rollWanted = true; this.emit('context', this.contextInfo()); this.maybeRoll(); }
+
   /** Fold the older turns into the summary once the context is big or from yesterday, then start fresh. */
   async maybeRoll() {
-    if (this.rolling || this.freshWanted || Date.now() - (this.rollFailedAt || 0) < RETRY_MS) return;
-    if (!this.context.due(this.contextTokens, ROLL_TOKENS) || this.isBusy || this.tasks.size || this.turn) return;
+    if (this.rolling || this.freshWanted) return;
+    if (!this.rollWanted && (Date.now() - (this.rollFailedAt || 0) < RETRY_MS || !this.context.due(this.contextTokens, ROLL_TOKENS))) return;
+    if (this.isBusy || this.tasks.size || this.turn) return;
     this.rolling = true;
+    this.rollWanted = false;
+    this.emit('context', this.contextInfo());
     log(`context: rolling over at ${this.contextTokens} tokens`);
     try {
       await this.context.roll((system, text) => this.complete(system, text));
@@ -97,7 +109,7 @@ class ClaudeCodeBrain extends EventEmitter {
     } catch (e) {
       this.rollFailedAt = Date.now();
       log(`context: summary failed, keeping the session: ${e.message || e}`);
-    } finally { this.rolling = false; }
+    } finally { this.rolling = false; this.emit('context', this.contextInfo()); }
   }
 
   /** A new session that starts from the carried context. Waits until nothing is running. */
@@ -108,6 +120,7 @@ class ClaudeCodeBrain extends EventEmitter {
     this._sessionId = null;
     try { fs.unlinkSync(C.SESSION_FILE); } catch {}
     this.contextTokens = 0;
+    this.emit('context', this.contextInfo());
     this.restartWanted = false;      // the new process picks up any new settings too
     this.kill();
     this.ensure();
@@ -389,6 +402,7 @@ class ClaudeCodeBrain extends EventEmitter {
           setImmediate(() => this.maybeRestart());
           break;
         }
+        this.emit('context', this.contextInfo());
         const isError = !!obj.is_error;
         if (typeof obj.result === 'string') this.finalText = obj.result;
         if (isError && Array.isArray(obj.errors) && obj.errors.length) this.finalText = obj.errors.join('. ');

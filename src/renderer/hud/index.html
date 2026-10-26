@@ -121,6 +121,13 @@
         <form id="mem-add" class="mem-add"><input id="mem-input" placeholder="Tell me something to remember…" maxlength="400" autocomplete="off"><button class="mini" type="submit">ADD</button></form>
         <ul id="mem-list" class="mem-list"></ul>
       </div>
+      <div class="panel ctx">
+        <h3>THIS CONVERSATION<em id="ctx-state"></em></h3>
+        <div class="ctx-meter"><i id="ctx-bar"></i></div>
+        <p class="ctx-meta" id="ctx-meta"></p>
+        <div class="ctx-summary" id="ctx-summary"></div>
+        <div class="ctx-acts"><button class="mini" id="ctx-roll" title="Fold older turns into the summary and start a fresh session">SUMMARISE NOW</button><button class="mini" id="ctx-clear" title="Forget this conversation and its summary">CLEAR</button></div>
+      </div>
       <div class="panel">
         <h3>REMINDERS &amp; ROUTINES<em id="sched-count"></em></h3>
         <ul id="sched-list" class="mem-list"></ul>
