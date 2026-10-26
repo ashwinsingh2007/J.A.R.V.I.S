@@ -43,6 +43,11 @@ class SentenceSplitter {
 // The crew members JARVIS hands jobs to. Each is a background agent with its own persona (prompts/crew/<id>.md).
 const CREW = ['friday', 'karen', 'edith', 'vision'];
 const crewName = (id) => (CREW.includes(id) ? id.toUpperCase() : 'FRIDAY');
+// VISION works only through Claude in Chrome (Read stays for screenshots and uploads). Claude Code's
+// agent definition takes the MCP server name; a separate `claude -p` takes the built-in list and
+// drops every MCP server except the one --chrome adds.
+const VISION_TOOLS = ['Read', 'mcp__claude-in-chrome'];
+const VISION_ARGS = ['--tools', 'Read', '--strict-mcp-config'];
 
 /** Placeholders, and the screen-control parts (between <!--screen--> markers) only when allowed. */
 function fill(text, cfg) {
@@ -116,4 +121,4 @@ function summarise(name, input = {}) {
   }
 }
 
-module.exports = { CREW, crewName, SentenceSplitter, systemPrompt, agentPrompt, summarise, claudeSettings, claudeDisallowed };
+module.exports = { CREW, crewName, VISION_TOOLS, VISION_ARGS, SentenceSplitter, systemPrompt, agentPrompt, summarise, claudeSettings, claudeDisallowed };

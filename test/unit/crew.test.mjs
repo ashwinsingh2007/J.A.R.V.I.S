@@ -57,3 +57,25 @@ test('delegate goes to the crew member the brain names, and a handover report ke
   await done;
   assert.deepEqual(bodies[1].tools.map((x) => x.function.name), ['delegate']);
 });
+
+test('VISION only gets Claude in Chrome, as a subagent and as a separate process', async () => {
+  const ClaudeCodeBrain = require('../../src/main/brain/claude-code');
+  const agents = JSON.parse(new ClaudeCodeBrain(C.DEFAULTS, '/bin/false').agents());
+  assert.deepEqual(agents.vision.tools, ['Read', 'mcp__claude-in-chrome']);
+  assert.equal(agents.friday.tools, undefined);
+  // A stand-in for claude that writes its arguments to a file.
+  const { Worker } = require('../../src/main/brain/worker');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jarvis-claude-'));
+  const fake = path.join(dir, 'claude');
+  fs.writeFileSync(fake, `#!/bin/sh\nprintf '%s\\n' "$@" > "${dir}/args.$$"\n`, { mode: 0o755 });
+  const w = new Worker(C.DEFAULTS, fake);
+  const finished = (n) => new Promise((r) => { let k = 0; w.on('task', (t) => { if (t.status !== 'running' && ++k === n) r(); }); });
+  const done = finished(2);
+  w.start('opening YouTube', 'Open YouTube.', 'vision');
+  w.start('fixing a bug', 'Fix it.', 'friday');
+  await done;
+  const runs = fs.readdirSync(dir).filter((f) => f.startsWith('args.')).map((f) => fs.readFileSync(path.join(dir, f), 'utf8'));
+  const vision = runs.find((r) => r.includes('Open YouTube.')), friday = runs.find((r) => r.includes('Fix it.'));
+  assert.ok(vision.includes('\n--tools\nRead\n--strict-mcp-config\n'));
+  assert.ok(!friday.includes('--strict-mcp-config'));
+});
