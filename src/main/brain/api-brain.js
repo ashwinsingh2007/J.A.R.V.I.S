@@ -38,7 +38,7 @@ class ApiBrain extends EventEmitter {
     this.abort = null;
     this.historyFile = path.join(C.STATE_DIR, `${kind}-history.json`);
     try { this.history = JSON.parse(fs.readFileSync(this.historyFile, 'utf8')); } catch { this.history = []; }
-    this.context = new Context(kind, () => this.emit('context', this.contextInfo()));
+    this.context = new Context(kind, () => this.emit('context', this.contextInfo()), { learn: true });
     setInterval(() => { if (!this.isBusy) this.maybeRoll(); }, RETRY_MS).unref();
     this.splitter = new SentenceSplitter((s) => this.emit('sentence', s));
   }

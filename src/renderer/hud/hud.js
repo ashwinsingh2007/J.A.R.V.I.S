@@ -679,7 +679,7 @@
   function setMemory(facts) {
     facts = Array.isArray(facts) ? facts : [];
     const ul = $('mem-list');
-    ul.replaceChildren(...(facts.length ? [...facts].reverse().map((f) => memRow(f.text, (f.topic && f.topic !== 'other' ? f.topic.toUpperCase() + ' · ' : '') + String(f.added || '').slice(0, 10),
+    ul.replaceChildren(...(facts.length ? [...facts].reverse().map((f) => memRow(f.text, [f.for ? 'FOR ' + f.for.toUpperCase() : '', f.topic && f.topic !== 'other' ? f.topic.toUpperCase() : '', f.learnt ? 'LEARNT' : '', String(f.added || '').slice(0, 10)].filter(Boolean).join(' · '),
       () => post({ type: 'action', name: 'memory-forget', id: f.id }), 'Forget this')) : [emptyRow('NOTHING REMEMBERED YET')]));
     $('n-memory').textContent = facts.length;
     $('mem-count').textContent = facts.length ? facts.length + ' FACT' + (facts.length === 1 ? '' : 'S') : '';
@@ -1144,6 +1144,7 @@
       { id: 'm3', text: 'Sister is called Priya; her birthday is on 14 November.', topic: 'person', added: '2026-10-23T20:05' },
       { id: 'm4', text: '"The web app" means the project in ~/Projects/web-app.', topic: 'project', added: '2026-10-24T11:30' },
       { id: 'm5', text: 'Goes for a run most mornings around seven.', topic: 'routine', added: '2026-10-24T07:55' },
+      { id: 'm6', text: 'Wants LinkedIn posts casual and short, with no hashtags.', topic: 'preference', added: '2026-10-25T16:20', for: 'karen', learnt: true },
     ] });
     const at = (h, m, d = 0) => { const x = new Date(); x.setDate(x.getDate() + d); x.setHours(h, m, 0, 0); const p = (n) => String(n).padStart(2, '0'); return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())}T${p(h)}:${p(m)}`; };
     ev({ type: 'schedule', data: [

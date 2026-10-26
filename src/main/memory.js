@@ -1,6 +1,7 @@
 // What JARVIS remembers: durable facts about the user (memory.json, written by
-// scripts/memory.py and the HUD) and a plain journal of each day's exchanges
-// (journal/YYYY-MM-DD.md), used for the morning recap and check-ins.
+// scripts/memory.py, the HUD and the fact pass before each summary) and a plain journal of each
+// day's exchanges (journal/YYYY-MM-DD.md), used for the morning recap and check-ins.
+// A fact with `for` set belongs to one crew member; the rest are everyone's.
 //
 // events: 'change' (facts)
 const fs = require('fs');
@@ -12,6 +13,11 @@ const { log } = require('./util');
 
 const FILE = path.join(C.STATE_DIR, 'memory.json');
 const JOURNAL = path.join(C.STATE_DIR, 'journal');
+const CREW = ['friday', 'karen', 'edith', 'vision'];
+const TOPICS = ['person', 'preference', 'project', 'place', 'routine', 'other'];
+// Never kept, whoever asks: passwords, keys, codes and card numbers.
+const SECRET = /\b(passwords?|passcodes?|passphrases?|otp|cvv|api[ -]?keys?|secret keys?|private keys?|access tokens?)\b|\b(?:\d[ -]?){13,19}\b|[A-Za-z0-9_-]{28,}/i;
+const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
 const day = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 class Memory extends EventEmitter {
@@ -63,6 +69,27 @@ class Memory extends EventEmitter {
     this.emit('change', this.facts);
   }
 
+  /**
+   * Facts the pass before a summary picked out: [{ text, topic, for, replaces }]. A fact that updates
+   * one already known replaces it. Returns how many changed.
+   */
+  learn(items) {
+    this.load();
+    let n = 0;
+    for (const it of Array.isArray(items) ? items : []) {
+      const text = String((it && it.text) || '').replace(/\s+/g, ' ').trim().slice(0, 400);
+      if (!text || SECRET.test(text) || this.facts.some((f) => norm(f.text) === norm(text))) continue;
+      const fact = { id: 'm' + crypto.randomBytes(3).toString('hex'), text, topic: TOPICS.includes(it.topic) ? it.topic : 'other', added: new Date().toISOString().slice(0, 16), learnt: true };
+      if (CREW.includes(it.for)) fact.for = it.for;
+      const old = it.replaces ? this.facts.findIndex((f) => f.id === it.replaces) : -1;
+      if (old >= 0) { log(`memory: '${this.facts[old].text.slice(0, 60)}' -> '${text.slice(0, 60)}'`); this.facts[old] = fact; }
+      else this.facts.push(fact);
+      n++;
+    }
+    if (n) { this.save(); this.emit('change', this.facts); log(`memory: learnt ${n} fact(s)`); }
+    return n;
+  }
+
   forget(id) {
     const before = this.facts.length;
     this.facts = this.facts.filter((f) => f.id !== id);
@@ -72,10 +99,14 @@ class Memory extends EventEmitter {
     return true;
   }
 
+  /** Facts one assistant sees: everyone's, plus a crew member's own. who: '' for JARVIS. */
+  factsFor(who = '') {
+    return this.facts.filter((f) => !f.for || f.for === who);
+  }
+
   /** For the system prompt. */
-  promptText() {
-    if (!this.facts.length) return '';
-    return this.facts.map((f) => `- ${f.text}`).join('\n');
+  promptText(who = '') {
+    return this.factsFor(who).map((f) => `- ${f.text}`).join('\n');
   }
 
   // ---------- journal ----------
@@ -98,4 +129,4 @@ class Memory extends EventEmitter {
   }
 }
 
-module.exports = { Memory, day };
+module.exports = { Memory, day, SECRET };

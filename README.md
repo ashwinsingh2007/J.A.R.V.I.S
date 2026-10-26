@@ -46,7 +46,9 @@ Speech stays on the Mac by default. Apple's recogniser does the listening, Kokor
 
 It has a personality: a calm British butler with a dry sense of humour who keeps answers short. When it looks something up, it tells you what it found in its own words and leaves out the list of links.
 
-It remembers people, preferences, projects and routines as they come up in conversation. The MEMORY tab in the HUD lists every fact, and you can delete any of them.
+It remembers people, preferences, projects and routines as they come up in conversation. Before older turns are summarised, a separate pass reads what you said in them and saves the facts that last, so a short summary doesn't lose them. If a fact changed (you moved city, a trip got moved), the new one replaces the old. Only your own words are read for this. Emails, web pages and crew reports can't add to memory, and passwords, keys and card numbers are never kept.
+
+Each crew member also has a memory of their own. "Keep my LinkedIn posts casual" is KAREN's, and the rest of the crew doesn't need it. Every crew member gets the shared facts plus their own, both on jobs and when you talk to them directly. The MEMORY tab in the HUD lists every fact, whose it is and whether it was learnt this way, and you can delete any of them.
 
 It speaks up on its own when there's a reason to. You get a morning briefing (weather, mail that needs a reply, today's reminders, anything left open from yesterday), spoken reminders, routines you set by voice ("every morning at eight, check the AI news"), and the occasional check-in when something is worth mentioning.
 

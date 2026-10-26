@@ -66,7 +66,11 @@ function agentPrompt(cfg, who = 'friday') {
   if (!CREW.includes(who)) who = 'friday';
   const persona = read(`crew/${who}.md`, `You are ${crewName(who)}, part of JARVIS's crew.`).trim();
   const rules = read('agent.md', 'Do the task fully, then end with one short paragraph starting with RESULT:.');
-  return fill(`${persona}\n\n${rules}\n\n{{CREW}}`, cfg);
+  let text = fill(`${persona}\n\n${rules}\n\n{{CREW}}`, cfg);
+  if (cfg.userName) text += `\n\nThe user's name is ${cfg.userName}.`;
+  const mem = new (require('../memory').Memory)().promptText(who);
+  if (mem) text += `\n\nWHAT YOU KNOW ABOUT THE USER (from memory, everyone's and your own; use it in your work, never recite it):\n${mem}`;
+  return text;
 }
 
 /**
