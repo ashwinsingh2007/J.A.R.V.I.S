@@ -95,7 +95,7 @@ JARVIS is the head of a small crew. He chats with you, answers simple questions 
 | FRIDAY | Coding, web search and research, files, scripts and anything heavy |
 | KAREN | Email, WhatsApp, Telegram and other messages, replies, and drafting posts for LinkedIn or X |
 | EDITH | Security and checks: code and work reviews, fact-checks, whether a link, email or download is safe |
-| VISION | Anything inside a website, in your signed-in Chrome |
+| VISION | Anything inside a website, in your signed-in Chrome. He only has the Claude in Chrome tools |
 
 Each one has their own persona (in `prompts/crew/`), works in the background on Opus by default, and reports back while you keep talking. Ask "what's the status?" any time. When part of a job belongs to someone else, they hand it back to JARVIS and he passes it on. Anything that sends, posts, deletes or pays still waits for your yes. With Claude Code as the brain the crew runs as its background agents; with any other brain they run as separate Claude Code processes, so Claude Code needs to be installed. You can pick the crew's model, or switch the crew off, in Setup and in the HUD's Settings.
 

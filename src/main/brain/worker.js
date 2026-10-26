@@ -13,7 +13,7 @@ const { spawn } = require('child_process');
 const EventEmitter = require('events');
 const C = require('../config');
 const { log, env, jsonLines } = require('../util');
-const { CREW, crewName, agentPrompt, claudeSettings, claudeDisallowed } = require('./common');
+const { CREW, crewName, VISION_ARGS, agentPrompt, claudeSettings, claudeDisallowed } = require('./common');
 
 const MAX_JOBS = 3;
 const MAX_MINUTES = 30;
@@ -48,6 +48,7 @@ class Worker extends EventEmitter {
       '--disallowedTools', claudeDisallowed(this.cfg),
       '--setting-sources', '',
       '--settings', claudeSettings(),
+      ...(agent === 'vision' ? VISION_ARGS : []),
     ];
     let proc;
     try { proc = spawn(this.claudePath, args, { env: env({ JARVIS: '1', JARVIS_WORKER: '1' }), cwd: C.HOME, stdio: ['ignore', 'pipe', 'pipe'] }); }

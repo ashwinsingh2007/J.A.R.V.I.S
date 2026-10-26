@@ -17,7 +17,7 @@ const { spawn } = require('child_process');
 const EventEmitter = require('events');
 const C = require('../config');
 const { log, env, jsonLines } = require('../util');
-const { CREW, crewName, SentenceSplitter, systemPrompt, agentPrompt, summarise, claudeSettings, claudeDisallowed } = require('./common');
+const { CREW, crewName, VISION_TOOLS, SentenceSplitter, systemPrompt, agentPrompt, summarise, claudeSettings, claudeDisallowed } = require('./common');
 
 const ENDED = new Set(['completed', 'failed', 'killed', 'stopped', 'cancelled']);
 
@@ -138,6 +138,7 @@ class ClaudeCodeBrain extends EventEmitter {
         model: this.cfg.agentModel,
         background: true,
       };
+      if (id === 'vision') out[id].tools = VISION_TOOLS;
     }
     return JSON.stringify(out);
   }
