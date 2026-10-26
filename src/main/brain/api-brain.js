@@ -1,6 +1,8 @@
 // Brain providers without Claude Code: the Anthropic Messages API, Gemini (through
 // its OpenAI-compatible endpoint) and Ollama. All run the same loop: stream a reply, run any tool calls, feed results
 // back, repeat (max 8 rounds). History is kept in ~/.jarvis/<provider>-history.json.
+// When it grows past the provider's limit, or a new day starts, older turns are summarised
+// (context.js) and the history starts again from the summary and the latest turns.
 const fs = require('fs');
 const path = require('path');
 const EventEmitter = require('events');
@@ -8,9 +10,13 @@ const C = require('../config');
 const { log } = require('../util');
 const { SentenceSplitter, systemPrompt, summarise } = require('./common');
 const tools = require('./tools');
+const { Context } = require('./context');
 
 const MAX_ROUNDS = 8;
 const MAX_HISTORY = 40;
+// Rough history size, in tokens, that triggers a summary. Ollama runs with an 8k window.
+const ROLL_TOKENS = { anthropic: 40000, gemini: 40000, ollama: 4000 };
+const RETRY_MS = 10 * 60 * 1000;
 
 // A crew member's finished job, handed to the brain to retell.
 const REPORT = /^\[(FRIDAY|KAREN|EDITH|VISION) REPORT\]/;
@@ -32,6 +38,8 @@ class ApiBrain extends EventEmitter {
     this.abort = null;
     this.historyFile = path.join(C.STATE_DIR, `${kind}-history.json`);
     try { this.history = JSON.parse(fs.readFileSync(this.historyFile, 'utf8')); } catch { this.history = []; }
+    this.context = new Context(kind);
+    setInterval(() => { if (!this.isBusy) this.maybeRoll(); }, RETRY_MS).unref();
     this.splitter = new SentenceSplitter((s) => this.emit('sentence', s));
   }
 
@@ -52,6 +60,56 @@ class ApiBrain extends EventEmitter {
     this.cancel();
     this.history = [];
     try { fs.unlinkSync(this.historyFile); } catch {}
+    this.context.clear();
+    this.freshWanted = false;
+  }
+
+  /** About four characters to a token. */
+  get historyTokens() { return Math.round(JSON.stringify(this.history).length / 4); }
+
+  /** Summarise the older turns once the history is big or from yesterday, then start it again from the summary. */
+  async maybeRoll() {
+    if (this.rolling || Date.now() - (this.rollFailedAt || 0) < RETRY_MS) return;
+    if (!this.freshWanted) {
+      if (!this.context.due(this.historyTokens, ROLL_TOKENS[this.kind])) return;
+      this.rolling = true;
+      log(`context: rolling over at about ${this.historyTokens} tokens`);
+      try {
+        await this.context.roll((system, text) => this.complete(system, text));
+        this.freshWanted = true;
+      } catch (e) {
+        this.rollFailedAt = Date.now();
+        log(`context: summary failed, keeping the history: ${e.message || e}`);
+      } finally { this.rolling = false; }
+    }
+    // A question that came in while summarising finishes on the old history first.
+    if (!this.freshWanted || this.isBusy) return;
+    this.freshWanted = false;
+    this.history = [];
+    this.saveHistory();
+  }
+
+  /** One plain answer with no tools, for the summary. */
+  async complete(system, text) {
+    const signal = AbortSignal.timeout(120000);
+    const post = async (url, headers, body) => {
+      const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body), signal });
+      if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 200)}`);
+      return res.json();
+    };
+    if (this.kind === 'anthropic') {
+      const r = await post('https://api.anthropic.com/v1/messages', { 'x-api-key': this.cfg.anthropicApiKey, 'anthropic-version': '2023-06-01' },
+        { model: this.cfg.anthropicModel, max_tokens: 1024, system, messages: [{ role: 'user', content: text }] });
+      return (r.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+    }
+    if (this.kind === 'gemini') {
+      const r = await post('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', { authorization: `Bearer ${this.cfg.geminiApiKey}` },
+        { model: this.cfg.geminiModel, messages: [{ role: 'system', content: system }, { role: 'user', content: text }] });
+      return (r.choices && r.choices[0] && r.choices[0].message && r.choices[0].message.content) || '';
+    }
+    const r = await post(`${this.cfg.ollamaUrl.replace(/\/$/, '')}/api/chat`, {},
+      { model: this.cfg.ollamaModel, stream: false, think: false, keep_alive: '30m', options: { num_ctx: 8192 }, messages: [{ role: 'system', content: system }, { role: 'user', content: text }] });
+    return (r.message && r.message.content) || '';
   }
 
   cancel() {
@@ -79,6 +137,7 @@ class ApiBrain extends EventEmitter {
     this.dropUnansweredCall();
     const start = this.history.length;
     this.history.push({ role: 'user', content: prompt });
+    this.context.asked(prompt);
     this.lastPrompt = prompt;
     log(`brain(${this.kind}): asked '${prompt.slice(0, 80)}'`);
     let final = '';
@@ -103,7 +162,9 @@ class ApiBrain extends EventEmitter {
       this.isBusy = false;
       this.abort = null;
       this.saveHistory();
+      if (final.trim() && !/^\W*SILENT\W*$/i.test(final.trim())) this.context.add('jarvis', final);
       this.emit('done', final, false);
+      setImmediate(() => this.maybeRoll());
     } catch (e) {
       if (abort.signal.aborted) return;
       this.isBusy = false;
@@ -122,6 +183,9 @@ class ApiBrain extends EventEmitter {
     const last = this.history[this.history.length - 1];
     if (last && last.role === 'assistant' && (last.tool_calls || (Array.isArray(last.content) && last.content.some((b) => b.type === 'tool_use')))) this.history.pop();
   }
+
+  /** The tools note plus the carried summary of earlier turns. */
+  promptExtra(note) { return [note, this.context.carried].filter(Boolean).join('\n\n'); }
 
   /** Hand a job to the crew, with the user's own words attached so a vague instruction can't lose the request. */
   delegate(input = {}) {
@@ -150,7 +214,7 @@ class ApiBrain extends EventEmitter {
       model: this.cfg.anthropicModel,
       max_tokens: 1024,
       stream: true,
-      system: systemPrompt(this.cfg, this.tools.note),
+      system: systemPrompt(this.cfg, this.promptExtra(this.tools.note)),
       messages: this.history,
     };
     // No tools at all on a turn that only retells a report.
@@ -207,7 +271,7 @@ class ApiBrain extends EventEmitter {
       body: JSON.stringify({
         model: this.cfg.geminiModel,
         stream: true,
-        messages: [{ role: 'system', content: systemPrompt(this.cfg, this.tools.note) }, ...this.history],
+        messages: [{ role: 'system', content: systemPrompt(this.cfg, this.promptExtra(this.tools.note)) }, ...this.history],
         ...(this.tools.specs.length ? { tools: this.tools.specs.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.schema } })) } : {}),
       }),
       signal,
@@ -247,7 +311,7 @@ class ApiBrain extends EventEmitter {
   async ollamaRound(signal) {
     // Small local models get the short prompt; Ollama's default context window would cut the full one off.
     const t = this.tools;
-    const messages = [{ role: 'system', content: systemPrompt(this.cfg, '', { file: 'local.md', worker: t.specs.some((x) => x.name === 'delegate') }) }, ...this.history];
+    const messages = [{ role: 'system', content: systemPrompt(this.cfg, this.promptExtra(''), { file: 'local.md', worker: t.specs.some((x) => x.name === 'delegate') }) }, ...this.history];
     const res = await fetch(`${this.cfg.ollamaUrl.replace(/\/$/, '')}/api/chat`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },

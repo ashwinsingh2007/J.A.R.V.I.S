@@ -12,14 +12,22 @@
 // Agents report progress two ways: task_progress events (the tool they are
 // running) and `STATUS:` lines they write between steps. Both become
 // 'progress' events so JARVIS can tell the user how the job is going.
+//
+// The session doesn't grow forever: when its context passes ROLL_TOKENS, or a new
+// day starts, older turns are summarised (context.js) and the brain starts a fresh
+// session that carries the summary and the latest turns.
 const fs = require('fs');
 const { spawn } = require('child_process');
 const EventEmitter = require('events');
 const C = require('../config');
-const { log, env, jsonLines } = require('../util');
+const { log, env, run, jsonLines } = require('../util');
+const { Context } = require('./context');
 const { CREW, crewName, VISION_TOOLS, SentenceSplitter, systemPrompt, agentPrompt, summarise, claudeSettings, claudeDisallowed } = require('./common');
 
 const ENDED = new Set(['completed', 'failed', 'killed', 'stopped', 'cancelled']);
+// A fresh brain starts at about 23k tokens (prompt, tools, crew); this leaves about 45k for the conversation.
+const ROLL_TOKENS = 70000;
+const RETRY_MS = 10 * 60 * 1000;
 
 /** "Running mcp__claude-in-chrome__navigate" → "navigate in Chrome"; "Running List files" → "List files". */
 function stepText(d) {
@@ -46,6 +54,10 @@ class ClaudeCodeBrain extends EventEmitter {
     this.agentTools = new Map(); // Agent tool_use_id -> task_id, to place subagent messages
     this.splitter = new SentenceSplitter((s) => { if (!this.discard) this.emit('sentence', s); });
     try { this._sessionId = fs.readFileSync(C.SESSION_FILE, 'utf8').trim() || null; } catch { this._sessionId = null; }
+    this.context = new Context('claude-code');
+    this.contextTokens = 0;      // the main thread's context size at its last reply
+    // A new day rolls the session over even if nobody talks.
+    setInterval(() => this.maybeRoll(), RETRY_MS).unref();
   }
 
   get isReady() { return !!this.proc; }
@@ -66,7 +78,46 @@ class ClaudeCodeBrain extends EventEmitter {
   reset() {
     this._sessionId = null;
     try { fs.unlinkSync(C.SESSION_FILE); } catch {}
+    this.context.clear();
+    this.contextTokens = 0;
+    this.freshWanted = false;
     this.kill();
+  }
+
+  /** Fold the older turns into the summary once the context is big or from yesterday, then start fresh. */
+  async maybeRoll() {
+    if (this.rolling || this.freshWanted || Date.now() - (this.rollFailedAt || 0) < RETRY_MS) return;
+    if (!this.context.due(this.contextTokens, ROLL_TOKENS) || this.isBusy || this.tasks.size || this.turn) return;
+    this.rolling = true;
+    log(`context: rolling over at ${this.contextTokens} tokens`);
+    try {
+      await this.context.roll((system, text) => this.complete(system, text));
+      this.freshWanted = true;
+      this.maybeFresh();
+    } catch (e) {
+      this.rollFailedAt = Date.now();
+      log(`context: summary failed, keeping the session: ${e.message || e}`);
+    } finally { this.rolling = false; }
+  }
+
+  /** A new session that starts from the carried context. Waits until nothing is running. */
+  maybeFresh() {
+    if (!this.freshWanted || this.isBusy || this.tasks.size || this.turn) return;
+    this.freshWanted = false;
+    log(`context: fresh session (was ${this._sessionId || '-'})`);
+    this._sessionId = null;
+    try { fs.unlinkSync(C.SESSION_FILE); } catch {}
+    this.contextTokens = 0;
+    this.restartWanted = false;      // the new process picks up any new settings too
+    this.kill();
+    this.ensure();
+  }
+
+  /** One plain answer with no tools and no saved session, for the summary. */
+  async complete(system, text) {
+    const r = await run(this.claudePath, ['-p', '--model', this.cfg.model, '--tools', '', '--setting-sources', '', '--no-session-persistence', '--system-prompt', system], { input: text, timeout: 180000, cwd: C.HOME });
+    if (r.code !== 0) throw new Error((r.err || r.out || `exit ${r.code}`).trim().slice(0, 200));
+    return r.out;
   }
 
   /**
@@ -80,6 +131,8 @@ class ClaudeCodeBrain extends EventEmitter {
   }
 
   maybeRestart() {
+    this.maybeFresh();
+    this.maybeRoll();
     if (!this.restartWanted) return;
     if (!this.proc) { this.restartWanted = false; return; }     // the next start picks the settings up
     if (this.isBusy || this.tasks.size || this.turn) return;
@@ -118,6 +171,7 @@ class ClaudeCodeBrain extends EventEmitter {
     this.handedOff = false;
     this.finalText = '';
     this.splitter.reset();
+    this.context.asked(prompt);
     const msg = { type: 'user', message: { role: 'user', content: [{ type: 'text', text: prompt }] } };
     this.proc.stdin.write(JSON.stringify(msg) + '\n');
     log(`brain: asked '${prompt.slice(0, 80)}' session=${this._sessionId || 'new'}`);
@@ -150,7 +204,7 @@ class ClaudeCodeBrain extends EventEmitter {
       '-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
       '--replay-user-messages',
       '--model', this.cfg.model, '--effort', this.cfg.effort,
-      '--append-system-prompt', systemPrompt(this.cfg),
+      '--append-system-prompt', systemPrompt(this.cfg, this.context.carried),
       '--dangerously-skip-permissions',
       '--agents', this.agents(),
       '--chrome',
@@ -228,6 +282,7 @@ class ClaudeCodeBrain extends EventEmitter {
       if (job && !job.reported && typeof obj.summary === 'string') {
         job.reported = true;
         if (!this.tasks.has(obj.task_id)) this.jobs.delete(obj.task_id);
+        this.context.add(job.agent, obj.summary);
         this.emit('crew-result', { id: obj.task_id, agent: job.agent, description: job.description, text: obj.summary, ok: obj.status === 'completed' });
       }
     }
@@ -303,13 +358,16 @@ class ClaudeCodeBrain extends EventEmitter {
         }
         break;
       }
-      case 'assistant':
+      case 'assistant': {
+        const u = obj.message && obj.message.usage;
+        if (u) this.contextTokens = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
         if (!this.turn) this.turn = 'bg';
         if (this.turn === 'bg' || this.discard) break;
         for (const b of (obj.message && obj.message.content) || []) {
           if (b.type === 'tool_use') this.emit('tool', { name: b.name, summary: summarise(b.name, b.input) });
         }
         break;
+      }
       case 'result': {
         if (obj.session_id) this.sessionId = obj.session_id;
         const turn = this.turn || (this.isBusy ? 'user' : 'bg');
@@ -318,7 +376,7 @@ class ClaudeCodeBrain extends EventEmitter {
           const text = (typeof obj.result === 'string' && obj.result) || this.bgText;
           this.bgText = '';
           log(`brain: background turn '${text.slice(0, 80)}'`);
-          if (!obj.is_error && text.trim() && !/^\W*SILENT\W*$/i.test(text.trim())) this.emit('background', text.trim());
+          if (!obj.is_error && text.trim() && !/^\W*SILENT\W*$/i.test(text.trim())) { this.context.add('jarvis', text.trim()); this.emit('background', text.trim()); }
           setImmediate(() => this.maybeRestart());
           break;
         }
@@ -337,6 +395,7 @@ class ClaudeCodeBrain extends EventEmitter {
         log(`timing: claude done ${((Date.now() - this.turnStart) / 1000).toFixed(2)}s`);
         this.splitter.flush(true);
         this.isBusy = false;
+        if (!isError && !/^\W*SILENT\W*$/i.test(this.finalText.trim())) this.context.add('jarvis', this.finalText);
         this.emit('done', this.finalText, isError);
         setImmediate(() => this.maybeRestart());
         break;
