@@ -43,11 +43,11 @@ class SentenceSplitter {
 // The crew members JARVIS hands jobs to. Each is a background agent with its own persona (prompts/crew/<id>.md).
 const CREW = ['friday', 'karen', 'edith', 'vision'];
 const crewName = (id) => (CREW.includes(id) ? id.toUpperCase() : 'FRIDAY');
-// VISION works only through Claude in Chrome (Read stays for screenshots and uploads). Claude Code's
-// agent definition takes the MCP server name; a separate `claude -p` takes the built-in list and
-// drops every MCP server except the one --chrome adds.
-const VISION_TOOLS = ['Read', 'mcp__claude-in-chrome'];
-const VISION_ARGS = ['--tools', 'Read', '--strict-mcp-config'];
+// VISION looks after the Mac itself: a shell for system.sh and the usual Mac tools, and reading files.
+// No browser and no web, so pages and emails never reach the crew member who can clean folders.
+// A separate `claude -p` for him also runs without --chrome and without any MCP server.
+const VISION_TOOLS = ['Bash', 'Read', 'Grep', 'Glob'];
+const VISION_ARGS = ['--tools', VISION_TOOLS.join(','), '--strict-mcp-config'];
 
 /** Placeholders, and the screen-control parts (between <!--screen--> markers) only when allowed. */
 function fill(text, cfg) {

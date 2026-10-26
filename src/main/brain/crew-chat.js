@@ -48,11 +48,10 @@ class CrewChat extends EventEmitter {
       '--model', this.cfg.agentModel === 'inherit' ? 'opus' : this.cfg.agentModel,
       '--append-system-prompt', prompt,
       '--dangerously-skip-permissions',
-      '--chrome',
       '--disallowedTools', claudeDisallowed(this.cfg),
       '--setting-sources', '',
       '--settings', claudeSettings(),
-      ...(id === 'vision' ? VISION_ARGS : []),
+      ...(id === 'vision' ? VISION_ARGS : ['--chrome']),
       ...(s.session ? ['--resume', s.session] : []),
     ];
     let proc;

@@ -58,10 +58,12 @@ test('delegate goes to the crew member the brain names, and a handover report ke
   assert.deepEqual(bodies[1].tools.map((x) => x.function.name), ['delegate']);
 });
 
-test('VISION only gets Claude in Chrome, as a subagent and as a separate process', async () => {
+test('VISION gets a shell for the Mac but no browser or web, as a subagent and as a separate process', async () => {
   const ClaudeCodeBrain = require('../../src/main/brain/claude-code');
   const agents = JSON.parse(new ClaudeCodeBrain(C.DEFAULTS, '/bin/false').agents());
-  assert.deepEqual(agents.vision.tools, ['Read', 'mcp__claude-in-chrome']);
+  assert.deepEqual(agents.vision.tools, ['Bash', 'Read', 'Grep', 'Glob']);
+  assert.match(agents.vision.prompt, /system\.sh/);
+  assert.match(agents.friday.description, /signed-in Chrome/);
   assert.equal(agents.friday.tools, undefined);
   // A stand-in for claude that writes its arguments to a file.
   const { Worker } = require('../../src/main/brain/worker');
@@ -71,11 +73,13 @@ test('VISION only gets Claude in Chrome, as a subagent and as a separate process
   const w = new Worker(C.DEFAULTS, fake);
   const finished = (n) => new Promise((r) => { let k = 0; w.on('task', (t) => { if (t.status !== 'running' && ++k === n) r(); }); });
   const done = finished(2);
-  w.start('opening YouTube', 'Open YouTube.', 'vision');
+  w.start('checking memory use', 'What is using my memory?', 'vision');
   w.start('fixing a bug', 'Fix it.', 'friday');
   await done;
   const runs = fs.readdirSync(dir).filter((f) => f.startsWith('args.')).map((f) => fs.readFileSync(path.join(dir, f), 'utf8'));
-  const vision = runs.find((r) => r.includes('Open YouTube.')), friday = runs.find((r) => r.includes('Fix it.'));
-  assert.ok(vision.includes('\n--tools\nRead\n--strict-mcp-config\n'));
+  const vision = runs.find((r) => r.includes('What is using my memory?')), friday = runs.find((r) => r.includes('Fix it.'));
+  assert.ok(vision.includes('\n--tools\nBash,Read,Grep,Glob\n--strict-mcp-config\n'));
+  assert.ok(!vision.includes('--chrome'));
   assert.ok(!friday.includes('--strict-mcp-config'));
+  assert.ok(friday.includes('\n--chrome\n'));
 });
