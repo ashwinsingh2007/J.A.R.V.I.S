@@ -10,7 +10,8 @@
   <a href="https://github.com/ashwinsingh2007/J.A.R.V.I.S/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/ashwinsingh2007/J.A.R.V.I.S/actions/workflows/ci.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-39c3ff"></a>
   <img alt="Platform: macOS" src="https://img.shields.io/badge/platform-macOS-111">
-  <img alt="Brain: Claude Code · Claude API · Gemini · Ollama" src="https://img.shields.io/badge/brain-Claude%20Code%20%C2%B7%20Claude%20API%20%C2%B7%20Gemini%20%C2%B7%20Ollama-1b4d73">
+  <img alt="Claude Code first" src="https://img.shields.io/badge/Claude%20Code-first-d97757">
+  <img alt="Also runs on: Claude API · Gemini · Ollama" src="https://img.shields.io/badge/also%20runs%20on-Claude%20API%20%C2%B7%20Gemini%20%C2%B7%20Ollama-1b4d73">
   <img alt="Status: early" src="https://img.shields.io/badge/status-early%20preview-f4aa1c">
   <a href="https://github.com/ashwinsingh2007/J.A.R.V.I.S/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/ashwinsingh2007/J.A.R.V.I.S?style=flat&color=f4aa1c"></a>
 </p>
@@ -19,7 +20,7 @@
   <a href="https://ashwinsingh2007.github.io/J.A.R.V.I.S/"><b>Website</b></a> · <a href="#demo">Watch the demo</a> · <a href="#install"><b>Install</b></a> · <a href="#using-it">What to say</a> · <a href="SECURITY.md">Security</a> · <a href="CONTRIBUTING.md">Contribute</a> · <a href="https://github.com/ashwinsingh2007/J.A.R.V.I.S/discussions">Discussions</a>
 </p>
 
-JARVIS runs on Claude Code, the Anthropic API, Gemini, or a local model through Ollama. It can read your email in your own Chrome, keep an eye on your Claude Code sessions and type into them, research things in the background, use other Mac apps, play radio and YouTube, and take messages from your phone over Telegram. The wake word and speech recognition run on your Mac, and the default voice (Kokoro) is a neural voice that also runs locally. It's built with Electron and Swift and is MIT licensed.
+JARVIS is built Claude Code first. It works best with Claude Code and your Claude plan, and you can also run it on the Anthropic API, Gemini, or a local model through Ollama. It can read your email in your own Chrome, keep an eye on your Claude Code sessions and type into them, research things in the background, use other Mac apps, play radio and YouTube, and take messages from your phone over Telegram. The wake word and speech recognition run on your Mac, and the default voice (Kokoro) is a neural voice that also runs locally. It's built with Electron and Swift and is MIT licensed.
 
 <p align="center">
   <img src="docs/screenshots/home.png" alt="The JARVIS HUD: system stats, the reactor, live state and a Claude Code session's activity" width="900">
@@ -39,7 +40,7 @@ It answers quickly even when the job is slow. A fast model replies straight away
 
 It can work on your Mac: your signed-in Chrome for Gmail, YouTube or LinkedIn, your files and shell, your running Claude Code sessions, and other apps through macOS Accessibility. It asks before it takes over the mouse.
 
-You choose the model. Claude Code uses your Claude subscription, the Anthropic API is pay as you go, Gemini has a free tier, and Ollama is free and fully local.
+Claude Code is the default and gets the full feature set, using your Claude subscription. If you don't have it, the Anthropic API (pay as you go), Gemini (free tier) and Ollama (free and fully local) work too, with a smaller set of tools.
 
 Speech stays on the Mac by default. Apple's recogniser does the listening, Kokoro does the talking, and echo cancellation stops it from hearing its own voice.
 
@@ -72,7 +73,7 @@ Siri, Alexa and most open-source JARVIS projects answer questions and run a fixe
 
 ## What thinks for it
 
-JARVIS uses the best brain it finds, in this order, unless you pick one in Setup:
+JARVIS is Claude Code first. That's what it's built and tested against, and it's the only brain that gets every feature. The others are there for people who don't use Claude Code, or who want something free or local. JARVIS picks the best brain it finds, in this order, unless you choose one in Setup:
 
 | Brain | What you get | Cost |
 |---|---|---|
@@ -80,6 +81,10 @@ JARVIS uses the best brain it finds, in this order, unless you pick one in Setup
 | Anthropic API | The same voice and personality with a smaller, sandboxed set of tools: the helper scripts, opening apps and pages, fetching a page, reading a file, memory and reminders. | Pay per use |
 | Gemini | The API brain's voice, personality and tools, running on Google's Gemini models with your own key. | Free tier, then pay per use |
 | Ollama | Local and free. It gets the API brain's tools if the model supports tool calls, and a shorter prompt suited to small models. Setup can install Ollama and download a model for you. | Free |
+
+### Browser work and VISION
+
+Anything inside a website (Gmail, LinkedIn, YouTube, forms, shopping) runs through Claude Code with the Claude in Chrome extension, in your own signed-in Chrome. So for browser work you need Claude Code, whichever brain you pick. VISION, JARVIS's own browser crew member that works with any brain, is coming soon ([#31](https://github.com/ashwinsingh2007/J.A.R.V.I.S/issues/31)).
 
 ### FRIDAY, the worker
 
