@@ -109,13 +109,15 @@ function migrate(raw) {
   return true;
 }
 
-function load() {
+/** The live config; asId reads it as that assistant would run, without switching to it. */
+function load(asId) {
   fs.mkdirSync(STATE_DIR, { recursive: true });
   const raw = readRaw();
   if (Object.keys(raw).length && migrate(raw)) writeRaw(raw);
   const cfg = { ...DEFAULTS };
   for (const [k, v] of Object.entries(raw)) cfg[k] = SECRET_KEYS.has(k) ? decrypt(v) : v;
   // The assistant's preset, then the user's own changes to it.
+  if (asId) cfg.assistant = asId;
   if (!exists(cfg.assistant, cfg)) cfg.assistant = 'jarvis';
   const mine = (cfg.assistantSettings && typeof cfg.assistantSettings === 'object' && cfg.assistantSettings[cfg.assistant]) || {};
   const preset = assistantOf(cfg.assistant, cfg).settings || {};

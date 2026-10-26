@@ -470,6 +470,7 @@ body.focus.pointer[data-view="cc"] #focus-hint { opacity: 1; }
 body.spot #scene { opacity: .16; transform: scale(.62); }
 body.spot .corelabel { opacity: 0; transform: translate(-50%, -50%) scale(.6); }
 body.spot #lc, body.spot #bl { transform: translateX(calc(-100% - 2 * var(--mx))); opacity: 0; pointer-events: none; }
+body.spot #tr, body.spot #br { transform: translateX(calc(100% + 2 * var(--mx))); opacity: 0; pointer-events: none; }
 body.spot #brand { transform: translateY(calc(-100% - 2 * var(--my))); opacity: 0; pointer-events: none; }
 body.spot #panels { opacity: 0; pointer-events: none; }
 body.spot #crew { opacity: 1; }
@@ -481,10 +482,11 @@ body.spot #crew .mate.spot .fire, body.spot #crew .mate.spot .spark, body.spot #
 body.spot #crew .mate.spot .aura { opacity: .9; transform: none; animation: spotbreathe 3.4s ease-in-out infinite; }
 body.spot #crew .mate.spot .core { opacity: 1; filter: drop-shadow(0 0 1.4px rgba(var(--rgb), var(--glow))); }
 body.spot #crew .mate.spot .halo { opacity: 1; animation-duration: 6s; }
-#spot { position: absolute; left: 50%; top: 60%; transform: translate(-50%, 12px); text-align: center; z-index: 3; opacity: 0; transition: opacity .5s ease .35s, transform .7s cubic-bezier(.2,.7,.2,1) .35s; width: max-content; max-width: 80vw; }
+#spot { position: absolute; left: 50%; top: 60%; transform: translate(-50%, 12px); text-align: center; z-index: 3; opacity: 0; transition: opacity .5s ease .35s, transform .7s cubic-bezier(.2,.7,.2,1) .35s; width: max-content; max-width: min(64vw, 820px); }
 body.spot #spot { opacity: 1; transform: translate(-50%, 0); }
 #spot .spot-name { font: 500 clamp(26px, 3.2vw, 56px)/1 var(--mono); letter-spacing: 0.5em; padding-left: 0.5em; color: var(--bright); text-shadow: 0 0 18px rgba(var(--rgb), calc(0.9 * var(--glow))), 0 0 50px rgba(var(--rgb), calc(0.45 * var(--glow))); }
-#spot .spot-role { margin-top: 16px; color: var(--muted); font-size: 0.95em; }
+#spot .spot-role { margin-top: 16px; color: var(--muted); font-size: 0.95em; line-height: 1.5; text-wrap: balance; }
+#spot .spot-hint.bad { color: var(--amber); }
 #spot .spot-hint { margin-top: 10px; font: var(--lab) var(--mono); letter-spacing: 0.2em; color: var(--cyan); }
 #spot .spot-back { margin-top: 18px; border: 1px solid var(--line2); background: transparent; color: var(--faint); font: var(--lab) var(--mono); letter-spacing: 0.18em; padding: 6px 12px; cursor: pointer; }
 #spot .spot-back:hover { color: var(--cyan); border-color: var(--cyan); }

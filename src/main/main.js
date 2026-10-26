@@ -57,6 +57,7 @@ function startJarvis(brains) {
   const ears = new Ears(cfg, sidecarPath(), vocabulary(cfg));
   orch = new Orchestrator({ cfg, brain, ears, audio, hud, found });
   hud.send('info', { claude: found.claude.version || 'not installed', model: brain.label, voice: cfg.ttsEngine });
+  if (brain.fallback) hud.send('notice', { text: `${assistantOf(cfg.assistant, cfg).name} needs ${brain.fallback}, so it is thinking with ${brain.label} for now.` });
 
   buildTray();
   orch.on('state', updateTrayTitle);
@@ -255,11 +256,31 @@ function sendAssistants(extra = {}) {
 }
 
 /** Another assistant takes over: its preset with the user's changes to it, and a fresh brain from the shared conversation. */
-function switchAssistant(id, { quiet = false } = {}) {
+async function switchAssistant(id, { quiet = false } = {}) {
   if (!orch || !exists(id, cfg)) return;
+  // Another assistant whose brain can't run here stays put, and says what it needs. (Looked up again
+  // first, in case Ollama was started or a key added since.) The one in use, refreshed after a change,
+  // falls back to the best brain instead.
+  if (id !== cfg.assistant) {
+    const brains = require('./brain');
+    const next = C.load(id);
+    let why = brains.unavailable(next, found);
+    if (why) { found = await brains.detect(next); why = brains.unavailable(next, found); }
+    if (why) {
+      const name = assistantOf(id, cfg).name;
+      log(`assistant: ${name} needs ${why}; staying with ${orch.name}`);
+      orch.speaker.speak(`${name} needs ${why}, ${cfg.honorific}. Set that up in Settings, under Brains and keys, first.`);
+      hud.send('notice', { text: `${name} needs ${why}. Set it up in Settings › Brains & keys.` });
+      hud.send('assistant', { id: cfg.assistant, name: orch.name });
+      sendAssistants();
+      return;
+    }
+  }
   C.save({ assistant: id });
   Object.assign(cfg, C.load());
-  orch.switchBrain(require('./brain').create(cfg, found, { fresh: true }), { quiet });
+  const brain = require('./brain').create(cfg, found, { fresh: true });
+  orch.switchBrain(brain, { quiet });
+  if (brain.fallback) hud.send('notice', { text: `${assistantOf(id, cfg).name} needs ${brain.fallback}, so it is thinking with ${brain.label} for now.` });
   sendHudSettings();
   sendAssistants();
   buildTray();

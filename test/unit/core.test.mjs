@@ -230,3 +230,14 @@ test('the Agents tab can set any assistant\'s brain and voice, not only the one 
   assert.ok(!JSON.parse(fs.readFileSync(C.CONFIG_FILE, 'utf8')).assistantSettings.nobody);
   fs.rmSync(C.CONFIG_FILE);
 });
+
+test('an assistant whose brain is not set up says what it needs, and falls back to one that is', () => {
+  const { choose, unavailable } = require('../../src/main/brain');
+  const found = { claude: { path: '/bin/claude', loggedIn: true }, ollama: { running: false, models: [] } };
+  const edith = { ...C.DEFAULTS, brainProvider: 'ollama' };
+  assert.match(unavailable(edith, found), /Ollama/);
+  assert.equal(choose(edith, found), 'claude-code');
+  assert.equal(choose(edith, { ...found, ollama: { running: true, models: ['llama3.2'] } }), 'ollama');
+  assert.equal(unavailable({ ...C.DEFAULTS, brainProvider: 'gemini' }, found), 'a Gemini API key');
+  assert.equal(unavailable({ ...C.DEFAULTS, brainProvider: 'auto' }, found), '');
+});

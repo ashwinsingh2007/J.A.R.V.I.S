@@ -23,8 +23,20 @@ async function detect(cfg) {
   return out;
 }
 
+/** What the assistant's chosen brain still needs on this Mac, or '' when it can run ('auto' always can). */
+function unavailable(cfg, found) {
+  switch (cfg.brainProvider) {
+    case 'claude-code': return !found.claude.path ? 'Claude Code, which is not installed' : !found.claude.loggedIn ? 'Claude Code, which needs you to sign in' : '';
+    case 'anthropic': return cfg.anthropicApiKey ? '' : 'an Anthropic API key';
+    case 'gemini': return cfg.geminiApiKey ? '' : 'a Gemini API key';
+    case 'ollama': return found.ollama.running ? '' : 'Ollama, which is not running on this Mac';
+    default: return '';
+  }
+}
+
+/** The brain to run. A chosen brain that can't run here falls back to the best one that can. */
 function choose(cfg, found) {
-  const want = cfg.brainProvider || 'auto';
+  const want = unavailable(cfg, found) ? 'auto' : cfg.brainProvider || 'auto';
   if (want === 'claude-code' || (want === 'auto' && found.claude.path && found.claude.loggedIn)) {
     if (found.claude.path) return 'claude-code';
   }
@@ -41,7 +53,14 @@ function choose(cfg, found) {
 /** opts.fresh: another assistant took over, so start a new session from the shared conversation. */
 function create(cfg, found, opts = {}) {
   const kind = choose(cfg, found);
-  log(`brain: provider ${kind} (setting: ${cfg.brainProvider})`);
+  const missing = unavailable(cfg, found);
+  log(`brain: provider ${kind} (setting: ${cfg.brainProvider}${missing ? `, which needs ${missing}` : ''})`);
+  const brain = make(cfg, found, kind, opts);
+  brain.fallback = missing;
+  return brain;
+}
+
+function make(cfg, found, kind, opts) {
   if (kind === 'claude-code') return new ClaudeCodeBrain(cfg, found.claude.path, opts);
   if (kind === 'ollama' && found.ollama.models.length && !found.ollama.models.some((m) => m === cfg.ollamaModel || m.startsWith(cfg.ollamaModel + ':'))) {
     log(`brain: ollama model ${cfg.ollamaModel} not installed; using ${found.ollama.models[0]}`);
@@ -54,4 +73,4 @@ function create(cfg, found, opts = {}) {
   return new ApiBrain(cfg, kind, worker, opts);
 }
 
-module.exports = { detect, create, choose };
+module.exports = { detect, create, choose, unavailable };
