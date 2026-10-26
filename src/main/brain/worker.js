@@ -12,7 +12,7 @@ const { spawn } = require('child_process');
 const EventEmitter = require('events');
 const C = require('../config');
 const { log, env, jsonLines } = require('../util');
-const { workerPrompt, claudeSettings, claudeDisallowed } = require('./common');
+const { workerPrompt, claudeSettings, claudeExtras, claudeDisallowed } = require('./common');
 
 const MAX_JOBS = 3;
 const MAX_MINUTES = 30;
@@ -43,7 +43,8 @@ class Worker extends EventEmitter {
       '--dangerously-skip-permissions',
       '--disallowedTools', claudeDisallowed(this.cfg),
       '--setting-sources', '',
-      '--settings', claudeSettings(),
+      '--settings', claudeSettings(this.cfg),
+      ...claudeExtras(this.cfg),
       '--chrome',
     ];
     let proc;

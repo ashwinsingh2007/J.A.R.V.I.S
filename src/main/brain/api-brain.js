@@ -206,7 +206,14 @@ class ApiBrain extends EventEmitter {
   }
 
   /** The tools note plus the carried summary of earlier turns. */
-  promptExtra(note) { return [note, this.context.carried].filter(Boolean).join('\n\n'); }
+  promptExtra(note) { return [note, this.skillsNote(), this.context.carried].filter(Boolean).join('\n\n'); }
+
+  /** This brain can't run skills itself; its background worker can, so it knows to hand those jobs over. */
+  skillsNote() {
+    if (!this.worker || this.cfg.worker === 'off' || this.kind === 'ollama') return '';
+    const names = require('../skills').chosen(this.cfg, this.cfg.assistant).map((x) => x.name);
+    return names.length ? `Your background worker also has these skills, so delegate jobs they fit: ${names.slice(0, 80).join(', ')}.` : '';
+  }
 
   /** Hand a job to the worker, with the user's own words attached so a vague instruction can't lose the request. */
   delegate(input = {}) {

@@ -7,7 +7,7 @@
   const $ = (id) => document.getElementById(id);
   const post = (msg) => { try { window.webkit.messageHandlers.jarvis.postMessage(msg); } catch (e) { /* demo */ } };
   const ask = (name, extra = {}) => post({ type: 'action', name, ...extra });
-  const TITLES = { assistant: 'ASSISTANT', brain: 'BRAIN & WORKER', access: 'ACCESS', ears: 'LISTENING', voice: 'VOICE', extras: 'TELEGRAM & EXTRAS' };
+  const TITLES = { assistant: 'ASSISTANT', extensions: 'SKILLS & MCP', brain: 'BRAIN & WORKER', access: 'ACCESS', ears: 'LISTENING', voice: 'VOICE', extras: 'TELEGRAM & EXTRAS' };
 
   let info = null;           // setupInfo() from main: cfg (secrets as has_*), found, installed, brain, workerAvailable
   let page = '';
@@ -39,6 +39,7 @@
     if (section === 'brain') { choice = ''; olModel = ''; msg('b-msg', ''); $('b-restart').hidden = true; }   // start from what is saved
     ask('cfg:info');
     if (section === 'access') ask('cfg:perms', { op: 'state' });
+    if (section === 'assistant' || section === 'extensions') ask('ext:list');
     if (section === 'brain') ask('cfg:ollama', { action: 'state', url: $('b-ol-url').value.trim() || undefined });
     syncRows();
   }

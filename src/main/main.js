@@ -62,7 +62,7 @@ function startJarvis(brains) {
   orch.on('state', updateTrayTitle);
   orch.on('disabled', buildTray);
   orch.on('open-setup', (section) => openSettings(section));
-  hud.on('action', (name, msg) => { if (name.startsWith('cfg:')) hudSettingsAction(name, msg); });
+  hud.on('action', (name, msg) => { if (name.startsWith('cfg:')) hudSettingsAction(name, msg); else if (name.startsWith('ext:')) extensionsAction(name, msg); });
   orch.on('set-theme', (t) => saveTheme(t));
   orch.on('settings', (patch) => saveHudSettings(patch));
   orch.on('hands-permit', permitHands);
@@ -237,6 +237,7 @@ function sendAssistants(extra = {}) {
         id: a.id, name: a.name, tier: a.tier, about: a.about, needs: a.needs, custom: a.custom, persona: a.persona,
         defaultPersona: (ASSISTANTS[a.id] || (cfg.customAssistants || {})[a.id] || {}).persona || '',
         wakeWords: own.wakeWords || a.settings.wakeWords || [], changed: Object.keys(own).length > 0,
+        skills: Array.isArray(own.skills) ? own.skills : null, mcp: Array.isArray(own.mcp) ? own.mcp : null,
       };
     }),
   });
@@ -275,6 +276,34 @@ function resetAssistant(id) {
   C.resetAssistant(id);
   log(`assistant: ${assistantOf(id, cfg).name} back to its preset`);
   if (id === cfg.assistant) refreshCurrent('The preset'); else { cfg.assistantSettings = C.load().assistantSettings; sendAssistants(); }
+}
+
+/**
+ * Settings: the skills and MCP servers on this Mac, and getting more. Anything that installs or removes
+ * comes from a click the user confirmed in the HUD. A new or removed skill reaches the assistant in use
+ * when its brain starts again, so that happens straight away (quietly).
+ */
+let mcpChecking = null;
+async function extensionsAction(name, msg = {}) {
+  const skills = require('./skills');
+  const mcp = require('./mcp');
+  const reply = (extra = {}) => hud && hud.send('ext', { skills: skills.catalog().map(({ path: _p, ...s }) => s), mcp: mcp.list(), markets: skills.marketplaces(), ...extra });
+  const done = (error, what) => { reply({ error: error || '', done: error ? '' : what }); if (!error) refreshCurrent('It'); };
+  try {
+    if (name === 'ext:list') {
+      reply();
+      if (!mcpChecking) mcpChecking = mcp.check().finally(() => { mcpChecking = null; });
+      await mcpChecking;
+      reply();
+    } else if (name === 'ext:check') { await mcp.check(); reply(); }
+    else if (name === 'ext:install') done(await skills.install(msg.plugin, msg.market), `Installed ${msg.plugin}.`);
+    else if (name === 'ext:uninstall') done(await skills.uninstall(msg.plugin, msg.market), `Removed ${msg.plugin}.`);
+    else if (name === 'ext:market') { const e = await skills.addMarketplace(msg.source); reply({ error: e, done: e ? '' : `Added the ${msg.source} marketplace.` }); }
+    else if (name === 'ext:github') { const r = await skills.addFromGitHub(msg.repo); done(r.error && !r.added.length ? r.error : '', `Added ${r.added.join(', ')}.`); }
+    else if (name === 'ext:skill-remove') done(skills.removeOwn(msg.id), 'Removed the skill.');
+    else if (name === 'ext:mcp-add') { const e = await mcp.add(msg.server, msg.target); if (!e) await mcp.check(); done(e, `Added ${msg.server}. If it needs you to sign in, run "claude" in a terminal and type /mcp.`); }
+    else if (name === 'ext:mcp-remove') done(await mcp.remove(msg.server), `Removed ${msg.server}.`);
+  } catch (e) { log(`extensions: ${name} failed: ${e.message}`); reply({ error: e.message }); }
 }
 
 const NAME_OK = /^[A-Z0-9][A-Z0-9 .'-]{1,19}$/;
@@ -324,6 +353,11 @@ function editAssistant(kind, b = {}) {
     const p = String(b.persona || '').trim().slice(0, 4000);
     const def = (ASSISTANTS[id] || custom).persona;
     fields.persona = !p || p === def ? null : p;
+  }
+  // Skills and MCP servers: a list of ids or names, or 'all'.
+  for (const k of ['skills', 'mcp']) {
+    if (!(k in b)) continue;
+    fields[k] = b[k] === 'all' || !Array.isArray(b[k]) ? null : b[k].map(String).filter((x) => x.length < 200).slice(0, 500);
   }
   if ('wakeWords' in b) {
     const w = wakeList(b.wakeWords);

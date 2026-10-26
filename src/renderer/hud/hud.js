@@ -322,7 +322,7 @@
   }
   // The assistant in use changed: it becomes the core, the others move into the slots around it.
   function setAssistants(e) {
-    if (Array.isArray(e.list) && e.list.length) assistants = e.list;
+    if (Array.isArray(e.list) && e.list.length) { assistants = e.list; sel = { id: '' }; }
     if (e.id) current = e.id;
     if (e.edit) { editing = e.edit; aNote(`Made ${(assistants.find((a) => a.id === e.edit) || {}).name}. Change it below, then USE it.`); }
     else if (e.list) aNote('');
@@ -365,12 +365,135 @@
     $('a-reset').hidden = !a.changed;
     $('a-delete').hidden = !a.custom;
     $('a-create').dataset.from = a.id;
+    if (sel.id !== a.id) sel = { id: a.id, skills: a.skills ? new Set(a.skills) : null, mcp: a.mcp ? new Set(a.mcp) : null };
+    renderPicks();
   }
+
+  // ---------- skills and MCP servers ----------
+  // ext: what main found on this Mac (Settings › Skills & MCP), sel: the open assistant's ticks
+  // (null = all of them, so new skills are on by default).
+  let ext = { skills: [], mcp: [], markets: [] };
+  let sel = { id: '', skills: null, mcp: null };
+  const li = (cls) => { const x = document.createElement('li'); if (cls) x.className = cls; return x; };
+  const span = (cls, text) => { const x = document.createElement('span'); x.className = cls; x.textContent = text; return x; };
+  const SRC = { personal: 'YOURS', jarvis: 'GITHUB', plugin: '' };
+  function pickRow(on, name, desc, tag, onChange, title) {
+    const row = li();
+    const lab = document.createElement('label');
+    const box = document.createElement('input'); box.type = 'checkbox'; box.checked = on;
+    box.addEventListener('change', () => onChange(box.checked));
+    lab.append(box, span('nm', name), span('ds', desc));
+    lab.title = title || desc;
+    row.append(lab);
+    if (tag) row.append(tag);
+    return row;
+  }
+  function toggle(kind, ids, key, on) {
+    if (!sel[kind]) sel[kind] = new Set(ids);
+    if (on) sel[kind].add(key); else sel[kind].delete(key);
+    if (sel[kind].size === ids.length) sel[kind] = null;
+    renderPicks();
+  }
+  function renderPicks() {
+    const find = $('a-skill-find').value.trim().toLowerCase();
+    const ids = ext.skills.map((x) => x.id);
+    const isOn = (k, key) => !sel[k] || sel[k].has(key);
+    const shown = ext.skills.filter((x) => !find || (x.name + ' ' + x.description + ' ' + (x.plugin || '')).toLowerCase().includes(find));
+    $('a-skills').replaceChildren(...(shown.length ? shown.map((x) => pickRow(isOn('skills', x.id), x.name, x.description, span('src', SRC[x.source] || String(x.plugin).toUpperCase()), (on) => toggle('skills', ids, x.id, on))) : [Object.assign(li('empty'), { textContent: ext.skills.length ? 'NO SKILL MATCHES' : 'LOOKING FOR SKILLS…' })]));
+    $('a-skill-count').textContent = ext.skills.length ? `${sel.skills ? sel.skills.size : ext.skills.length} OF ${ext.skills.length} ON` : '';
+    const names = ext.mcp.map((m) => m.name);
+    $('a-mcp').replaceChildren(...(ext.mcp.length ? ext.mcp.map((m) => pickRow(isOn('mcp', m.name), m.name, m.target, span('st ' + m.status.split(' ')[0], m.status.toUpperCase()), (on) => toggle('mcp', names, m.name, on))) : [Object.assign(li('empty'), { textContent: 'CHECKING YOUR MCP SERVERS…' })]));
+    $('a-mcp-count').textContent = ext.mcp.length ? `${sel.mcp ? sel.mcp.size : ext.mcp.length} OF ${ext.mcp.length} ON` : '';
+  }
+  $('a-skill-find').addEventListener('input', renderPicks);
+  $('a-skill-all').addEventListener('click', () => { sel.skills = null; renderPicks(); });
+  $('a-skill-none').addEventListener('click', () => { sel.skills = new Set(); renderPicks(); });
+
+  // Settings › Skills & MCP: what's here, and getting more.
+  function xNote(text, bad) { $('x-note').textContent = text || ''; $('x-note').classList.toggle('bad', !!bad); }
+  const busy = (text) => xNote(text);
+  function setExt(e) {
+    ext = { skills: e.skills || [], mcp: e.mcp || [], markets: e.markets || [] };
+    if (e.error) xNote(e.error, true); else if (e.done) xNote(e.done);
+    $('sc-ext').textContent = `${ext.skills.length} SKILLS · ${ext.mcp.length} MCP SERVERS`;
+    renderPicks();
+    $('x-skill-count').textContent = String(ext.skills.length);
+    $('x-skills').replaceChildren(...(ext.skills.length ? ext.skills.map((x) => {
+      const row = li();
+      row.append(span('nm', x.name), span('ds', x.description), span('src', SRC[x.source] || String(x.plugin).toUpperCase()));
+      row.title = x.description;
+      if (x.source === 'jarvis') {
+        const b = document.createElement('button'); b.className = 'mini'; b.textContent = 'REMOVE';
+        b.addEventListener('click', () => { if (confirm(`Remove the skill ${x.name}?`)) { busy(`Removing ${x.name}…`); post({ type: 'action', name: 'ext:skill-remove', id: x.id }); } });
+        row.append(b);
+      }
+      return row;
+    }) : [Object.assign(li('empty'), { textContent: 'NO SKILLS YET' })]));
+    const ms = $('x-market'), keep = ms.value;
+    ms.replaceChildren(...ext.markets.map((m) => new Option(`${m.name} (${m.plugins.length})`, m.name)));
+    if (ext.markets.some((m) => m.name === keep)) ms.value = keep;
+    renderPlugins();
+    $('x-mcp').replaceChildren(...(ext.mcp.length ? ext.mcp.map((m) => {
+      const row = li();
+      row.append(span('nm', m.name), span('ds', m.target), span('st ' + m.status.split(' ')[0], m.status.toUpperCase()));
+      if (m.status === 'needs sign-in') row.title = `Run "claude" in a terminal and type /mcp to sign in to ${m.name}.`;
+      if (m.kind === 'server') {
+        const b = document.createElement('button'); b.className = 'mini'; b.textContent = 'REMOVE';
+        b.addEventListener('click', () => { if (confirm(`Remove the MCP server ${m.name} from your Claude Code?`)) { busy(`Removing ${m.name}…`); post({ type: 'action', name: 'ext:mcp-remove', server: m.name }); } });
+        row.append(b);
+      }
+      return row;
+    }) : [Object.assign(li('empty'), { textContent: 'CHECKING…' })]));
+  }
+  function renderPlugins() {
+    const m = ext.markets.find((x) => x.name === $('x-market').value);
+    const find = $('x-find').value.trim().toLowerCase();
+    const list = m ? m.plugins.filter((p) => !find || (p.name + ' ' + p.description + ' ' + p.category).toLowerCase().includes(find)) : [];
+    $('x-plugins').replaceChildren(...(list.length ? list.slice(0, 80).map((p) => {
+      const row = li();
+      row.append(span('nm', p.name), span('ds', p.description));
+      row.title = p.description;
+      const b = document.createElement('button'); b.className = 'mini'; b.textContent = p.installed ? 'REMOVE' : 'INSTALL';
+      b.addEventListener('click', () => {
+        if (p.installed) { if (!confirm(`Remove ${p.name} from your Claude Code?`)) return; busy(`Removing ${p.name}…`); post({ type: 'action', name: 'ext:uninstall', plugin: p.name, market: m.name }); return; }
+        if (!confirm(`Install ${p.name} from ${m.name}${m.from ? ` (${m.from})` : ''}? Its skills run with the same access as JARVIS, so only install what you trust.`)) return;
+        busy(`Installing ${p.name}…`);
+        post({ type: 'action', name: 'ext:install', plugin: p.name, market: m.name });
+      });
+      row.append(b);
+      return row;
+    }) : [Object.assign(li('empty'), { textContent: m ? 'NO PLUGIN MATCHES' : 'NO MARKETPLACE YET' })]));
+  }
+  $('x-market').addEventListener('change', renderPlugins);
+  $('x-find').addEventListener('input', renderPlugins);
+  $('x-check').addEventListener('click', () => { busy('Checking your MCP servers…'); post({ type: 'action', name: 'ext:check' }); });
+  $('x-gh-add').addEventListener('click', () => {
+    const repo = $('x-gh').value.trim();
+    if (!repo) return;
+    if (!confirm(`Add the skills from github.com/${repo.replace(/^https:\/\/github\.com\//, '')}? They run with the same access as JARVIS, so only add what you trust.`)) return;
+    busy(`Fetching ${repo}…`);
+    post({ type: 'action', name: 'ext:github', repo });
+  });
+  $('x-market-add').addEventListener('click', () => {
+    const source = $('x-market-src').value.trim();
+    if (!source) return;
+    busy(`Adding ${source}…`);
+    post({ type: 'action', name: 'ext:market', source });
+  });
+  $('x-mcp-add').addEventListener('click', () => {
+    const server = $('x-mcp-name').value.trim(), target = $('x-mcp-target').value.trim();
+    if (!server || !target) { xNote('Give the server a name and its address or command.', true); return; }
+    if (!confirm(`Add the MCP server ${server} (${target}) to your Claude Code? It can do anything JARVIS can, so only add one you trust.`)) return;
+    busy(`Adding ${server}…`);
+    post({ type: 'action', name: 'ext:mcp-add', server, target });
+  });
   function aNote(text, bad) { $('a-note').textContent = text || ''; $('a-note').classList.toggle('bad', !!bad); }
   $('a-save').addEventListener('click', () => {
     const a = assistants.find((x) => x.id === editing);
     if (!a) return;
     const patch = { id: a.id, persona: $('a-persona').value, wakeWords: $('a-wake').value };
+    if (sel.id === a.id && ext.skills.length) patch.skills = sel.skills ? [...sel.skills] : 'all';
+    if (sel.id === a.id && ext.mcp.length) patch.mcp = sel.mcp ? [...sel.mcp] : 'all';
     if (a.custom) Object.assign(patch, { title: $('a-name').value, tier: $('a-tier').value, about: $('a-about').value });
     aNote(`Saving ${a.name}…`);
     post({ type: 'action', name: 'assistant-update', ...patch });
@@ -933,6 +1056,7 @@
         case 'assistants': setAssistants(e); break;
         case 'assistant': setAssistants({ id: e.id }); break;
         case 'assistant-error': aNote(e.text, true); break;
+        case 'ext': setExt(e); break;
         case 'context': setContext(e.data); break;
         case 'schedule': setSchedule(e.data); break;
         case 'info': Object.assign(info, e); setStats({}); break;

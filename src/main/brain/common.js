@@ -78,16 +78,27 @@ function systemPrompt(cfg, extra = '', { file = 'system.md', worker = false } = 
   return text;
 }
 
-/** Claude Code settings for the brain and its worker: the user's deny rules and PreToolUse hooks, plus ours. */
-function claudeSettings() {
+/**
+ * Claude Code settings for the brain and its worker: the user's deny rules and PreToolUse hooks, plus
+ * ours, plus the claude.ai connectors this assistant may not use.
+ */
+function claudeSettings(cfg) {
   let user = {};
   try { user = JSON.parse(fs.readFileSync(`${C.HOME}/.claude/settings.json`, 'utf8')); } catch {}
   const deny = Array.isArray(user.permissions && user.permissions.deny) ? [...user.permissions.deny] : [];
   // Path rules only take effect as Edit(...); they cover Write as well.
   deny.push(`Edit(/${C.HOME}/.claude/**)`, `Edit(/${paths.root}/**)`, `Edit(/${C.STATE_DIR}/config.json)`);
+  if (cfg) deny.push(...require('../mcp').denyFor(cfg));
   const out = { permissions: { deny } };
   if (user.hooks && Array.isArray(user.hooks.PreToolUse)) out.hooks = { PreToolUse: user.hooks.PreToolUse };
   return JSON.stringify(out);
+}
+
+/** The assistant's own skills (a plugin of links) and MCP servers, for a Claude Code process. */
+function claudeExtras(cfg) {
+  const plugin = require('../skills').pluginFor(cfg);
+  const mcp = require('../mcp').configFor(cfg);
+  return [...(plugin ? ['--plugin-dir', plugin] : []), ...(mcp ? ['--mcp-config', mcp] : [])];
 }
 
 /**
@@ -114,4 +125,4 @@ function summarise(name, input = {}) {
   }
 }
 
-module.exports = { SentenceSplitter, systemPrompt, workerPrompt, summarise, claudeSettings, claudeDisallowed, fill, read };
+module.exports = { SentenceSplitter, systemPrompt, workerPrompt, summarise, claudeSettings, claudeExtras, claudeDisallowed, fill, read };
