@@ -84,9 +84,9 @@ JARVIS is Claude Code first. That's what it's built and tested against, and it's
 | Gemini | The API brain's voice, personality and tools, running on Google's Gemini models with your own key. | Free tier, then pay per use |
 | Ollama | Local and free. It gets the API brain's tools if the model supports tool calls, and a shorter prompt suited to small models. Setup can install Ollama and download a model for you. | Free |
 
-### Browser work and VISION
+### Browser work
 
-Anything inside a website (Gmail, LinkedIn, YouTube, forms, shopping) runs through Claude Code with the Claude in Chrome extension, in your own signed-in Chrome. So for browser work you need Claude Code, whichever brain you pick. VISION, JARVIS's own browser crew member that works with any brain, is coming soon ([#31](https://github.com/ashwinsingh2007/J.A.R.V.I.S/issues/31)).
+Anything inside a website (Gmail, LinkedIn, YouTube, forms, shopping) runs through Claude Code with the Claude in Chrome extension, in your own signed-in Chrome. FRIDAY does it, or KAREN for email, chats and social media. So for browser work you need Claude Code, whichever brain you pick.
 
 ### The crew
 
@@ -94,10 +94,10 @@ JARVIS is the head of a small crew. He chats with you, answers simple questions 
 
 | Crew member | Takes care of |
 |---|---|
-| FRIDAY | Coding, web search and research, files, scripts and anything heavy |
+| FRIDAY | The main worker, with every tool: coding, web search and research, files, scripts, anything inside a website in your signed-in Chrome, and anything heavy |
 | KAREN | All your communication and online presence: email, WhatsApp, Telegram and other chats, every social media account (messages, comments, posts, replies), and self-branding: profiles, bios and content plans |
 | EDITH | Security and checks: code and work reviews, fact-checks, whether a link, email or download is safe |
-| VISION | Anything inside a website, in your signed-in Chrome. He only has the Claude in Chrome tools |
+| VISION | Your Mac itself: which apps are open and what's slowing it down, CPU, memory, disk and battery, what's installed and how big it is, and cleaning junk such as caches, logs and the Trash. He has a shell but no browser and no web, and he cleans or quits apps only after you say yes |
 
 Each one has their own persona (in `prompts/crew/`), works in the background on Opus by default, and reports back while you keep talking. Ask "what's the status?" any time. When part of a job belongs to someone else, they hand it back to JARVIS and he passes it on. Anything that sends, posts, deletes or pays still waits for your yes. With Claude Code as the brain the crew runs as its background agents; with any other brain they run as separate Claude Code processes, so Claude Code needs to be installed. You can pick the crew's model, or switch the crew off, in Setup and in the HUD's Settings.
 

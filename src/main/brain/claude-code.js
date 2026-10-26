@@ -192,10 +192,10 @@ class ClaudeCodeBrain extends EventEmitter {
 
   agents() {
     const roles = {
-      friday: 'coding, web search and research, files, scripts and heavy multi-step jobs',
+      friday: "coding, web search and research, files, scripts, heavy multi-step jobs, and anything done inside a website in the user's signed-in Chrome (forms, shopping, bookings, YouTube)",
       karen: 'all communication and online presence: email, WhatsApp, Telegram, Slack, every social media account (messages, comments, posts, replies), self-branding and profiles',
       edith: 'code and work reviews, fact-checks, safety of links, emails, apps and downloads, privacy and security',
-      vision: "anything done inside a website, in the user's signed-in Chrome",
+      vision: 'this Mac itself: open apps, CPU, memory, disk, battery, what is installed, and cleaning junk',
     };
     const out = {};
     for (const id of CREW) {

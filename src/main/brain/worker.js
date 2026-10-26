@@ -44,11 +44,10 @@ class Worker extends EventEmitter {
       '--model', this.cfg.agentModel === 'inherit' ? 'opus' : this.cfg.agentModel,
       '--append-system-prompt', agentPrompt(this.cfg, agent),
       '--dangerously-skip-permissions',
-      '--chrome',
       '--disallowedTools', claudeDisallowed(this.cfg),
       '--setting-sources', '',
       '--settings', claudeSettings(),
-      ...(agent === 'vision' ? VISION_ARGS : []),
+      ...(agent === 'vision' ? VISION_ARGS : ['--chrome']),
     ];
     let proc;
     try { proc = spawn(this.claudePath, args, { env: env({ JARVIS: '1', JARVIS_WORKER: '1' }), cwd: C.HOME, stdio: ['ignore', 'pipe', 'pipe'] }); }

@@ -213,8 +213,8 @@
   const HUBS = [
     { id: 'edith', name: 'EDITH', role: 'SECURITY', x: 21, y: -53, nx: 30, ny: -46, about: 'Reviews, fact-checks, links, downloads and privacy' },
     { id: 'karen', name: 'KAREN', role: 'COMMS', x: 73, y: 24, nx: 42, ny: 30, about: 'Email, chats, social media and your personal brand' },
-    { id: 'friday', name: 'FRIDAY', role: 'TASKS', x: -79, y: -14, nx: -42, ny: -30, about: 'Coding, research, files and heavy jobs' },
-    { id: 'vision', name: 'VISION', role: 'BROWSER', x: -38, y: 50, nx: -30, ny: 46, about: 'Anything inside a website, in your Chrome' },
+    { id: 'friday', name: 'FRIDAY', role: 'TASKS', x: -79, y: -14, nx: -42, ny: -30, about: 'Coding, research, files, websites and heavy jobs' },
+    { id: 'vision', name: 'VISION', role: 'SYSTEM', x: -38, y: 50, nx: -30, ny: 46, about: 'Your Mac: open apps, CPU, memory, disk and junk' },
   ];
   const crew = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   crew.id = 'crew';
@@ -604,7 +604,7 @@
   // ---------- right panel: conversations (JARVIS, the crew, Claude Code sessions) ----------
   const livelog = $('livelog');
   const CREW_IDS = ['friday', 'karen', 'edith', 'vision'];
-  const CREW_ROLE = { friday: 'tasks', karen: 'comms', edith: 'security', vision: 'browser' };
+  const CREW_ROLE = { friday: 'tasks', karen: 'comms', edith: 'security', vision: 'system' };
   let liveStuck = true, liveNow = null, liveSig = '', askTo = '';
   livelog.addEventListener('scroll', () => { liveStuck = livelog.scrollHeight - livelog.scrollTop - livelog.clientHeight < 24; });
   function setConversation(c) {
