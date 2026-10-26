@@ -86,9 +86,18 @@ JARVIS is Claude Code first. That's what it's built and tested against, and it's
 
 Anything inside a website (Gmail, LinkedIn, YouTube, forms, shopping) runs through Claude Code with the Claude in Chrome extension, in your own signed-in Chrome. So for browser work you need Claude Code, whichever brain you pick. VISION, JARVIS's own browser crew member that works with any brain, is coming soon ([#31](https://github.com/ashwinsingh2007/J.A.R.V.I.S/issues/31)).
 
-### FRIDAY, the worker
+### The crew
 
-JARVIS answers you straight away, so its brain can be a small, fast model, even one running locally through Ollama. Long jobs go to FRIDAY, a worker that runs Claude Code in the background on a stronger model (Opus by default) and reports back: reading your email, research across several pages, anything in your signed-in Chrome. While she works you can keep talking, ask "what's the status?", and JARVIS retells her report in its own words when she's done. With Claude Code as the brain, FRIDAY runs as its background agents; with any other brain she runs as a separate process, as long as Claude Code is installed. You can switch her off or pick her model in Setup and in the HUD's Settings.
+JARVIS is the head of a small crew. He chats with you, answers simple questions and keeps an eye on things, and he hands every real task to the crew member it belongs to:
+
+| Crew member | Takes care of |
+|---|---|
+| FRIDAY | Coding, web search and research, files, scripts and anything heavy |
+| KAREN | Email, WhatsApp, Telegram and other messages, replies, and drafting posts for LinkedIn or X |
+| EDITH | Security and checks: code and work reviews, fact-checks, whether a link, email or download is safe |
+| VISION | Anything inside a website, in your signed-in Chrome |
+
+Each one has their own persona (in `prompts/crew/`), works in the background on Opus by default, and reports back while you keep talking. Ask "what's the status?" any time. When part of a job belongs to someone else, they hand it back to JARVIS and he passes it on. Anything that sends, posts, deletes or pays still waits for your yes. With Claude Code as the brain the crew runs as its background agents; with any other brain they run as separate Claude Code processes, so Claude Code needs to be installed. You can pick the crew's model, or switch the crew off, in Setup and in the HUD's Settings.
 
 ## How it listens and speaks
 

@@ -481,9 +481,9 @@ async function testVoice() {
   await s.quiet(hud);
   m = s.mark();
   await s.say('use a background agent to run the date command and tell me the current year over');
-  check('brain starts a background agent', await s.waitLog(/brain: agent started/, 60000, m));
-  check('brain answers before the agent finishes', await s.waitLog(/timing: claude done/, 60000, m) && !s.log().slice(m).includes('agent completed'));
-  check('agent completes', await s.waitLog(/brain: agent completed/, 120000, m));
+  check('brain starts a background agent', await s.waitLog(/brain: (friday|karen|edith|vision) started/, 60000, m));
+  check('brain answers before the agent finishes', await s.waitLog(/timing: claude done/, 60000, m) && !s.log().slice(m).match(/brain: \w+ completed/));
+  check('agent completes', await s.waitLog(/brain: (friday|karen|edith|vision) completed/, 120000, m));
   const bg = await s.waitLog(/brain: background turn '(.*)/, 60000, m);
   const spokenAt = s.log().indexOf('brain: background turn', m);
   check('agent result is spoken', bg && /20\d\d|year/i.test(bg[1]) && await s.waitLog(/native synth/, 10000, spokenAt), bg && bg[1]);
@@ -494,7 +494,7 @@ async function testVoice() {
   await s.quiet(hud);
   m = s.mark();
   await s.say('in the background, run the shell command ping -c 20 localhost three separate times one after another, then tell me the word finished over');
-  check('long job starts', await s.waitLog(/brain: agent started/, 60000, m));
+  check('long job starts', await s.waitLog(/brain: (friday|karen|edith|vision) started/, 60000, m));
   await s.waitLog(/timing: claude done/, 60000, m);
   const ack = await text(hud, '#reply');
   check('reply hides the machinery', ack && !/\b(agent|subagent|worker|background task|task id)\b/i.test(ack), ack.slice(0, 120));
@@ -506,7 +506,7 @@ async function testVoice() {
   let st = await s.waitLog(/status: '(.*)'/, 5000, sm);
   if (!st) { await s.quiet(hud); await s.say("what's the status over"); st = await s.waitLog(/status: '(.*)'/, 5000, sm); }   // a progress line may have talked over it
   check('status question answered at once, without the brain', st && !s.log().slice(sm).includes('brain: asked'), st && st[1]);
-  check('long job completes', await s.waitLog(/brain: agent completed/, 180000, m));
+  check('long job completes', await s.waitLog(/brain: (friday|karen|edith|vision) completed/, 180000, m));
 
   // Classic dictation ends its task after a short pause; the command must survive that
   await s.quiet(hud);

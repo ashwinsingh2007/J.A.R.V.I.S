@@ -40,18 +40,28 @@ class SentenceSplitter {
   }
 }
 
+// The crew members JARVIS hands jobs to. Each is a background agent with its own persona (prompts/crew/<id>.md).
+const CREW = ['friday', 'karen', 'edith', 'vision'];
+const crewName = (id) => (CREW.includes(id) ? id.toUpperCase() : 'FRIDAY');
+
 /** Placeholders, and the screen-control parts (between <!--screen--> markers) only when allowed. */
 function fill(text, cfg) {
   text = text.replace(/<!--screen-->([\s\S]*?)<!--\/screen-->\n?/g, (_, inner) => (cfg.screenControl ? inner : ''));
+  if (text.includes('{{CREW}}')) text = text.replaceAll('{{CREW}}', read('crew.md', '').trim());
   return text.replaceAll('{{SCRIPTS}}', paths.scripts).replaceAll('{{HONORIFIC}}', cfg.honorific).replaceAll('{{HOME}}', C.HOME)
     .replaceAll('{{ROOT}}', paths.root).replaceAll('{{STATE}}', C.STATE_DIR);
 }
 
-/** Instructions for the background agents the Claude Code brain starts. */
-function agentPrompt(cfg) {
-  let text;
-  try { text = fs.readFileSync(path.join(paths.prompts, 'agent.md'), 'utf8'); } catch { text = 'Do the task fully, then end with one short paragraph starting with RESULT:.'; }
-  return fill(text, cfg);
+function read(file, fallback) {
+  try { return fs.readFileSync(path.join(paths.prompts, file), 'utf8'); } catch { return fallback; }
+}
+
+/** Instructions for one crew member: their persona, the shared agent rules, and who else is on the crew. */
+function agentPrompt(cfg, who = 'friday') {
+  if (!CREW.includes(who)) who = 'friday';
+  const persona = read(`crew/${who}.md`, `You are ${crewName(who)}, part of JARVIS's crew.`).trim();
+  const rules = read('agent.md', 'Do the task fully, then end with one short paragraph starting with RESULT:.');
+  return fill(`${persona}\n\n${rules}\n\n{{CREW}}`, cfg);
 }
 
 /**
@@ -82,9 +92,13 @@ function claudeSettings() {
   return JSON.stringify(out);
 }
 
-/** Tools Claude Code may not use: new terminals only come from the user, and screen control only when allowed. */
-function claudeDisallowed(cfg) {
-  return `Bash(${paths.scripts}/open-session.sh*),Bash(*open-session.sh*)` + (cfg.screenControl ? '' : ',Bash(*hands.sh*),Bash(*jarvis-hands*)');
+/**
+ * Tools Claude Code may not use: new terminals only come from the user, and screen control only when allowed.
+ * The brain also has no web search: searching is FRIDAY's job, so JARVIS hands it over instead.
+ */
+function claudeDisallowed(cfg, { brain = false } = {}) {
+  return `Bash(${paths.scripts}/open-session.sh*),Bash(*open-session.sh*)` + (cfg.screenControl ? '' : ',Bash(*hands.sh*),Bash(*jarvis-hands*)')
+    + (brain ? ',WebSearch,WebFetch' : '');
 }
 
 function summarise(name, input = {}) {
@@ -102,4 +116,4 @@ function summarise(name, input = {}) {
   }
 }
 
-module.exports = { SentenceSplitter, systemPrompt, agentPrompt, summarise, claudeSettings, claudeDisallowed };
+module.exports = { CREW, crewName, SentenceSplitter, systemPrompt, agentPrompt, summarise, claudeSettings, claudeDisallowed };

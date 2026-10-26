@@ -142,7 +142,7 @@ test('a local brain hands a heavy job to FRIDAY, stops there, and retells her re
   assert.equal(bodies.length, 1, 'no second round after the handoff');
   assert.ok(bodies[0].tools.some((x) => x.function.name === 'delegate'));
   assert.equal(bodies[0].options.num_ctx, 8192);
-  assert.match(bodies[0].messages[0].content, /HEAVY JOBS/);
+  assert.match(bodies[0].messages[0].content, /TASKS → delegate/);
   assert.equal(jobs[0].description, 'checking your Gmail');
   assert.match(jobs[0].task, /The user's own words: "check my gmail and tell me what needs a reply"/);
   done = new Promise((r) => brain.once('done', (text) => r(text)));
@@ -159,5 +159,5 @@ test('with FRIDAY switched off, a local brain gets no delegate tool and the shor
   t.mock.method(globalThis, 'fetch', async (url, opts) => { body = JSON.parse(opts.body); return new Response(JSON.stringify({ message: { role: 'assistant', content: 'Four.' }, done: true }) + '\n'); });
   await brain.ask('what is two plus two');
   assert.ok(!body.tools.some((x) => x.function.name === 'delegate'));
-  assert.doesNotMatch(body.messages[0].content, /HEAVY JOBS/);
+  assert.doesNotMatch(body.messages[0].content, /TASKS → delegate/);
 });

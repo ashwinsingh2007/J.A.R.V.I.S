@@ -49,15 +49,16 @@ const TOOL_NOTE = `In this mode you do not have Bash. Use the tools instead:
 - open opens websites and apps. web_fetch reads a page. read_file reads a file. remember saves a fact.
 - You have no background agents and no Agent tool: ignore TIER 2. Do short jobs yourself with these tools. For anything that needs clicking or typing in a website, say in one sentence that it needs the Claude Code brain.`;
 
-// With FRIDAY available, TIER 2 goes through the delegate tool instead of the Agent tool.
+// With the crew available, TIER 2 goes through the delegate tool instead of the Agent tool.
 const DELEGATE = {
   name: 'delegate',
-  description: "Hand a long or heavy job to FRIDAY, JARVIS's worker, who does it in the background on a stronger model and reports back. FRIDAY can use the user's signed-in Chrome (Gmail, LinkedIn, YouTube…), research across many pages, read and write files and run commands. Use it for anything that needs more than one or two quick tool calls.",
+  description: "Hand a task to JARVIS's crew, who do it in the background on a stronger model and report back. to: friday (coding, web search and research, files, heavy jobs), karen (email, WhatsApp and other messages, drafting replies and posts), edith (reviews, fact-checks, safety and security), vision (anything inside a website, in the user's signed-in Chrome). Use it for every task beyond a simple answer.",
   schema: {
     type: 'object',
     properties: {
-      description: { type: 'string', description: 'What FRIDAY is doing, in plain words with an -ing verb, read aloud in status updates. For example "checking your Gmail".' },
-      task: { type: 'string', description: 'One complete, self-contained instruction. FRIDAY cannot see this conversation, so include every detail. Only say the user confirmed sending, posting, deleting or paying if they did.' },
+      to: { type: 'string', enum: ['friday', 'karen', 'edith', 'vision'], description: 'Who takes the job. If unsure, friday.' },
+      description: { type: 'string', description: 'What they are doing, in plain words with an -ing verb, read aloud in status updates. For example "checking your Gmail".' },
+      task: { type: 'string', description: 'One complete, self-contained instruction. The crew cannot see this conversation, so include every detail. Only say the user confirmed sending, posting, deleting or paying if they did.' },
     },
     required: ['description', 'task'],
   },
@@ -66,8 +67,8 @@ const DELEGATE = {
 const DELEGATE_NOTE = `In this mode you do not have Bash. Use the tools instead:
 - run_script runs the helper scripts described above (give the script name, not the path, and the arguments as a list).
 - open opens websites and apps. web_fetch reads a page. read_file reads a file. remember saves a fact.
-- TIER 2 works through the delegate tool, not the Agent tool. FRIDAY, your worker, takes the job in the background and reports back; you then tell the user the result in your own words. Everything TIER 2 says about agents applies: say ONE sentence of what you are doing as if you do it yourself, then call delegate, then end the turn with two or three words such as "On it." Never wait for FRIDAY.
-- Anything that needs clicking or typing in a website, more than a couple of pages of reading, email, or files outside these tools goes to delegate.
+- TIER 2 works through the delegate tool, not the Agent tool. Pick the crew member with "to" (friday, karen, edith or vision); they take the job in the background and report back, and you then tell the user the result in your own words. Everything TIER 2 says about agents applies: say ONE short sentence of what's happening, then call delegate, then end the turn with two or three words such as "On it." Never wait for the crew.
+- Every task goes to delegate: web searches, websites, email and messages, coding, files, anything beyond a simple answer.
 - Ask the user before delegating anything that sends, posts, deletes, publishes, pays or changes account settings, exactly as the rules above say; when they agree, write "The user confirmed: …" in the task.`;
 
 async function execute(name, input = {}) {
@@ -122,7 +123,7 @@ async function execute(name, input = {}) {
   }
 }
 
-/** Tool specs and the note for the system prompt, with or without FRIDAY. */
+/** Tool specs and the note for the system prompt, with or without the crew. */
 const forBrain = (hasWorker) => (hasWorker ? { specs: [...SPECS, DELEGATE], note: DELEGATE_NOTE } : { specs: SPECS, note: TOOL_NOTE });
 
 module.exports = { SPECS, TOOL_NOTE, execute, forBrain };
