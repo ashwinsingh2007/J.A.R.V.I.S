@@ -121,4 +121,4 @@ function summarise(name, input = {}) {
   }
 }
 
-module.exports = { CREW, crewName, VISION_TOOLS, VISION_ARGS, SentenceSplitter, systemPrompt, agentPrompt, summarise, claudeSettings, claudeDisallowed };
+module.exports = { CREW, crewName, VISION_TOOLS, VISION_ARGS, SentenceSplitter, systemPrompt, agentPrompt, summarise, claudeSettings, claudeDisallowed, fill, read };

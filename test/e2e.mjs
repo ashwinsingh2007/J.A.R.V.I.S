@@ -946,6 +946,56 @@ async function testFriday() {
   await s.app.close();
 }
 
+async function testDirect() {
+  console.log('\nTALKING TO THE CREW DIRECTLY (Claude Code brain, crew on Haiku)');
+  const state = makeState({ onboarded: true, brainProvider: 'claude-code', agentModel: 'haiku', ttsEngine: 'native', checkIns: 'off' });
+  const s = await launch(state);
+  const hud = await windowByUrl(s.app, /hud\/index\.html/, 20000);
+  if (!hud) { check('HUD opens', false); await s.app.close(); return; }
+  await hud.waitForFunction(() => document.body.dataset.state !== 'booting', null, { timeout: 15000 }).catch(() => {});
+  const type = async (t) => { await hud.fill('#ask-input', t); await hud.press('#ask-input', 'Enter'); };
+  const chat = () => hud.evaluate(() => [...document.querySelectorAll('#livelog li.msg')].map((x) => x.className.replace('msg ', '') + ': ' + x.querySelector('.x').textContent));
+
+  // By name: "EDITH, ..." goes straight to her, not through JARVIS
+  let m = s.mark();
+  await type('edith, reply with exactly the word pineapple and nothing else');
+  check('"EDITH, ..." goes to EDITH directly', await s.waitLog(/edith chat: 'reply with exactly/, 8000, m));
+  check('JARVIS does not route it', !/brain: asked 'edith/.test(s.log().slice(m)));
+  check('EDITH replies', await s.waitLog(/edith chat: replied/, 120000, m));
+  await sleep(800);
+  let c = await chat();
+  check("her chat shows the user's message and her reply", c.some((x) => /^you: reply with exactly/.test(x)) && c.some((x) => /^crew: .*pineapple/i.test(x)), c.slice(-2).join(' | '));
+  check('the panel shows EDITH and typing goes to her', /EDITH/.test(await text(hud, '#live-name')) && /Type to EDITH/.test(await hud.getAttribute('#ask-input', 'placeholder')));
+
+  // "Talk to FRIDAY": everything goes to her, and she remembers the conversation
+  m = s.mark();
+  await type('talk to friday');
+  check('"talk to FRIDAY" puts the user through', await s.waitLog(/talking to friday/, 5000, m));
+  await type('remember that the code word is mango. just say ok.');
+  check('the next message goes to FRIDAY', await s.waitLog(/friday chat: 'remember that the code word/, 8000, m));
+  await s.waitLog(/friday chat: replied/, 120000, m);
+  m = s.mark();
+  await type('what is the code word? answer with one word.');
+  const resumed = await s.waitLog(/friday chat: 'what is the code word.*session=([\w-]+)/, 8000, m);
+  check('her second message resumes her own session', resumed && resumed[1] !== 'new', resumed && resumed[1]);
+  await s.waitLog(/friday chat: replied/, 120000, m);
+  await sleep(800);
+  c = await chat();
+  check('FRIDAY remembers what was said earlier', /mango/i.test(c[c.length - 1] || ''), c[c.length - 1]);
+  await shot(hud, 'direct-friday');
+  m = s.mark();
+  await type("that's all, friday");
+  check('"that\'s all, FRIDAY" comes back to JARVIS', await s.waitLog(/talking to friday: ended/, 5000, m));
+  check('typing goes to JARVIS again', /Type to JARVIS/.test(await hud.getAttribute('#ask-input', 'placeholder')));
+
+  // "Friday" as a day stays with JARVIS
+  m = s.mark();
+  await type('friday at nine works for me');
+  check('"friday at nine ..." is for JARVIS', await s.waitLog(/brain: asked 'friday at nine/, 8000, m));
+  await s.waitLog(/timing: claude done/, 90000, m);
+  await s.app.close();
+}
+
 const which = process.argv[2] || 'all';
 const t0 = Date.now();
 try {
@@ -956,6 +1006,7 @@ try {
   if (which === 'voice' || which === 'all') await testVoice();
   if (which === 'proactive' || which === 'all') await testProactive();
   if (which === 'friday' || which === 'all') await testFriday();
+  if (which === 'direct' || which === 'all') await testDirect();
 } catch (e) {
   check('test run crashed', false, e.message.split('\n')[0]);
 }

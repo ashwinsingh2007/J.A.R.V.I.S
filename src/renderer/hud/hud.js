@@ -550,7 +550,7 @@
   const livelog = $('livelog');
   const CREW_IDS = ['friday', 'karen', 'edith', 'vision'];
   const CREW_ROLE = { friday: 'tasks', karen: 'comms', edith: 'security', vision: 'browser' };
-  let liveStuck = true, liveNow = null, liveSig = '';
+  let liveStuck = true, liveNow = null, liveSig = '', askTo = '';
   livelog.addEventListener('scroll', () => { liveStuck = livelog.scrollHeight - livelog.scrollTop - livelog.clientHeight < 24; });
   function setConversation(c) {
     if (!c || !c.entries) return;
@@ -560,6 +560,9 @@
     $('live-ago').textContent = c.ago || '';
     $('live-pin').textContent = '';
     watchedCwd = c.key.startsWith('cc:') ? c.key.slice(3) : null;
+    // Typing while a crew member's chat is open talks to them directly.
+    askTo = CREW_IDS.includes(c.key) ? c.key : '';
+    $('ask-input').placeholder = askTo ? `Type to ${askTo.toUpperCase()}…` : 'Type to JARVIS…';
     document.querySelectorAll('.card').forEach((el) => el.classList.toggle('watching', !!watchedCwd && el.dataset.cwd === watchedCwd));
     if (!livePop.hidden) buildPicker();
     const sig = c.key + JSON.stringify(c.entries);
@@ -569,7 +572,7 @@
     livelog.textContent = '';
     if (!c.entries.length) {
       const e = document.createElement('li'); e.className = 'empty';
-      e.textContent = c.key === 'jarvis' ? 'NO CONVERSATION YET' : c.key.startsWith('cc:') ? 'NO MESSAGES YET' : `NOTHING ASKED OF ${c.name} YET`;
+      e.textContent = c.key === 'jarvis' ? 'NO CONVERSATION YET' : c.key.startsWith('cc:') ? 'NO MESSAGES YET' : `NOTHING YET. TYPE BELOW OR SAY "${c.name}, …" TO TALK TO ${c.name} DIRECTLY`;
       livelog.appendChild(e); return;
     }
     c.entries.forEach((en) => {
@@ -1000,7 +1003,7 @@
     ev.preventDefault();
     const text = askInput.value.trim();
     if (!text) return;
-    post({ type: 'action', name: 'type', text });
+    post({ type: 'action', name: 'type', text, ...(askTo ? { to: askTo } : {}) });
     askInput.value = '';
     $('ask-send').disabled = true;
   });
