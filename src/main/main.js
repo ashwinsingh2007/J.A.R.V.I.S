@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { app, BrowserWindow, Menu, Tray, nativeImage, nativeTheme, ipcMain, shell, safeStorage, Notification } = require('electron');
 const C = require('./config');
-const { ASSISTANTS } = require('./assistants');
+const { ASSISTANTS, SCOPED, assistantOf, allAssistants, findByName, newId, exists } = require('./assistants');
 const { log, initPaths, paths, run, which } = require('./util');
 
 app.setName('JARVIS');
@@ -70,6 +70,8 @@ function startJarvis(brains) {
   orch.on('telegram-push', (text) => { if (telegram && cfg.telegramChatId) telegram.send(cfg.telegramChatId, text); });
   orch.on('switch-assistant', switchAssistant);
   orch.on('reset-assistant', resetAssistant);
+  orch.on('assistant-edit', editAssistant);
+  orch.on('refresh-assistant', () => refreshCurrent('The change'));
   sendHudSettings();
   sendAssistants();
   checkHands().then(sendHudSettings);
@@ -222,35 +224,115 @@ const HUD_KEYS = ['ttsEngine', 'kokoroVoice', 'kokoroSpeed', 'edgeVoice', 'nativ
   'sttEngine', 'appleSpeech', 'speechLocale', 'commandSilenceSeconds', 'requireEndWord',
   'model', 'effort', 'agentModel', 'progressUpdates', 'screenControl', 'morningBriefing', 'checkIns', 'honorific', 'announceSessions', 'autoHide', 'worker', 'greetOnStart'];
 
-/** The assistants for the HUD: who is in use, and what each one is. */
-function sendAssistants() {
+/** The assistants for the HUD: who is in use, and what each one is, with the user's changes. */
+function sendAssistants(extra = {}) {
   if (!hud) return;
   const mine = cfg.assistantSettings || {};
   hud.send('assistants', {
     id: cfg.assistant,
-    list: Object.entries(ASSISTANTS).map(([id, a]) => ({ id, name: a.name, tier: a.tier, about: a.about, needs: a.needs, changed: Object.keys(mine[id] || {}).length > 0 })),
+    ...extra,
+    list: allAssistants(cfg).map((a) => {
+      const own = mine[a.id] || {};
+      return {
+        id: a.id, name: a.name, tier: a.tier, about: a.about, needs: a.needs, custom: a.custom, persona: a.persona,
+        defaultPersona: (ASSISTANTS[a.id] || (cfg.customAssistants || {})[a.id] || {}).persona || '',
+        wakeWords: own.wakeWords || a.settings.wakeWords || [], changed: Object.keys(own).length > 0,
+      };
+    }),
   });
 }
 
 /** Another assistant takes over: its preset with the user's changes to it, and a fresh brain from the shared conversation. */
-function switchAssistant(id) {
-  if (!orch || !ASSISTANTS[id]) return;
+function switchAssistant(id, { quiet = false } = {}) {
+  if (!orch || !exists(id, cfg)) return;
   C.save({ assistant: id });
   Object.assign(cfg, C.load());
-  orch.switchBrain(require('./brain').create(cfg, found, { fresh: true }));
+  orch.switchBrain(require('./brain').create(cfg, found, { fresh: true }), { quiet });
   sendHudSettings();
   sendAssistants();
   buildTray();
 }
 
+/** The assistant in use changed (persona, wake words, a reset): start its brain again, or say when it will. */
+function refreshCurrent(what) {
+  Object.assign(cfg, C.load());
+  sendHudSettings();
+  sendAssistants();
+  const wait = orch && orch.canSwitch();
+  if (!orch) return;
+  if (wait) {
+    hud.send('notice', { text: `Saved. ${what} applies once ${wait}.` });
+    // A running job: wait for it (orchestrator). Only an answer in progress: try again shortly.
+    if (orch.progress.size) orch.refreshLater = true; else setTimeout(() => refreshCurrent(what), 5000);
+    return;
+  }
+  if (orch.brain.context) orch.brain.context.handover();
+  switchAssistant(cfg.assistant, { quiet: true });
+}
+
 /** Back to the preset: forget the user's changes to one assistant. The one in use starts again with it. */
 function resetAssistant(id) {
   C.resetAssistant(id);
-  log(`assistant: ${ASSISTANTS[id].name} back to its preset`);
-  if (id !== cfg.assistant || !orch) { cfg.assistantSettings = C.load().assistantSettings; sendAssistants(); return; }
-  if (orch.canSwitch()) { Object.assign(cfg, C.load()); sendHudSettings(); sendAssistants(); return; }
-  if (orch.brain.context) orch.brain.context.handover();
-  switchAssistant(id);
+  log(`assistant: ${assistantOf(id, cfg).name} back to its preset`);
+  if (id === cfg.assistant) refreshCurrent('The preset'); else { cfg.assistantSettings = C.load().assistantSettings; sendAssistants(); }
+}
+
+const NAME_OK = /^[A-Z0-9][A-Z0-9 .'-]{1,19}$/;
+const wakeList = (v) => [...new Set(String(v || '').toLowerCase().split(',').map((w) => w.replace(/[^a-z0-9 ']/g, '').trim()).filter((w) => w.length >= 3))].slice(0, 6);
+
+/** Settings › Assistant: make a new assistant from another one, change one, or delete one of the user's own. */
+function editAssistant(kind, b = {}) {
+  const fail = (text) => hud && hud.send('assistant-error', { text });
+  if (kind === 'assistant-create') {
+    const from = exists(b.from, cfg) ? b.from : cfg.assistant;
+    const src = assistantOf(from, cfg);
+    const name = String(b.title || '').trim().toUpperCase();
+    if (!NAME_OK.test(name)) return fail('Give it a name of 2 to 20 letters or numbers.');
+    if (findByName(name, cfg)) return fail(`There is already an assistant called ${name}.`);
+    const id = newId(name, cfg);
+    const own = (cfg.assistantSettings || {})[from] || {};
+    const settings = { ...src.settings, ...Object.fromEntries(SCOPED.filter((k) => k in own).map((k) => [k, own[k]])), wakeWords: [name.toLowerCase()] };
+    C.saveCustom(id, { name, tier: 'YOUR OWN', about: `Started from ${src.name}.`, needs: src.needs, hello: '', persona: src.persona, settings });
+    if (own.skills || own.mcp) C.saveProfile(id, { skills: own.skills || null, mcp: own.mcp || null });
+    log(`assistant: made ${name} from ${src.name}`);
+    Object.assign(cfg, C.load());
+    sendAssistants({ edit: id });
+    return;
+  }
+  const id = b.id;
+  if (!exists(id, cfg)) return;
+  const custom = (cfg.customAssistants || {})[id];
+  if (kind === 'assistant-delete') {
+    if (!custom) return fail('The built-in assistants can be reset, not deleted.');
+    if (id === cfg.assistant) return fail(`Switch to another assistant before deleting ${custom.name}.`);
+    C.saveCustom(id, null);
+    log(`assistant: deleted ${custom.name}`);
+    Object.assign(cfg, C.load());
+    sendAssistants();
+    return;
+  }
+  // assistant-update
+  if (custom) {
+    const name = 'title' in b ? String(b.title || '').trim().toUpperCase() : custom.name;
+    if (!NAME_OK.test(name)) return fail('Give it a name of 2 to 20 letters or numbers.');
+    const other = findByName(name, cfg);
+    if (other && other !== id) return fail(`There is already an assistant called ${name}.`);
+    C.saveCustom(id, { ...custom, name, tier: String(b.tier ?? custom.tier).trim().toUpperCase().slice(0, 24) || 'YOUR OWN', about: String(b.about ?? custom.about).trim().slice(0, 200) });
+  }
+  const fields = {};
+  if ('persona' in b) {
+    const p = String(b.persona || '').trim().slice(0, 4000);
+    const def = (ASSISTANTS[id] || custom).persona;
+    fields.persona = !p || p === def ? null : p;
+  }
+  if ('wakeWords' in b) {
+    const w = wakeList(b.wakeWords);
+    if (!w.length) return fail('Give at least one wake word of three letters or more.');
+    fields.wakeWords = w;
+  }
+  C.saveProfile(id, fields);
+  log(`assistant: changed ${assistantOf(id, cfg).name} (${Object.keys(b).filter((k) => !['id', 'type', 'name'].includes(k)).join(', ')})`);
+  if (id === cfg.assistant) refreshCurrent('The change'); else { Object.assign(cfg, C.load()); sendAssistants(); }
 }
 
 /** Accessibility and Screen Recording for JARVIS.app, as the screen-control helper sees them. */

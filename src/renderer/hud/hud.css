@@ -454,6 +454,7 @@ body[data-view="cc"]:not(.focus):not(.spot) #crew .mate:hover .aura { opacity: .
 body[data-view="cc"]:not(.focus):not(.spot) #crew .mate:hover .core { opacity: 1; }
 body[data-view="cc"]:not(.focus):not(.spot) #crew .mate:hover .nm2 { fill: var(--cyan); }
 body.spot #crew .mate .nm2, body.spot #crew .mate .rl2 { opacity: 0; }
+body[data-view="cc"]:not(.focus):not(.spot) #crew .mate.extra { opacity: 0; pointer-events: none; }
 @media (max-width: 999px) { body[data-view="cc"]:not(.focus):not(.spot) #crew { opacity: 0; pointer-events: none; } body[data-view="cc"]:not(.focus):not(.spot) #crew .mate { pointer-events: none; } }
 
 /* clickable crew: in the idle view and in the spotlight */
@@ -493,6 +494,14 @@ body.spot #spot { opacity: 1; transform: translate(-50%, 0); }
 #spot .spot-go:hover { background: rgba(var(--rgb), 0.24); }
 #spot .spot-go:disabled { opacity: .5; cursor: default; }
 #acards .bcard .chip { font-style: normal; }
+#acards .bcard.editing { border-color: var(--line2); background: rgba(var(--rgb), 0.06); }
+.aedit { margin-top: 16px; padding-top: 6px; border-top: 1px solid var(--line); }
+.aedit li[hidden] { display: none; }
+#a-persona { width: 100%; box-sizing: border-box; min-height: 120px; resize: vertical; padding: 10px; border: 1px solid var(--line); background: var(--field-bg, transparent); color: var(--bright); font: 0.92em/1.5 var(--font-ui); -webkit-user-select: text; user-select: text; }
+#a-persona:focus { outline: none; border-color: var(--cyan); }
+.aedit .ctx-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.aedit .ctx-acts .mini { margin-left: 0; }
+#a-note.bad { color: var(--red); }
 @keyframes spotbreathe { 0%, 100% { transform: scale(1); opacity: .5; } 50% { transform: scale(1.18); opacity: .95; } }
 @keyframes crewflow { to { stroke-dashoffset: -3.6; } }
 @keyframes synfire { 0%, 100% { opacity: 0.16; } 45% { opacity: 0.24; } 55% { opacity: 0.7; } }

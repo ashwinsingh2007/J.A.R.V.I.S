@@ -54,7 +54,9 @@ It has a personality, and you pick which one. There are five assistants. Each of
 | EDITH | Private. Her brain runs on a local model on your Mac, and she is the weakest of the five | Ollama |
 | VISION | For when you don't have Claude | Google's Gemini, which has a free tier |
 
-Pick one in Setup, switch by clicking another one on the HUD's home screen, or say "switch to FRIDAY". Each one answers to its own name and has its own voice. Settings you change are saved to the assistant you're using, and Settings › Assistant can put one back to its preset. A switch waits until any running background job has finished.
+Pick one in Setup, switch by clicking another one on the HUD's home screen, or say "switch to FRIDAY". Each one answers to its own name and has its own voice. Settings you change are saved to the assistant you're using. A switch waits until any running background job has finished.
+
+Settings › Assistant lets you rewrite any assistant's persona prompt and wake words, or put it back to its preset. You can also make your own: start from any of them, give it a name, and change its persona, brain and voice. Your own assistants show up around the core with the rest. The safety rules apply to every assistant, whatever its persona says.
 
 Whichever one you use, it keeps answers short. When it looks something up, it tells you what it found in its own words and leaves out the list of links.
 

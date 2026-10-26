@@ -15,9 +15,9 @@ const { SystemMonitor, EventInbox } = require('./monitors');
 const { Memory, day } = require('./memory');
 const { Scheduler } = require('./scheduler');
 const { Conversations } = require('./conversations');
-const { ASSISTANTS, assistantOf } = require('./assistants');
-// "switch to FRIDAY", "let KAREN take over", "change to EDITH".
-const SWITCH_TO = /^(?:(?:please |can you |could you )?(?:switch|change|swap)(?: over)? to|let|put|bring in) (jarvis|friday|karen|edith|vision)(?: take over| on| in)?(?: please)?$/;
+const { assistantOf, findByName, exists } = require('./assistants');
+// "switch to FRIDAY", "let KAREN take over", "change to EDITH". The name is matched against every assistant.
+const SWITCH_TO = /^(?:(?:please |can you |could you )?(?:switch|change|swap)(?: over)? to|let|bring in) ([a-z0-9 ]{2,30}?)(?: take over| in)?(?: please)?$/;
 
 const STOP_WORDS = ['wait', 'stop', 'hold on', 'cancel', 'never mind', 'nevermind', 'quiet', 'shut up', "that's all", 'thats all', 'enough', 'okay stop', 'ok stop'];
 const FILLERS = ['On it.', 'One moment.', 'Right away.', 'Let me see.'];
@@ -121,7 +121,7 @@ class Orchestrator extends EventEmitter {
   }
 
   /** The assistant in use: JARVIS, FRIDAY, KAREN, EDITH or VISION. */
-  get name() { return assistantOf(this.cfg.assistant).name; }
+  get name() { return assistantOf(this.cfg.assistant, this.cfg).name; }
 
   get isIdle() { return (this._state === 'idle' || this._state === 'muted') && !this.brain.isBusy && !this.speaker.isSpeaking; }
   get speaksAloud() { return this.source.kind !== 'telegram'; }
@@ -256,6 +256,8 @@ class Orchestrator extends EventEmitter {
         hud.send('notice', { text: `Working: ${what}` });
       } else {
         this.progress.delete(t.id);
+        // A change to the assistant in use waited for the jobs; now it can start again with it.
+        if (this.refreshLater && !this.progress.size) { this.refreshLater = false; setTimeout(() => this.emit('refresh-assistant'), 1500); }
         hud.send('notice', { text: `${t.status === 'completed' ? 'Finished' : t.status === 'failed' ? 'Failed' : 'Stopped'}: ${what}` });
       }
       this.sendStats();
@@ -309,7 +311,7 @@ class Orchestrator extends EventEmitter {
 
   /** "switch to FRIDAY", or a click on her in the HUD. main.js builds her brain and calls switchBrain. */
   requestSwitch(id) {
-    const name = assistantOf(id).name;
+    const name = assistantOf(id, this.cfg).name;
     if (id === this.cfg.assistant) { this.speaker.speak(`I'm already here, ${this.cfg.honorific}.`); this.hud.send('assistant', { id, name }); return; }
     const wait = this.canSwitch();
     if (wait) {
@@ -325,7 +327,8 @@ class Orchestrator extends EventEmitter {
   }
 
   /** The new assistant's brain, made from the shared conversation (main.js builds it). */
-  switchBrain(brain) {
+  switchBrain(brain, { quiet = false } = {}) {
+    this.refreshLater = false;
     const old = this.brain;
     this.brain = brain;
     if (old.dispose) old.dispose(); else if (old.kill) old.kill();
@@ -338,7 +341,7 @@ class Orchestrator extends EventEmitter {
     this.sendStats();
     this.sendConversation();
     if (brain.contextInfo) this.hud.sendRaw('context', brain.contextInfo());
-    if (!this.disabled && !this.muted) this.speaker.speak(`${this.name} here, ${this.cfg.honorific}. ${assistantOf(this.cfg.assistant).hello}`);
+    if (!quiet && !this.disabled && !this.muted) this.speaker.speak(`${this.name} here, ${this.cfg.honorific}. ${assistantOf(this.cfg.assistant, this.cfg).hello || ''}`);
   }
 
   action(a, body = {}) {
@@ -355,8 +358,9 @@ class Orchestrator extends EventEmitter {
       case 'memory-forget': if (body.id && this.memory.forget(body.id)) this.brain.reconfigure && this.brain.reconfigure(); break;
       case 'memory-add': if (body.text) this.memory.add(body.text, 'other'); break;
       case 'context-roll': if (this.brain.rollNow) this.brain.rollNow(); break;
-      case 'assistant': if (ASSISTANTS[body.id]) this.requestSwitch(body.id); break;
-      case 'assistant-reset': if (ASSISTANTS[body.id]) this.emit('reset-assistant', body.id); break;
+      case 'assistant': if (exists(body.id, this.cfg)) this.requestSwitch(body.id); break;
+      case 'assistant-reset': if (exists(body.id, this.cfg)) this.emit('reset-assistant', body.id); break;
+      case 'assistant-create': case 'assistant-update': case 'assistant-delete': this.emit('assistant-edit', a, body); break;
       case 'schedule-cancel': if (body.id) this.scheduler.cancel(body.id); break;
       case 'hands-permit': this.emit('hands-permit'); break;
       case 'test-voice': this.speaker.stop(); this.speaker.speak(`This is how I sound, ${this.cfg.honorific}.`); break;
@@ -805,8 +809,9 @@ class Orchestrator extends EventEmitter {
     const t = c.toLowerCase();
     if (source.kind === 'telegram') return null;
     const done = () => this.finishedTurn();
-    const sw = SWITCH_TO.exec(t.trim().replace(/[.!?]+$/, ''));
-    if (sw) return () => { this.requestSwitch(sw[1]); done(); };
+    const sw = SWITCH_TO.exec(t.trim().replace(/[.!?,]+/g, ''));
+    const to = sw && findByName(sw[1].replace(/^the /, ''), this.cfg);
+    if (to) return () => { this.requestSwitch(to); done(); };
     const p = this.pendingApproval;
     if (p && Date.now() - p.at < 120000) {
       if (['yes', 'yeah', 'yep', 'allow', 'approve', 'go ahead', 'do it', 'okay', 'ok', 'sure', 'proceed'].some((w) => startsWord(t, w))) return () => this.answerApproval(true);

@@ -194,3 +194,25 @@ test('while awake, the name only counts when the user addresses the assistant wi
   assert.equal(w.addressed('book it for friday'), null);
   assert.ok(w.lastWake('blah blah friday stop'));
 });
+
+test('the user can make their own assistant and rewrite any persona', () => {
+  const { allAssistants, findByName, newId, assistantOf } = require('../../src/main/assistants');
+  fs.writeFileSync(C.CONFIG_FILE, JSON.stringify({ onboarded: true }));
+  C.saveCustom('coach', { name: 'COACH', tier: 'YOUR OWN', about: 'Started from FRIDAY.', needs: 'Claude Code', hello: '', persona: 'A patient running coach.', settings: { ...assistantOf('friday').settings, wakeWords: ['coach'] } });
+  C.saveProfile('jarvis', { persona: 'A cheerful pirate.' });
+  let c = C.load();
+  assert.deepEqual(allAssistants(c).map((a) => a.id), ['jarvis', 'friday', 'karen', 'edith', 'vision', 'coach']);
+  assert.equal(findByName('Coach', c), 'coach');
+  assert.equal(newId('Coach', c), 'coach-2');
+  assert.match(systemPrompt(c), /You are JARVIS[^\n]*A cheerful pirate\./);
+  C.save({ assistant: 'coach' });
+  c = C.load();
+  assert.deepEqual([c.assistant, c.model, c.wakeWords[0]], ['coach', 'opus', 'coach']);
+  assert.match(systemPrompt(c), /You are COACH[^\n]*A patient running coach\./);
+  C.saveProfile('jarvis', { persona: null });
+  C.saveCustom('coach', null);
+  c = C.load();
+  assert.equal(c.assistant, 'jarvis');
+  assert.match(systemPrompt(c), /Think of the JARVIS who served Tony Stark/);
+  fs.rmSync(C.CONFIG_FILE);
+});
