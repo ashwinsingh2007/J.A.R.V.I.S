@@ -46,7 +46,7 @@ function fill(text, cfg) {
   text = text.replace(/<!--screen-->([\s\S]*?)<!--\/screen-->\n?/g, (_, inner) => (cfg.screenControl ? inner : ''));
   return text.replaceAll('{{SCRIPTS}}', paths.scripts).replaceAll('{{HONORIFIC}}', cfg.honorific).replaceAll('{{HOME}}', C.HOME)
     .replaceAll('{{ROOT}}', paths.root).replaceAll('{{STATE}}', C.STATE_DIR)
-    .replaceAll('{{NAME}}', assistantOf(cfg.assistant).name).replaceAll('{{PERSONA}}', assistantOf(cfg.assistant).persona);
+    .replaceAll('{{NAME}}', assistantOf(cfg.assistant, cfg).name).replaceAll('{{PERSONA}}', assistantOf(cfg.assistant, cfg).persona);
 }
 
 function read(file, fallback) {

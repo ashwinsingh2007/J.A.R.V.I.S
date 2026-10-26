@@ -828,9 +828,27 @@ async function testHud() {
   await hud.click('.setcard[data-section="assistant"]');
   await sleep(400);
   check('Settings lists the five assistants', await hud.evaluate(() => document.querySelectorAll('#acards .bcard').length === 5 && /KAREN/.test(document.querySelector('#acards .bcard.on').textContent)));
+  // Make a new assistant from KAREN, give it a persona, then go back to JARVIS
+  await hud.fill('#a-new-name', 'Coach');
+  await hud.click('#a-create');
+  await sleep(800);
+  check('a new assistant can be made from another', /COACH/.test(await text(hud, '#a-edit-title')) && JSON.stringify(s.config().customAssistants || {}).includes('"COACH"'), await text(hud, '#a-note'));
+  await hud.fill('#a-persona', 'A patient running coach who keeps it short.');
+  await hud.fill('#a-wake', 'coach, couch');
+  await hud.click('#a-save');
+  await sleep(800);
+  const coach = s.config().assistantSettings && s.config().assistantSettings.coach;
+  check('its persona and wake words are saved', coach && /running coach/.test(coach.persona) && coach.wakeWords.join() === 'coach,couch', JSON.stringify(coach));
+  check('it shows up around the core', await hud.evaluate(() => !!document.getElementById('crew-coach')));
+  await shot(hud, 'hud-assistant-edit');
+  hud.once('dialog', (d) => d.accept());
+  await hud.click('#a-delete');
+  await sleep(600);
+  check('your own assistant can be deleted', !JSON.stringify(s.config().customAssistants || {}).includes('COACH'));
   const back = s.mark();
   await hud.click('#acards .bcard:nth-of-type(1)');
-  check('picking JARVIS there switches back', await s.waitLog(/assistant: JARVIS took over/, 20000, back) && s.config().assistant === 'jarvis');
+  await hud.click('#a-use');
+  check('picking JARVIS there and USE switches back', await s.waitLog(/assistant: JARVIS took over/, 20000, back) && s.config().assistant === 'jarvis');
   await sleep(800);
   await hud.click('#sp-back');
   await hud.click('#nav a[data-view="cc"]');

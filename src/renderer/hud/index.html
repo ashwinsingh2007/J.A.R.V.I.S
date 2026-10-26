@@ -235,10 +235,29 @@
         <div class="sp-head"><button class="sp-back" id="sp-back">‹ BACK</button><span class="sp-title" id="sp-title"></span></div>
 
         <div class="sp" data-page="assistant">
-          <p class="sp-lead">Every assistant does everything, with the same memory and conversation. They differ in how they run: how smart, how fast, and how they sound. What you change in Settings is saved to the one you're using.</p>
+          <p class="sp-lead">Every assistant does everything, with the same memory and conversation. They differ in how they run: how smart, how fast, how they sound and who they are. Pick one to change it. Brain and voice settings are saved to the one you're using.</p>
           <div class="bcards" id="acards"></div>
+          <div class="aedit" id="a-edit">
+            <h3 class="sub" id="a-edit-title">—</h3>
+            <ul class="rows form">
+              <li data-own><b>Name</b><input class="key" id="a-name" maxlength="20" autocomplete="off"></li>
+              <li data-own><b>Tier line</b><input class="key" id="a-tier" maxlength="24" autocomplete="off"></li>
+              <li data-own><b>About</b><input class="key" id="a-about" maxlength="200" autocomplete="off"></li>
+              <li><b>Wake words</b><input class="key" id="a-wake" placeholder="its name, and how it gets misheard" autocomplete="off"></li>
+            </ul>
+            <h4 class="sp-sub">PERSONA</h4>
+            <p class="sp-note">Who it is and how it talks. It is added to the safety rules, which always apply.</p>
+            <textarea id="a-persona" rows="6" maxlength="4000" spellcheck="true"></textarea>
+            <div class="ctx-acts">
+              <button class="mini" id="a-save">SAVE</button>
+              <button class="mini" id="a-use">USE IT</button>
+              <button class="mini" id="a-reset" hidden>RESET TO ITS PRESET</button>
+              <button class="mini" id="a-delete" hidden>DELETE</button>
+            </div>
+            <h4 class="sp-sub">MAKE A NEW ONE FROM IT</h4>
+            <ul class="rows form"><li><b>New name</b><input class="key" id="a-new-name" maxlength="20" placeholder="for example COACH" autocomplete="off"><button class="mini" id="a-create">CREATE</button></li></ul>
+          </div>
           <p class="sp-note" id="a-note"></p>
-          <button class="mini" id="a-reset" hidden>RESET TO ITS PRESET</button>
         </div>
 
         <div class="sp" data-page="brain">

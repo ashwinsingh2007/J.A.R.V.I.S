@@ -210,7 +210,9 @@
   // shortest chain of neurons. Clicking one brings it to the centre, to switch to it.
   // x, y: their place in the web (full mode). nx, ny: just outside the reactor ring in the normal view,
   // where the side panels leave room even on a laptop screen.
-  const SLOTS = [{ x: 21, y: -53, nx: 30, ny: -46 }, { x: 73, y: 24, nx: 42, ny: 30 }, { x: -79, y: -14, nx: -42, ny: -30 }, { x: -38, y: 50, nx: -30, ny: 46 }];
+  // The first four also have a place in the normal view; more of the user's own only show in the web.
+  const SLOTS = [{ x: 21, y: -53, nx: 30, ny: -46 }, { x: 73, y: 24, nx: 42, ny: 30 }, { x: -79, y: -14, nx: -42, ny: -30 }, { x: -38, y: 50, nx: -30, ny: 46 },
+    { x: -36, y: -50, extra: true }, { x: 64, y: -30, extra: true }, { x: -76, y: 30, extra: true }, { x: 40, y: 52, extra: true }];
   // Until main sends the list (main/assistants.js).
   let assistants = [
     { id: 'jarvis', name: 'JARVIS', tier: 'BALANCED', about: 'Fast and smart. Quick replies, strong background work.', needs: 'Claude Code (or an API key)' },
@@ -220,7 +222,7 @@
     { id: 'vision', name: 'VISION', tier: 'NO CLAUDE NEEDED', about: "Runs on Google's Gemini, with a free tier.", needs: 'A Gemini API key' },
   ];
   let current = 'jarvis';
-  const hubsFor = () => assistants.filter((a) => a.id !== current).slice(0, SLOTS.length).map((a, i) => ({ ...SLOTS[i], id: a.id, name: a.name, role: a.tier, about: a.about, needs: a.needs }));
+  const hubsFor = () => assistants.filter((a) => a.id !== current).slice(0, SLOTS.length).map((a, i) => ({ nx: SLOTS[i].x, ny: SLOTS[i].y, ...SLOTS[i], id: a.id, name: a.name, role: a.tier, about: a.about, needs: a.needs }));
   let HUBS = hubsFor();
   const crew = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   crew.id = 'crew';
@@ -303,7 +305,7 @@
       const d = pts.length > 1 ? curve(pts) : '';
       const sparks = d ? [0, 1].map((k) => `<circle class="spark" r="0.6"><animateMotion dur="${f(2.4 + pts.length * 0.35)}s" begin="${f(k * 1.3 + rnd())}s" repeatCount="indefinite" path="${d}"/></circle>`).join('') : '';
       const right = h.x >= 0, lx = h.x + (right ? 5.5 : -5.5), anchor = right ? 'start' : 'end';
-      return `<g class="mate" id="crew-${h.id}" data-id="${h.id}" style="--i:${n};--hx:${h.x};--hy:${h.y};--nx:${h.nx};--ny:${h.ny}">`
+      return `<g class="mate${h.extra ? ' extra' : ''}" id="crew-${h.id}" data-id="${h.id}" style="--i:${n};--hx:${h.x};--hy:${h.y};--nx:${h.nx};--ny:${h.ny}">`
         + (d ? `<path class="fire" d="${d}" style="--d:${f(rnd())}s"/>` : '') + sparks
         + `<circle class="hit" cx="${f(h.x)}" cy="${f(h.y)}" r="7"/><circle class="aura" cx="${f(h.x)}" cy="${f(h.y)}" r="5.6"/><circle class="halo" cx="${f(h.x)}" cy="${f(h.y)}" r="3.4"/><circle class="ring" cx="${f(h.x)}" cy="${f(h.y)}" r="2.1"/><circle class="core" cx="${f(h.x)}" cy="${f(h.y)}" r="1.05"/>`
         + `<text class="nm" text-anchor="${anchor}" x="${f(lx)}" y="${f(h.y - 0.3)}">${h.name}</text>`
@@ -312,7 +314,7 @@
         + `<text class="rl2" text-anchor="middle" x="${f(h.x)}" y="${f(h.y + 8.6)}">${h.role}</text></g>`;
     }).join('');
     // the normal view's simple links from the reactor's edge to each assistant
-    const tethers = HUBS.map((h) => {
+    const tethers = HUBS.filter((h) => !h.extra).map((h) => {
       const a = Math.atan2(h.ny, h.nx), d = Math.hypot(h.nx, h.ny) - 3.6;
       return `<line class="tether" id="tether-${h.id}" x1="${f(R0 * Math.cos(a))}" y1="${f(R0 * Math.sin(a))}" x2="${f(d * Math.cos(a))}" y2="${f(d * Math.sin(a))}"/>`;
     }).join('');
@@ -322,6 +324,8 @@
   function setAssistants(e) {
     if (Array.isArray(e.list) && e.list.length) assistants = e.list;
     if (e.id) current = e.id;
+    if (e.edit) { editing = e.edit; aNote(`Made ${(assistants.find((a) => a.id === e.edit) || {}).name}. Change it below, then USE it.`); }
+    else if (e.list) aNote('');
     const me = assistants.find((a) => a.id === current) || assistants[0];
     if (spotted) unspot(false);
     HUBS = hubsFor();
@@ -335,24 +339,51 @@
     $('power').querySelector('b').textContent = `${body.classList.contains('disabled') ? 'ENABLE' : 'DISABLE'} ${me.name}`;
     renderAssistantCards();
   }
-  // Settings › Assistant: one card each; clicking one switches.
+  // Settings › Assistant: one card each. Clicking one opens it below to change it; USE IT switches.
+  let editing = '';
   function renderAssistantCards() {
+    if (!assistants.some((a) => a.id === editing)) editing = current;
     $('acards').replaceChildren(...assistants.map((a) => {
       const b = document.createElement('button');
-      b.className = 'bcard' + (a.id === current ? ' on' : '');
-      const n = document.createElement('b'); n.textContent = `${a.name} · ${a.tier}`;
-      const d = document.createElement('small'); d.textContent = `${a.about} Needs ${a.needs}.`;
+      b.className = 'bcard' + (a.id === current ? ' on' : '') + (a.id === editing ? ' editing' : '');
+      const n = document.createElement('b'); n.textContent = `${a.name} · ${a.tier}${a.id === current ? ' · IN USE' : ''}`;
+      const d = document.createElement('small'); d.textContent = `${a.about}${a.needs ? ` Needs ${a.needs}.` : ''}`;
       b.append(n, d);
-      if (a.changed) { const c = document.createElement('i'); c.className = 'chip'; c.textContent = 'YOUR CHANGES'; b.append(c); }
-      b.addEventListener('click', () => { if (a.id !== current) { $('a-note').textContent = `Switching to ${a.name}…`; post({ type: 'action', name: 'assistant', id: a.id }); } });
+      if (a.changed || a.custom) { const c = document.createElement('i'); c.className = 'chip'; c.textContent = a.custom ? 'YOUR OWN' : 'YOUR CHANGES'; b.append(c); }
+      b.addEventListener('click', () => { editing = a.id; renderAssistantCards(); });
       return b;
     }));
-    const me = assistants.find((a) => a.id === current);
-    $('a-note').textContent = me ? `${me.name} is in use.` : '';
-    $('a-reset').hidden = !(me && me.changed);
-    $('a-reset').textContent = me ? `RESET ${me.name} TO ITS PRESET` : '';
+    const a = assistants.find((x) => x.id === editing);
+    if (!a) return;
+    $('a-edit-title').textContent = a.name;
+    document.querySelectorAll('#a-edit [data-own]').forEach((li) => { li.hidden = !a.custom; });
+    $('a-name').value = a.name; $('a-tier').value = a.tier; $('a-about').value = a.about;
+    $('a-wake').value = (a.wakeWords || []).join(', ');
+    $('a-persona').value = a.persona || '';
+    $('a-use').hidden = a.id === current;
+    $('a-use').textContent = `USE ${a.name}`;
+    $('a-reset').hidden = !a.changed;
+    $('a-delete').hidden = !a.custom;
+    $('a-create').dataset.from = a.id;
   }
-  $('a-reset').addEventListener('click', () => { if (confirm('Forget your changes to this assistant and go back to its preset?')) post({ type: 'action', name: 'assistant-reset', id: current }); });
+  function aNote(text, bad) { $('a-note').textContent = text || ''; $('a-note').classList.toggle('bad', !!bad); }
+  $('a-save').addEventListener('click', () => {
+    const a = assistants.find((x) => x.id === editing);
+    if (!a) return;
+    const patch = { id: a.id, persona: $('a-persona').value, wakeWords: $('a-wake').value };
+    if (a.custom) Object.assign(patch, { title: $('a-name').value, tier: $('a-tier').value, about: $('a-about').value });
+    aNote(`Saving ${a.name}…`);
+    post({ type: 'action', name: 'assistant-update', ...patch });
+  });
+  $('a-use').addEventListener('click', () => { aNote(`Switching to ${$('a-edit-title').textContent}…`); post({ type: 'action', name: 'assistant', id: editing }); });
+  $('a-reset').addEventListener('click', () => { if (confirm('Forget your changes to this assistant and go back to its preset?')) post({ type: 'action', name: 'assistant-reset', id: editing }); });
+  $('a-delete').addEventListener('click', () => { if (confirm(`Delete ${$('a-edit-title').textContent}? Its settings go too. Memory stays.`)) post({ type: 'action', name: 'assistant-delete', id: editing }); });
+  $('a-create').addEventListener('click', () => {
+    const name = $('a-new-name').value.trim();
+    if (!name) { aNote('Type a name for the new assistant first.', true); return; }
+    post({ type: 'action', name: 'assistant-create', from: editing, title: name });
+    $('a-new-name').value = '';
+  });
 
   // ---------- spotlight: another assistant comes forward, to switch to ----------
   // Clicking one brings it to the centre while the core steps back; SWITCH makes it the one in use.
@@ -901,6 +932,7 @@
         case 'memory': setMemory(e.data); break;
         case 'assistants': setAssistants(e); break;
         case 'assistant': setAssistants({ id: e.id }); break;
+        case 'assistant-error': aNote(e.text, true); break;
         case 'context': setContext(e.data); break;
         case 'schedule': setSchedule(e.data); break;
         case 'info': Object.assign(info, e); setStats({}); break;

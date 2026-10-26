@@ -4,6 +4,8 @@
 //
 // The live config is the defaults, then the chosen assistant's preset, then the user's own changes
 // for that assistant (cfg.assistantSettings[id]). SCOPED lists the settings that belong to an assistant.
+// The user's changes can also replace the persona prompt (assistantSettings[id].persona). Assistants
+// the user made live in cfg.customAssistants, each a full copy of the one it started from.
 
 const SCOPED = ['brainProvider', 'model', 'effort', 'agentModel', 'worker', 'anthropicModel', 'geminiModel', 'ollamaModel',
   'kokoroVoice', 'kokoroSpeed', 'edgeVoice', 'nativeVoice', 'elevenLabsVoiceId', 'wakeWords'];
@@ -77,6 +79,34 @@ const ASSISTANTS = {
 };
 
 const IDS = Object.keys(ASSISTANTS);
-const assistantOf = (id) => ASSISTANTS[id] || ASSISTANTS.jarvis;
+const customOf = (cfg) => (cfg && cfg.customAssistants && typeof cfg.customAssistants === 'object' ? cfg.customAssistants : {});
+const exists = (id, cfg) => !!(ASSISTANTS[id] || customOf(cfg)[id]);
 
-module.exports = { ASSISTANTS, IDS, SCOPED, assistantOf };
+/** One assistant, with the user's own persona prompt if they wrote one. cfg gives the custom ones. */
+function assistantOf(id, cfg) {
+  const a = ASSISTANTS[id] || customOf(cfg)[id] || ASSISTANTS.jarvis;
+  const mine = (cfg && cfg.assistantSettings && cfg.assistantSettings[id]) || {};
+  return typeof mine.persona === 'string' && mine.persona.trim() ? { ...a, persona: mine.persona.trim() } : a;
+}
+
+/** Every assistant: the built-in five, then the user's own. */
+function allAssistants(cfg) {
+  return [...IDS, ...Object.keys(customOf(cfg)).filter((id) => !ASSISTANTS[id])].map((id) => ({ id, custom: !ASSISTANTS[id], ...assistantOf(id, cfg) }));
+}
+
+/** "friday", "Friday", "my coder" → its id, matching the name the user says. */
+function findByName(name, cfg) {
+  const n = String(name || '').toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+  const hit = allAssistants(cfg).find((a) => a.name.toLowerCase() === n || (a.settings.wakeWords || []).includes(n));
+  return hit ? hit.id : '';
+}
+
+/** A short, unused id for a new assistant: "Coach" → "coach", then "coach-2". */
+function newId(name, cfg) {
+  const base = String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'assistant';
+  let id = base;
+  for (let i = 2; exists(id, cfg); i++) id = `${base}-${i}`;
+  return id;
+}
+
+module.exports = { ASSISTANTS, IDS, SCOPED, assistantOf, allAssistants, findByName, newId, exists };
