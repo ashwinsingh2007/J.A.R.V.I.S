@@ -630,8 +630,16 @@
   let last = performance.now(), spinA = 0, tAcc = 0, nextBolt = 1.5;
   const tmp = new THREE.Color();
 
+  // 30 frames a second while something is happening, 20 at rest (the scene barely moves then), 4 on
+  // the other tabs, and none while the window is hidden. Full rate cost most of a CPU core.
+  const BUSY_MS = 1000 / 30, REST_MS = 1000 / 20, AWAY_MS = 250;
+  document.addEventListener('visibilitychange', () => body.classList.toggle('asleep', document.hidden));
   function frame(now) {
     requestAnimationFrame(frame);
+    if (document.hidden) { last = now; return; }
+    const calm = boot.assembled && (state === 'idle' || state === 'muted') && flash === 0 && !spotted;
+    const gap = body.dataset.view !== 'cc' ? AWAY_MS : calm ? REST_MS : BUSY_MS;
+    if (now - last < gap - 2) return;
     const dt = Math.min(0.05, (now - last) / 1000); last = now; tAcc += dt;
     const tgt = STATES[state] || STATES.idle;
     const k = 1 - Math.pow(0.001, dt);
@@ -708,7 +716,7 @@
     for (let i = 0; i < arr.length; i++) {
       const c = Math.abs(i - arr.length / 2) / (arr.length / 2);
       const v = Math.max(0.1, lvl * (1 - c * c) * (0.55 + 0.45 * Math.abs(Math.sin(t * 9 + i * 0.7))));
-      arr[i].style.height = (2 + v * maxH) + 'px';
+      arr[i].style.transform = `scaleY(${((2 + v * maxH) / 24).toFixed(3)})`;
     }
   }
   function makeBars(el, n) { const out = []; for (let i = 0; i < n; i++) { const b = document.createElement('i'); el.appendChild(b); out.push(b); } return out; }
