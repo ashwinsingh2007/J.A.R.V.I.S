@@ -804,9 +804,9 @@ async function testHud() {
   check('and MESH, dim with nothing paired', await hud.evaluate(() => { const m = document.getElementById('crew-g-devices'); return !!m && m.classList.contains('dim') && /PAIR A COMPUTER/.test(m.textContent); }));
   // MESH opens into + PAIR, which brings pairing into the spotlight
   await hud.evaluate(() => document.getElementById('crew-g-devices').dispatchEvent(new MouseEvent('click', { bubbles: true })));
-  await sleep(300);
+  await sleep(900);
   await hud.evaluate(() => document.getElementById('crew-g-pair').dispatchEvent(new MouseEvent('click', { bubbles: true })));
-  await sleep(300);
+  await sleep(900);
   check('MESH shows its own name in the core, and only computers around it', await hud.evaluate(() => document.querySelector('.corelabel .jv').textContent === 'MESH' && [...document.querySelectorAll('#crew .mate')].every((m) => m.dataset.id.startsWith('g-'))));
   check('a dim node shows one name, not two', await hud.evaluate(() => { const m = document.getElementById('crew-g-pair'); return [...m.querySelectorAll('text')].filter((t) => getComputedStyle(t).opacity !== '0').length <= 2; }));
   check('+ PAIR opens pairing on the HUD', await hud.evaluate(() => document.body.classList.contains('spot') && !document.getElementById('spot-pair').hidden && document.getElementById('spot-go').hidden));
@@ -817,13 +817,13 @@ async function testHud() {
   check('MESH lists this computer too', await hud.evaluate(() => !!document.getElementById('crew-g-self')));
   await hud.click('#spot-back');
   await hud.evaluate(() => document.getElementById('crew-g-main').dispatchEvent(new MouseEvent('click', { bubbles: true })));
-  await sleep(300);
+  await sleep(900);
   // FORGE: custom agents, dim with none yet; + CREATE makes one right on the HUD
   check('FORGE is there, dim with no custom agents', await hud.evaluate(() => { const m = document.getElementById('crew-g-custom'); return !!m && m.classList.contains('dim') && /MAKE YOUR OWN/.test(m.textContent); }));
   await hud.evaluate(() => document.getElementById('crew-g-custom').dispatchEvent(new MouseEvent('click', { bubbles: true })));
-  await sleep(300);
+  await sleep(900);
   await hud.evaluate(() => document.getElementById('crew-g-create').dispatchEvent(new MouseEvent('click', { bubbles: true })));
-  await sleep(500);
+  await sleep(900);
   await hud.fill('#sm-name', 'Scout');
   await hud.click('#sm-go');
   await hud.waitForFunction(() => document.body.dataset.view === 'agents' && /SCOUT/.test(document.getElementById('a-edit-title').textContent), null, { timeout: 8000 }).catch(() => {});
@@ -834,7 +834,7 @@ async function testHud() {
   await hud.click('#nav a[data-view="cc"]');
   await sleep(300);
   await hud.evaluate(() => { const g = document.getElementById('crew-g-main'); if (g) g.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
-  await sleep(300);
+  await sleep(900);
   // Back to full mode for the checks that follow.
   await hud.mouse.move(mid[0], mid[1]);
   await sleep(2400);
@@ -921,8 +921,11 @@ async function testHud() {
   const own = (() => { try { return JSON.parse(fs.readFileSync(path.join(s.state, 'assistants', 'coach', 'memory.json'), 'utf8')).facts; } catch { return []; } })();
   check('training goes into its own memory', own.some((f) => /Sundays/.test(f.text)) && /Sundays/.test(await text(hud, '#a-mem')), JSON.stringify(own));
   await shot(hud, 'hud-assistant-training');
-  check('it shows up around the core, in the Custom node', await hud.evaluate(() => { const g = document.getElementById('crew-g-custom'); if (!g) return false; g.dispatchEvent(new MouseEvent('click', { bubbles: true })); return !!document.getElementById('crew-coach') && !!document.getElementById('crew-g-main'); }));
+  await hud.evaluate(() => { const g = document.getElementById('crew-g-custom'); if (g) g.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+  await sleep(900);
+  check('it shows up around the core, in FORGE', await hud.evaluate(() => !!document.getElementById('crew-coach') && !!document.getElementById('crew-g-main')));
   await hud.evaluate(() => document.getElementById('crew-g-main').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  await sleep(900);
   await shot(hud, 'hud-assistant-edit');
   // Skills and MCP servers for this assistant: all on by default, ticks saved with SAVE
   await hud.click('#a-tabs [data-at="skills"]');
@@ -1185,18 +1188,18 @@ async function testDevices() {
   check('MESH on the HUD, lit, in a slot the normal view shows', await ha.evaluate(() => { const m = document.getElementById('crew-g-devices'); return !!m && !m.classList.contains('extra') && !m.classList.contains('dim') && /1 CONNECTED/.test(m.textContent); }));
   await shot(ha, 'devices-home');
   await ha.evaluate(() => document.getElementById('crew-g-devices').dispatchEvent(new MouseEvent('click', { bubbles: true })));
-  await sleep(400);
+  await sleep(900);
   const devNode = await ha.evaluate(() => [...document.querySelectorAll('#crew .mate')].map((m) => m.dataset.id).find((id) => id.startsWith('g-device_')));
   check('it opens into the paired device', !!devNode, devNode);
   if (devNode) await ha.evaluate((id) => document.getElementById('crew-' + id).dispatchEvent(new MouseEvent('click', { bubbles: true })), devNode);
-  await sleep(400);
+  await sleep(900);
   const remoteAgents = await ha.evaluate(() => [...document.querySelectorAll('#crew .mate')].map((m) => m.dataset.id).filter((id) => id.startsWith('r-')));
   check('and that device into its agents (not FRIDAY, who is in use there)', remoteAgents.length >= 3 && !remoteAgents.some((id) => id.endsWith('-friday')), remoteAgents.join(','));
   await shot(ha, 'devices-nodes');
   // Clicking one of its agents opens its tab, with that agent in the spotlight.
   const karen = remoteAgents.find((id) => id.endsWith('-karen'));
   if (karen) await ha.evaluate((id) => document.getElementById('crew-' + id).dispatchEvent(new MouseEvent('click', { bubbles: true })), karen);
-  await sleep(800);
+  await sleep(900);
   check('its agent opens that device\'s tab, in the spotlight', await ha.evaluate(() => document.body.classList.contains('remote') && document.getElementById('spot-name').textContent === 'KAREN' && /FRIDAY/.test(document.querySelector('.corelabel .jv').textContent)));
   check('history, memory, settings and music are hidden there', await ha.evaluate(() => ['history', 'memory', 'settings', 'music'].every((v) => getComputedStyle(document.querySelector(`#nav a[data-view="${v}"]`)).display === 'none')));
   await shot(ha, 'devices-remote-home');
@@ -1220,6 +1223,14 @@ async function testDevices() {
   await ha.fill('#ask-input', 'what time is it there?');
   await ha.press('#ask-input', 'Enter');
   check('typing in its tab reaches the other device', await b.waitLog(/devices: Work Mac typed 'what time is it there\?'/, 10000, m));
+  // Said out loud here with its tab open: it goes there, is answered there silently, and spoken here.
+  await a.say('jarvis wake up');
+  await a.waitLog(/conversation mode on/, 10000);
+  await a.quiet(ha);
+  const va = a.mark(), vb = b.mark();
+  await a.say('what is two plus two');
+  check('a spoken command goes to the open tab\'s computer', await b.waitLog(/devices: Work Mac said 'what is two plus two'/, 15000, vb), a.log().slice(va).split('\n').filter((l) => /remote|devices/.test(l)).join(' | ').slice(0, 200));
+  check('its answer is spoken here', await a.waitLog(/synth/, 60000, va) && !(await b.waitLog(/synth/, 1000, vb)));
   // Back to this device.
   await ha.click('#machines .mtab[data-device=""]');
   await sleep(600);

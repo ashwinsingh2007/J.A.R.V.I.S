@@ -47,6 +47,9 @@ app.whenReady().then(async () => {
 });
 
 function startJarvis(brains) {
+  // How long each step of the start takes, so a slow start says where the time went.
+  let t0 = Date.now();
+  const lap = (what) => { const ms = Date.now() - t0; if (ms > 250) log(`startup: ${what} took ${ms} ms`); t0 = Date.now(); };
   const AudioHost = require('./audio-host');
   const HudWindow = require('./hud-window');
   const { Ears, vocabulary } = require('./ears');
@@ -56,7 +59,9 @@ function startJarvis(brains) {
   hud = new HudWindow(themeOf(cfg));
   const brain = brains.create(cfg, found);
   const ears = new Ears(cfg, sidecarPath(), vocabulary(cfg));
+  lap('the window, brain and ears');
   orch = new Orchestrator({ cfg, brain, ears, audio, hud, found });
+  lap('the orchestrator');
   hud.send('info', { claude: found.claude.version || 'not installed', model: brain.label, voice: cfg.ttsEngine });
   if (brain.fallback) hud.send('notice', { text: `${assistantOf(cfg.assistant, cfg).name} needs ${brain.fallback}, so it is thinking with ${brain.label} for now.` });
 
@@ -74,10 +79,12 @@ function startJarvis(brains) {
   orch.on('reset-assistant', resetAssistant);
   orch.on('assistant-edit', editAssistant);
   orch.on('refresh-assistant', () => refreshCurrent('The change'));
+  lap('the tray and events');
   sendHudSettings();
   sendAssistants();
   checkHands().then(sendHudSettings);
   ears.on('devices', buildTray);
+  lap('settings and agents for the HUD');
 
   if (cfg.telegramToken) {
     const Telegram = require('./telegram');
@@ -87,7 +94,9 @@ function startJarvis(brains) {
   }
   // Other devices first: the rest of the start (music, radio lists) can take a while on a slow Mac.
   startDevices();
+  lap('other devices');
   orch.start(!flags.has('--no-voice'));
+  lap('the orchestrator start');
   watchRestart();
 }
 
@@ -407,7 +416,11 @@ function startDevices() {
   // Another device's HUD, shown here in its tab.
   devices.on('remote', (p, d) => hud && hud.send('remote', { device: p.id, ...d }));
   // Typed in this device's tab on another of the user's devices: a turn here, read there.
-  devices.on('say', (p, text) => { log(`devices: ${p.name} typed '${text.slice(0, 60)}'`); orch.action('peer-type', { text, from: p.name }); });
+  devices.on('say', (p, text, voice) => { log(`devices: ${p.name} ${voice ? 'said' : 'typed'} '${text.slice(0, 60)}'`); orch.action('peer-type', { text, from: p.name, replyTo: voice ? p.id : '' }); });
+  // Said here while another computer's tab was open: it went there, and its answer is spoken here.
+  orch.on('remote-say', (id, text) => devices.sayTo(id, text, true).then((e) => { if (e) orch.remoteAnswer(e); }));
+  devices.on('said', (p, text) => orch.remoteAnswer(text));
+  orch.on('peer-reply', (id, text) => { const p = devices.peer(id); if (p) devices.deliver(p, { t: 'said', text: String(text || '').slice(0, 4000) }); });
   devices.on('act', (p, a) => remoteAct(p, a));
   devices.start().catch((e) => log(`devices: couldn't start: ${e.message}`));
   serveInbox();
@@ -527,6 +540,8 @@ async function devicesAction(name, msg = {}) {
   const err = (text) => sendDevices({ error: text });
   if (name === 'dev:list') return sendDevices();
   // This HUD showing another device: type to it, change its agents, or load its view through the relay.
+  // Which computer's tab is open, so what is said out loud goes there.
+  if (name === 'dev:focus') { const p = msg.device ? devices.peer(msg.device) : null; orch.remoteTarget = p ? { id: p.id, name: p.name } : null; log(`remote: voice goes to ${p ? p.name : 'this computer'}`); return; }
   if (name === 'dev:say') { const e = await devices.sayTo(msg.device, msg.text); return e ? err(e) : null; }
   if (name === 'dev:act') { const e = await devices.actOn(msg.device, msg.action || {}); return e ? err(e) : null; }
   if (name === 'dev:view') { const r = await devices.fetchView(msg.device); if (!r.ok) err(r.text); return; }

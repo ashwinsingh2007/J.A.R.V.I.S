@@ -18,6 +18,7 @@
   const views = { '': {} };        // device id ('' = this one) -> { event type: latest event }
   let devList = [], devName = '';  // paired devices, and this device's name
   let popping = false;             // the crew being rebuilt because a group node opened
+  let burstFrom = null;            // where it opened from: { x, y } in the crew's coordinates
   function post(msg) {
     if (machine && msg && msg.type === 'action') {
       if (msg.name === 'type') return postLocal({ type: 'action', name: 'dev:say', device: machine, text: msg.text });
@@ -355,20 +356,24 @@
       const d = pts.length > 1 ? curve(pts) : '';
       const sparks = d ? [0, 1].map((k) => `<circle class="spark" r="0.6"><animateMotion dur="${f(2.4 + pts.length * 0.35)}s" begin="${f(k * 1.3 + rnd())}s" repeatCount="indefinite" path="${d}"/></circle>`).join('') : '';
       const right = h.x >= 0, lx = h.x + (right ? 5.5 : -5.5), anchor = right ? 'start' : 'end';
-      return `<g class="mate${h.extra ? ' extra' : ''}${h.group ? ' group' : ''}${h.dim ? ' dim' : ''}${popping ? ' pop' : ''}" id="crew-${h.id}" data-id="${h.id}" style="--i:${n};--hx:${h.x};--hy:${h.y};--nx:${h.nx};--ny:${h.ny}${/^#[0-9a-f]{6}$/i.test(h.color || '') ? `;--cyan:${h.color}` : ''}">`
+      // Opened from a group node: each new node starts there and flies out to its place.
+      const full = body.classList.contains('focus') || body.classList.contains('spot');
+      const burst = popping && burstFrom ? `;--dx:${f(burstFrom.x - (full ? h.x : h.nx))};--dy:${f(burstFrom.y - (full ? h.y : h.ny))}` : '';
+      return `<g class="mate${h.extra ? ' extra' : ''}${h.group ? ' group' : ''}${h.dim ? ' dim' : ''}${burst ? ' pop' : ''}" id="crew-${h.id}" data-id="${h.id}" style="--i:${n};--hx:${h.x};--hy:${h.y};--nx:${h.nx};--ny:${h.ny}${burst}${/^#[0-9a-f]{6}$/i.test(h.color || '') ? `;--cyan:${h.color}` : ''}"><g class="mi">`
         + (d ? `<path class="fire" d="${d}" style="--d:${f(rnd())}s"/>` : '') + sparks
         + `<circle class="hit" cx="${f(h.x)}" cy="${f(h.y)}" r="7"/><circle class="aura" cx="${f(h.x)}" cy="${f(h.y)}" r="5.6"/><circle class="halo" cx="${f(h.x)}" cy="${f(h.y)}" r="3.4"/><circle class="ring" cx="${f(h.x)}" cy="${f(h.y)}" r="2.1"/><circle class="core" cx="${f(h.x)}" cy="${f(h.y)}" r="1.05"/>`
         + `<text class="nm" text-anchor="${anchor}" x="${f(lx)}" y="${f(h.y - 0.3)}">${h.name}</text>`
         + `<text class="rl" text-anchor="${anchor}" x="${f(lx)}" y="${f(h.y + 2.6)}">${h.role}</text>`
         + `<text class="nm2" text-anchor="middle" x="${f(h.x)}" y="${f(h.y + 6.4)}">${h.name}</text>`
-        + `<text class="rl2" text-anchor="middle" x="${f(h.x)}" y="${f(h.y + 8.6)}">${h.role}</text></g>`;
+        + `<text class="rl2" text-anchor="middle" x="${f(h.x)}" y="${f(h.y + 8.6)}">${h.role}</text></g></g>`;
     }).join('');
     // the normal view's simple links from the reactor's edge to each assistant
     const tethers = HUBS.filter((h) => !h.extra).map((h) => {
       const a = Math.atan2(h.ny, h.nx), d = Math.hypot(h.nx, h.ny) - 3.6;
       return `<line class="tether" id="tether-${h.id}" x1="${f(R0 * Math.cos(a))}" y1="${f(R0 * Math.sin(a))}" x2="${f(d * Math.cos(a))}" y2="${f(d * Math.sin(a))}"/>`;
     }).join('');
-    return `<g class="field">${field}</g><g class="tethers">${tethers}</g>${mates}`;
+    const flash = popping && burstFrom ? `<circle class="burst" cx="${f(burstFrom.x)}" cy="${f(burstFrom.y)}" r="3"/><circle class="burst b2" cx="${f(burstFrom.x)}" cy="${f(burstFrom.y)}" r="3"/>` : '';
+    return `<g class="field">${field}</g><g class="tethers">${tethers}</g>${mates}${flash}`;
   }
   // The assistant in use changed: it becomes the core, the others move into the slots around it.
   function setAssistants(e) {
@@ -923,13 +928,20 @@
     document.querySelector('.corelabel .jv').textContent = name;
     body.classList.toggle('grouped', crewGroup !== 'main');
   }
-  /** Open a group node: its members burst out of the core. */
+  let openedFrom = null;   // set by a click: where the burst starts (the core, once the node got there)
+  const f2 = (n) => Number(n).toFixed(2);
+  /** Open a group node: its members burst out of it. */
   function openGroup(group) {
     if (group === 'pair') { spotPair(); return; }
     if (group === 'create') { spotMake(); return; }
     // A computer whose agents haven't arrived (it isn't reachable): open its tab, with its last state.
     const dm = /^device:(.+)$/.exec(group);
     if (dm && !remoteDevices().some((d) => d.id === dm[1])) { showMachine(dm[1]); return; }
+    // The node that was clicked, where it shows now: the burst starts there.
+    const from = HUBS.find((x) => x.group === group || (group === 'main' && x.group === 'main')) || null;
+    const full = body.classList.contains('focus') || body.classList.contains('spot');
+    burstFrom = openedFrom || (from ? (full ? { x: from.x, y: from.y } : { x: from.nx, y: from.ny }) : { x: 0, y: 0 });
+    openedFrom = null;
     if (spotted) unspot();
     crewGroup = group;
     popping = true;
@@ -944,7 +956,17 @@
     ev.stopPropagation();
     const h = HUBS.find((x) => x.id === m.dataset.id);
     if (!h) return;
-    if (h.group) { openGroup(h.group); return; }
+    if (h.group) {
+      // Like choosing an agent, the node flies to the core; then it bursts into its members.
+      if (crew.classList.contains('swap')) return;
+      const full = body.classList.contains('focus') || body.classList.contains('spot');
+      m.style.setProperty('--gx', f2(-(full ? h.x : h.nx)));
+      m.style.setProperty('--gy', f2(-(full ? h.y : h.ny)));
+      m.classList.add('gather');
+      crew.classList.add('swap');
+      setTimeout(() => { crew.classList.remove('swap'); openedFrom = { x: 0, y: 0 }; openGroup(h.group); }, 420);
+      return;
+    }
     // Another device's agent: open its tab, with that agent in the spotlight.
     if (h.device) { const dev = h.device, a = h.agent; showMachine(dev); const ag = assistants.find((x) => x.id === a); crewGroup = ag && ag.custom ? 'custom' : 'main'; HUBS = hubsFor(); crew.innerHTML = buildCrew(); coreLabel(); spot(a); return; }
     if (m.dataset.id === spotted) return;
@@ -1476,6 +1498,7 @@
     if (spotted) unspot();
     machine = id;
     crewGroup = 'main';
+    postLocal({ type: 'action', name: 'dev:focus', device: id });
     body.classList.toggle('remote', !!id);
     if (id && ['history', 'memory', 'settings', 'music'].includes(body.dataset.view)) showView('cc');
     const v = views[id] || {};
