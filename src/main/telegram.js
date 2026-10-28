@@ -42,7 +42,6 @@ class Telegram extends EventEmitter {
     log(`telegram: connected as @${name}, chat lock=${this.chat}`);
     this.setStatus(`@${name}`);
     this.poll();
-    this.ticker = setInterval(() => this.dispatch(), 500);
   }
 
   setStatus(s) { this.status = s; this.emit('status', s); }
@@ -91,7 +90,10 @@ class Telegram extends EventEmitter {
 
   enqueue(chat, text) { this.queue.push([chat, text]); this.dispatch(); }
 
+  // Waits for JARVIS to be free, checking every half second, but only while messages are waiting.
   dispatch() {
+    if (this.queue.length && !this.ticker) this.ticker = setInterval(() => this.dispatch(), 500);
+    else if (!this.queue.length && this.ticker) { clearInterval(this.ticker); this.ticker = null; }
     if (this.dispatching || !this.queue.length || !this.orch.isIdle) return;
     const [chat, text] = this.queue.shift();
     this.dispatching = true;
@@ -157,7 +159,7 @@ class Telegram extends EventEmitter {
     }
   }
 
-  stop() { this.running = false; clearInterval(this.ticker); }
+  stop() { this.running = false; clearInterval(this.ticker); this.ticker = null; }
 }
 
 module.exports = Telegram;

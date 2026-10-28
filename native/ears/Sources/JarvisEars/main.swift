@@ -10,7 +10,10 @@ import Speech
 //   analyzer: SpeechAnalyzer (macOS 26+), more accurate, updates about once a second.
 //   dictation: the classic SFSpeechRecognizer, updates word by word.
 //
-// out: {"type":"ready"} {"type":"text","text":"…","final":false} {"type":"level","v":0.2}
+// In a quiet room the recogniser hears nothing (see SoundGate): it gets the audio from just before a
+// sound until a few seconds after it, and all of it while a command is being heard.
+//
+// out: {"type":"ready"} {"type":"text","text":"…","final":false} {"type":"level","v":0.2} (while armed)
 //      {"type":"restarted"} {"type":"pcm","b64":"…"} (while pcm is on: 16 kHz s16le mono)
 //      {"type":"devices","list":[{"id":1,"name":"…","default":true}]}
 //      {"type":"file_text","id":"…","text":"…"} {"type":"log","msg":"…"} {"type":"error","msg":"…"}
@@ -250,6 +253,13 @@ final class Ears: NSObject {
     private var pcmConverter: AVAudioConverter?
     private let pcmFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16000, channels: 1, interleaved: true)!
     private var pcmPending = Data()
+    // The sound gate, and the audio held back while it is shut. Used from the audio thread and main.
+    private enum GateState { case open, opening, closed }
+    private let gateLock = NSLock()
+    private var gate = SoundGate()
+    private var gateState = GateState.open
+    private var preroll: [AVAudioPCMBuffer] = []
+    private var prerollFrames: AVAudioFrameCount = 0
 
     override init() {
         super.init()
@@ -259,6 +269,7 @@ final class Ears: NSObject {
     func start() {
         NotificationCenter.default.addObserver(self, selector: #selector(configChanged), name: .AVAudioEngineConfigurationChange, object: engine)
         do { try startEngine() } catch { emit(["type": "error", "msg": "microphone failed: \(error.localizedDescription)"]); return }
+        resetGate()
         running = true
         do {
             if #available(macOS 26, *), argEngine != "dictation" {
@@ -295,6 +306,7 @@ final class Ears: NSObject {
 
     func setMuted(_ on: Bool) {
         muted = on
+        if on { resetGate() }
         if !on, running, !suspended { restartTask() }
     }
 
@@ -309,6 +321,7 @@ final class Ears: NSObject {
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         try? engine.inputNode.setVoiceProcessingEnabled(false)
+        resetGate()
         log("audio suspended (mic released, echo cancellation off)")
     }
 
@@ -316,7 +329,8 @@ final class Ears: NSObject {
         guard running, suspended else { return }
         suspended = false
         do { try startEngine() } catch { log("resume failed: \(error)") }
-        if !muted { beginTask() }
+        resetGate()
+        restartTask()
         log("audio resumed")
     }
 
@@ -334,17 +348,16 @@ final class Ears: NSObject {
         let mono = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: format.sampleRate, channels: 1, interleaved: false)!
         input.removeTap(onBus: 0)
         input.installTap(onBus: 0, bufferSize: 2048, format: format) { [weak self] buffer, _ in
-            guard let self else { return }
+            guard let self, !self.muted else { return }
             let b = Self.monoCopy(buffer, to: mono)
-            if !self.muted {
-                if self.pcmOn { self.pushPCM(b) }
-                if self.modernIsReady { self.modernAppend(b) }
-                else { self.request?.append(b) }
-            }
+            let level = Self.rms(b)
+            if self.pcmOn { self.pushPCM(b) }
+            self.hear(b, level: level)
+            // The HUD only shows the level while a command is being heard.
             let now = Date()
-            if now.timeIntervalSince(self.lastLevelAt) > 0.066 {
+            if self.armed, now.timeIntervalSince(self.lastLevelAt) > 0.066 {
                 self.lastLevelAt = now
-                emit(["type": "level", "v": Double(Self.rms(b))])
+                emit(["type": "level", "v": Double(level)])
             }
         }
         engine.prepare()
@@ -360,7 +373,8 @@ final class Ears: NSObject {
             self.endTask()
             self.engine.stop()
             do { try self.startEngine() } catch { log("engine restart failed: \(error)") }
-            if !self.muted { self.beginTask() }
+            self.resetGate()   // what it held back may be in the old format
+            self.restartTask()
             emit(["type": "restarted"])
             AudioDevices.emitList()
         }
@@ -375,6 +389,80 @@ final class Ears: NSObject {
             emit(["type": "pcm", "b64": pcmPending.base64EncodedString()])
             pcmPending.removeAll(keepingCapacity: true)
         }
+    }
+
+    // MARK: sound gate
+
+    /// One buffer from the microphone: to the recogniser while the gate is open, held back while it is shut.
+    private func hear(_ b: AVAudioPCMBuffer, level: Float) {
+        gateLock.lock()
+        let wanted = gate.hear(level, at: Date().timeIntervalSinceReferenceDate, busy: armed)
+        switch gateState {
+        case .open where wanted:
+            gateLock.unlock()
+            feed(b)
+        case .open:
+            gateState = .closed
+            keep(b)
+            gateLock.unlock()
+            DispatchQueue.main.async { self.gateClosed() }
+        case .opening:
+            keep(b, trim: false)   // main is about to replay them
+            gateLock.unlock()
+        case .closed:
+            keep(b)
+            if wanted { gateState = .opening }
+            gateLock.unlock()
+            if wanted { DispatchQueue.main.async { self.gateOpened() } }
+        }
+    }
+
+    private func feed(_ b: AVAudioPCMBuffer) {
+        if modernIsReady { modernAppend(b) } else { request?.append(b) }
+    }
+
+    /// Keeps the last SoundGate.preroll seconds. Call with gateLock held.
+    private func keep(_ b: AVAudioPCMBuffer, trim: Bool = true) {
+        preroll.append(b)
+        prerollFrames += b.frameLength
+        let limit = AVAudioFrameCount(SoundGate.preroll * b.format.sampleRate)
+        while trim, preroll.count > 1, prerollFrames - preroll[0].frameLength >= limit {
+            prerollFrames -= preroll.removeFirst().frameLength
+        }
+    }
+
+    /// A sound: a fresh task hears the second before it, then everything live.
+    private func gateOpened() {
+        gateLock.lock()
+        defer { gateLock.unlock() }
+        guard gateState == .opening else { return }
+        if running && !muted && !suspended {
+            endTask()
+            beginTask()
+            emit(["type": "restarted"])
+            for b in preroll { feed(b) }
+        }
+        preroll.removeAll()
+        prerollFrames = 0
+        gateState = .open
+    }
+
+    /// Quiet for SoundGate.hold seconds: the task ends until the next sound.
+    private func gateClosed() {
+        gateLock.lock()
+        let closed = gateState == .closed
+        gateLock.unlock()
+        if closed { endTask() }
+    }
+
+    /// Open, with nothing held back.
+    private func resetGate() {
+        gateLock.lock()
+        gate.reset(at: Date().timeIntervalSinceReferenceDate)
+        gateState = .open
+        preroll.removeAll()
+        prerollFrames = 0
+        gateLock.unlock()
     }
 
     // MARK: recognition
@@ -421,9 +509,13 @@ final class Ears: NSObject {
         restartTimer?.invalidate(); restartTimer = nil
     }
 
+    /// A fresh task, if the gate is open; a shut gate starts one when it next opens.
     private func restartTask() {
         endTask()
-        if running && !muted && !suspended { beginTask() }
+        gateLock.lock()
+        let open = gateState == .open
+        gateLock.unlock()
+        if running && !muted && !suspended && open { beginTask() }
     }
 
     private func text(_ t: String, _ final: Bool) {

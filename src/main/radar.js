@@ -34,6 +34,8 @@ class Radar extends EventEmitter {
   constructor() {
     super();
     this.byCwd = new Map();   // cwd -> newest transcript path
+    this.tails = new Map();   // transcript path -> { mod, size, info, scan }: a file is only read again once it changed
+    this.scans = 0;
   }
 
   start(interval = 4000) { this.timer = setInterval(() => this.scan(), interval); this.scan(); }
@@ -49,18 +51,22 @@ class Radar extends EventEmitter {
     try { currentBrain = fs.readFileSync(C.SESSION_FILE, 'utf8').trim(); } catch {}
     const out = [];
     const newest = new Map();
+    const scan = ++this.scans;
     for (const d of dirs) {
       let files = [];
       try { files = fs.readdirSync(path.join(PROJECTS, d)).filter((f) => f.endsWith('.jsonl')); } catch { continue; }
       for (const f of files) {
         const full = path.join(PROJECTS, d, f);
-        let mod;
-        try { mod = fs.statSync(full).mtimeMs; } catch { continue; }
+        let mod, size;
+        try { ({ mtimeMs: mod, size } = fs.statSync(full)); } catch { continue; }
         if (mod < cutoff) continue;
         const id = f.slice(0, -6);
         const isBrain = brainIds.has(id);
         if (isBrain && id !== currentBrain) continue;      // old brain sessions: noise
-        const info = this.tail(full, d);
+        let known = this.tails.get(full);
+        if (!known || known.mod !== mod || known.size !== size) this.tails.set(full, known = { mod, size, info: this.tail(full, d) });
+        known.scan = scan;
+        const info = known.info;
         const age = (Date.now() - mod) / 1000;
         if (!newest.has(info.cwd) || newest.get(info.cwd).mod < mod) newest.set(info.cwd, { file: full, mod });
         out.push({
@@ -71,6 +77,7 @@ class Radar extends EventEmitter {
         });
       }
     }
+    for (const [file, v] of this.tails) if (v.scan !== scan) this.tails.delete(file);   // gone, or older than a day
     for (const [cwd, v] of newest) this.byCwd.set(cwd, v.file);
     const seen = new Set();
     return out.sort((a, b) => b.modified - a.modified).filter((s) => !seen.has(s.cwd) && seen.add(s.cwd)).slice(0, 14);

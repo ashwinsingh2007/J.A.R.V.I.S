@@ -9,7 +9,17 @@ const C = require('./config');
 const { run } = require('./util');
 
 class SystemMonitor extends EventEmitter {
-  start(interval = 3000) { this.timer = setInterval(() => this.tick(), interval); this.tick(); }
+  start(interval = 3000) { this.interval = interval; this.timer = setInterval(() => this.tick(), interval); this.tick(); }
+
+  /** A new pace: slower while nobody sees the HUD, since every tick starts vm_stat and pmset. */
+  pace(interval) {
+    if (!this.timer || interval === this.interval) return;
+    const sooner = interval < this.interval;
+    clearInterval(this.timer);
+    this.interval = interval;
+    this.timer = setInterval(() => this.tick(), interval);
+    if (sooner) this.tick();
+  }
 
   cpu() {
     const t = os.cpus().reduce((a, c) => {
@@ -54,12 +64,24 @@ class SystemMonitor extends EventEmitter {
 class EventInbox extends EventEmitter {
   start() {
     try { this.offset = fs.statSync(C.EVENTS_FILE).size; } catch { this.offset = 0; }   // only new events matter
-    this.timer = setInterval(() => this.poll(), 1000);
+    // Woken by the file changing; the slow poll covers a file made, replaced or not watchable yet.
+    this.watch();
+    this.timer = setInterval(() => this.poll(), 5000);
+  }
+
+  watch() {
+    if (this.watcher) { this.watcher.close(); this.watcher = null; }
+    try {
+      this.ino = fs.statSync(C.EVENTS_FILE).ino;
+      this.watcher = fs.watch(C.EVENTS_FILE, { persistent: false }, () => this.poll());
+      this.watcher.on('error', () => { if (this.watcher) this.watcher.close(); this.watcher = null; });
+    } catch { this.watcher = null; }
   }
 
   poll() {
-    let size;
-    try { size = fs.statSync(C.EVENTS_FILE).size; } catch { return; }
+    let size, ino;
+    try { ({ size, ino } = fs.statSync(C.EVENTS_FILE)); } catch { return; }
+    if (!this.watcher || ino !== this.ino) this.watch();
     if (size < this.offset) this.offset = 0;      // truncated
     if (size === this.offset) return;
     const fd = fs.openSync(C.EVENTS_FILE, 'r');

@@ -2,7 +2,7 @@
 // window.hud.event(...); the page posts messages back through the
 // webkit.messageHandlers.jarvis shim in preload/hud.js.
 //
-// events: 'text' (typed command), 'action' (name, body)
+// events: 'text' (typed command), 'action' (name, body), 'visible' (on)
 const fs = require('fs');
 const path = require('path');
 const EventEmitter = require('events');
@@ -29,7 +29,10 @@ class HudWindow extends EventEmitter {
       title: 'J.A.R.V.I.S',
       backgroundColor: theme.background || '#03050d',
       show: false,
-      webPreferences: { preload: path.join(__dirname, '..', 'preload', 'hud.js'), contextIsolation: true, sandbox: true, backgroundThrottling: false },
+      // Throttled in the background (the default), so a hidden, minimised or covered HUD reports
+      // document.hidden and stops drawing. Nothing that must keep running lives here: JARVIS's voice
+      // and the music play in the audio window, and every timer that matters runs in main.
+      webPreferences: { preload: path.join(__dirname, '..', 'preload', 'hud.js'), contextIsolation: true, sandbox: true, backgroundThrottling: true },
     });
     this.win.loadFile(path.join(__dirname, '..', 'renderer', 'hud', 'index.html'), { query: { theme: theme.theme || 'jarvis', mode: theme.mode || 'dark' } });
     this.win.once('ready-to-show', () => this.win.show());
@@ -42,6 +45,8 @@ class HudWindow extends EventEmitter {
     this.win.on('moved', saveBounds);
     // Closing the window keeps JARVIS running in the menu bar.
     this.win.on('close', (e) => { if (!this.quitting) { e.preventDefault(); this.win.hide(); } });
+    // Whether anyone can see the HUD, so what only feeds it can slow down while nobody does.
+    for (const ev of ['show', 'hide', 'minimize', 'restore']) this.win.on(ev, () => setImmediate(() => this.emit('visible', this.visible)));
 
     ipcMain.on('hud', (e, msg) => {
       if (e.sender !== this.win.webContents || !msg || typeof msg.type !== 'string') return;
@@ -66,6 +71,9 @@ class HudWindow extends EventEmitter {
 
   send(type, payload = {}) { this.push(`window.hud && window.hud.event(${JSON.stringify({ ...payload, type })});`); }
   sendRaw(type, data) { this.push(`window.hud && window.hud.event(${JSON.stringify({ type, data })});`); }
+
+  /** Whether anyone can see the HUD: shown and not minimised. */
+  get visible() { return !this.win.isDestroyed() && this.win.isVisible() && !this.win.isMinimized(); }
 
   show() { if (this.win.isMinimized()) this.win.restore(); this.win.show(); this.win.focus(); }
   toggleFullScreen() { this.show(); this.win.setFullScreen(!this.win.isFullScreen()); }
