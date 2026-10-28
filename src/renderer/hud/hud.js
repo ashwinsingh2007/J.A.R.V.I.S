@@ -222,7 +222,7 @@
     { id: 'vision', name: 'VISION', tier: 'NO CLAUDE NEEDED', about: "Runs on Google's Gemini, with a free tier.", needs: 'A Gemini API key' },
   ];
   let current = 'jarvis';
-  const hubsFor = () => assistants.filter((a) => a.id !== current).slice(0, SLOTS.length).map((a, i) => ({ nx: SLOTS[i].x, ny: SLOTS[i].y, ...SLOTS[i], id: a.id, name: a.name, role: a.tier, about: a.about, needs: a.needs }));
+  const hubsFor = () => assistants.filter((a) => a.id !== current).slice(0, SLOTS.length).map((a, i) => ({ nx: SLOTS[i].x, ny: SLOTS[i].y, ...SLOTS[i], id: a.id, name: a.name, role: a.tier, about: a.about, needs: a.needs, color: a.color }));
   let HUBS = hubsFor();
   const crew = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   crew.id = 'crew';
@@ -305,7 +305,7 @@
       const d = pts.length > 1 ? curve(pts) : '';
       const sparks = d ? [0, 1].map((k) => `<circle class="spark" r="0.6"><animateMotion dur="${f(2.4 + pts.length * 0.35)}s" begin="${f(k * 1.3 + rnd())}s" repeatCount="indefinite" path="${d}"/></circle>`).join('') : '';
       const right = h.x >= 0, lx = h.x + (right ? 5.5 : -5.5), anchor = right ? 'start' : 'end';
-      return `<g class="mate${h.extra ? ' extra' : ''}" id="crew-${h.id}" data-id="${h.id}" style="--i:${n};--hx:${h.x};--hy:${h.y};--nx:${h.nx};--ny:${h.ny}">`
+      return `<g class="mate${h.extra ? ' extra' : ''}" id="crew-${h.id}" data-id="${h.id}" style="--i:${n};--hx:${h.x};--hy:${h.y};--nx:${h.nx};--ny:${h.ny}${/^#[0-9a-f]{6}$/i.test(h.color || '') ? `;--cyan:${h.color}` : ''}">`
         + (d ? `<path class="fire" d="${d}" style="--d:${f(rnd())}s"/>` : '') + sparks
         + `<circle class="hit" cx="${f(h.x)}" cy="${f(h.y)}" r="7"/><circle class="aura" cx="${f(h.x)}" cy="${f(h.y)}" r="5.6"/><circle class="halo" cx="${f(h.x)}" cy="${f(h.y)}" r="3.4"/><circle class="ring" cx="${f(h.x)}" cy="${f(h.y)}" r="2.1"/><circle class="core" cx="${f(h.x)}" cy="${f(h.y)}" r="1.05"/>`
         + `<text class="nm" text-anchor="${anchor}" x="${f(lx)}" y="${f(h.y - 0.3)}">${h.name}</text>`
@@ -324,6 +324,7 @@
   function setAssistants(e) {
     if (Array.isArray(e.list) && e.list.length) { assistants = e.list; sel = { id: '' }; }
     if (e.env) env = e.env;
+    if (e.roles) catalog = { roles: e.roles, tools: e.tools || {}, guards: e.guards || {} };
     if (e.id) current = e.id;
     if (e.edit) { editing = e.edit; aNote(`Made ${(assistants.find((a) => a.id === e.edit) || {}).name}. Change it here, then use it.`); }
     else if (e.list) aNote('');
@@ -338,6 +339,7 @@
     $('ask-input').placeholder = `Type to ${me.name}…`;
     $('power').querySelector('b').textContent = `${body.classList.contains('disabled') ? 'ENABLE' : 'DISABLE'} ${me.name}`;
     renderAssistantCards();
+    if (ext.skills.length) renderSkillsPage();
   }
   // ---------- the Agents tab ----------
   // A card for each agent on the left; the open one's whole setup on the right. Save stores it for that
@@ -345,6 +347,9 @@
   // the speech engine every agent shares).
   let editing = '', filled = '';
   let env = { ready: {}, ollamaModels: [], engine: 'kokoro' };
+  let catalog = { roles: {}, tools: {}, guards: {} };   // the roles, tools and safety levels to choose from
+  const okColor = (c) => /^#[0-9a-f]{6}$/i.test(c || '');
+  const paint = (elx, c) => { if (okColor(c)) elx.style.setProperty('--cyan', c); else elx.style.removeProperty('--cyan'); };
   const BRAINS = { auto: 'Best available', 'claude-code': 'Claude Code', anthropic: 'Anthropic API', gemini: 'Gemini', ollama: 'Ollama' };
   const ENGINES = { kokoro: 'Kokoro', elevenlabs: 'ElevenLabs', edge: 'Edge neural', native: 'macOS voice' };
   const cap = (x) => { x = String(x || '').replace(/\bclaude\b/g, 'Claude'); return x.charAt(0).toUpperCase() + x.slice(1); };
@@ -380,7 +385,10 @@
       const skills = a.skills ? a.skills.length : ext.skills.length;
       body.append(n, el('div', 't', cap(String(a.tier).toLowerCase())), el('div', 'm', brainLine(st)),
         el('div', 'm', [workerOn(st) ? `Worker ${cap(st.agentModel)}` : 'No worker', voiceLine(st), skills ? `${skills} skills` : ''].filter(Boolean).join(' · ')));
-      b.append(el('span', 'ag-face', a.name.charAt(0)), body);
+      const face = el('span', 'ag-face', a.name.charAt(0));
+      paint(face, a.color);
+      body.append(el('div', 'm', [catalog.roles[a.role] && a.role !== 'none' ? (a.role === 'custom' ? 'Own role' : catalog.roles[a.role]) : '', a.guard && a.guard !== 'standard' ? (catalog.guards[a.guard] || {}).label : ''].filter(Boolean).join(' · ')));
+      b.append(face, body);
       b.addEventListener('click', () => { editing = a.id; renderAssistantCards(); });
       return b;
     }));
@@ -388,6 +396,8 @@
     if (!a) return;
     $('a-edit-title').textContent = a.name;
     $('a-face').textContent = a.name.charAt(0);
+    paint($('a-face'), a.color);
+    $('a-export').title = `Save ${a.name} to a file`;
     $('a-edit-tier').textContent = cap(String(a.tier).toLowerCase()) + (a.needs ? ` · Needs ${a.needs}` : '');
     $('a-edit-about').textContent = a.about;
     $('a-use').hidden = a.id === current;
@@ -395,12 +405,27 @@
     $('a-inuse').hidden = a.id !== current;
     $('a-reset').hidden = !a.changed;
     $('a-delete').hidden = !a.custom;
-    $('a-create').dataset.from = a.id;
+    const from = $('a-new-from'), keepFrom = from.value;
+    from.replaceChildren(new Option('Start from scratch', 'blank'), ...assistants.map((x) => new Option(`Copy of ${x.name}`, x.id)));
+    from.value = [...from.options].some((o) => o.value === keepFrom) ? keepFrom : 'blank';
+    renderTraining(a);
     document.querySelectorAll('#a-edit [data-own]').forEach((li) => { li.hidden = !a.custom; });
     // Fill the form only when another agent opens or its saved setup changed, so typing isn't lost.
-    const key = a.id + JSON.stringify([a.settings, a.persona, a.wakeWords, a.name, a.tier, a.about]);
+    const key = a.id + JSON.stringify([a.settings, a.persona, a.wakeWords, a.name, a.tier, a.about, a.role, a.roleText, a.commands, a.color, a.sharedMemory, a.guard, a.blockedPaths, a.tools]);
     if (filled !== key) {
+      if (filled.slice(0, a.id.length + 1) !== a.id + '[') { $('a-try-out').hidden = true; $('a-try-note').textContent = ''; }
       filled = key;
+      $('a-role').replaceChildren(...Object.entries(catalog.roles).map(([k, label]) => new Option(k === a.defaultRole && k !== 'none' ? `${label} (its default)` : label, k)));
+      $('a-role').value = a.role || 'none';
+      $('a-role-text').value = a.roleText || '';
+      cmds = (a.commands || []).map((c) => ({ ...c }));
+      renderCmds();
+      color = a.color || '';
+      $('a-color').value = okColor(color) ? color : (getComputedStyle(document.body).getPropertyValue('--cyan').trim().match(/^#[0-9a-f]{6}$/i) || ['#3fd0ff'])[0];
+      $('a-shared').checked = a.sharedMemory !== false;
+      guard = a.guard || 'standard';
+      renderGuard();
+      $('a-blocked').value = (a.blockedPaths || []).join('\n');
       $('a-name').value = a.name; $('a-tier').value = a.tier; $('a-about').value = a.about;
       $('a-wake').value = (a.wakeWords || []).join(', ');
       $('a-persona').value = a.persona || '';
@@ -411,8 +436,9 @@
         f.value = v ?? '';
       }
     }
-    if (sel.id !== a.id) sel = { id: a.id, skills: a.skills ? new Set(a.skills) : null, mcp: a.mcp ? new Set(a.mcp) : null };
+    if (sel.id !== a.id) sel = { id: a.id, skills: a.skills ? new Set(a.skills) : null, mcp: a.mcp ? new Set(a.mcp) : null, tools: a.tools ? new Set(a.tools) : null };
     syncAgent();
+    syncRole();
     renderPicks();
   }
 
@@ -436,6 +462,101 @@
     $('ag-voice-note').textContent = `Every agent speaks through ${ENGINES[env.engine] || env.engine}. Change the engine in Settings › Voice.`;
   }
   document.querySelectorAll('#a-edit [data-s]').forEach((f) => f.addEventListener('change', syncAgent));
+
+  // The editor's tabs.
+  document.querySelectorAll('#a-tabs button').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('#a-tabs button').forEach((x) => x.classList.toggle('on', x === b));
+    document.querySelectorAll('#a-edit .at').forEach((t) => { t.hidden = t.dataset.at !== b.dataset.at; });
+  }));
+
+  // Role: a custom one is written in the user's words.
+  function syncRole() {
+    const r = $('a-role').value;
+    $('a-role-own').hidden = r !== 'custom';
+    $('a-role-note').textContent = r === 'none' ? 'An all-rounder with no particular focus.' : '';
+  }
+  $('a-role').addEventListener('change', syncRole);
+
+  // Quick commands: name and what it does.
+  let cmds = [];
+  function renderCmds() {
+    $('a-cmd-count').textContent = cmds.length ? String(cmds.length) : '';
+    $('a-cmds').replaceChildren(...cmds.map((c, i) => {
+      const row = li();
+      const n = Object.assign(document.createElement('input'), { className: 'key name', value: c.name, placeholder: 'standup', maxLength: 30 });
+      const t = Object.assign(document.createElement('input'), { className: 'key', value: c.prompt, placeholder: 'What it should do', maxLength: 600 });
+      n.addEventListener('input', () => { c.name = n.value; });
+      t.addEventListener('input', () => { c.prompt = t.value; });
+      const x = el('button', 'btn small', 'Remove');
+      x.addEventListener('click', () => { cmds.splice(i, 1); renderCmds(); });
+      row.append(n, t, x);
+      return row;
+    }));
+  }
+  $('a-cmd-add').addEventListener('click', () => { if (cmds.length < 20) { cmds.push({ name: '', prompt: '' }); renderCmds(); $('a-cmds').lastChild.querySelector('input').focus(); } });
+
+  // Colour: '' is the theme's.
+  let color = '';
+  $('a-color').addEventListener('input', () => { color = $('a-color').value; paint($('a-face'), color); });
+  $('a-color-reset').addEventListener('click', () => { color = ''; paint($('a-face'), ''); });
+
+  // Guardrails: the safety level and the tools.
+  let guard = 'standard';
+  function renderGuard() {
+    $('a-guard').replaceChildren(...Object.entries(catalog.guards).map(([k, g]) => {
+      const b = el('button', 'level' + (k === guard ? ' on' : ''));
+      b.append(el('b', '', g.label), el('small', '', g.about));
+      b.addEventListener('click', () => { guard = k; renderGuard(); });
+      return b;
+    }));
+  }
+  function renderTools() {
+    const ids = Object.keys(catalog.tools);
+    $('a-tools').replaceChildren(...ids.map((k) => pickRow(!sel.tools || sel.tools.has(k), catalog.tools[k].label, catalog.tools[k].about, null, (on) => toggle('tools', ids, k, on))));
+    $('a-tool-count').textContent = ids.length ? `${sel.tools ? sel.tools.size : ids.length} of ${ids.length} on` : '';
+  }
+
+  // Training: the facts only this agent keeps. Adding or forgetting one takes effect at once.
+  function renderTraining(a) {
+    const facts = a.memory || [];
+    $('a-mem-count').textContent = facts.length ? String(facts.length) : '';
+    $('a-mem').replaceChildren(...(facts.length ? facts.map((f) => {
+      const row = li();
+      row.append(span('ds wrap', f.text), span('src', String(f.added || '').slice(0, 10)));
+      const x = el('button', 'btn small', 'Forget');
+      x.addEventListener('click', () => post({ type: 'action', name: 'assistant-memory-forget', id: a.id, fact: f.id }));
+      row.append(x);
+      return row;
+    }) : [Object.assign(li('empty'), { textContent: `Nothing yet. Teach ${a.name} something above.` })]));
+  }
+  const teach = () => {
+    const v = $('a-mem-new').value.trim();
+    if (!v) return;
+    post({ type: 'action', name: 'assistant-memory-add', id: editing, text: v });
+    $('a-mem-new').value = '';
+  };
+  $('a-mem-add').addEventListener('click', teach);
+  $('a-mem-new').addEventListener('keydown', (e) => { if (e.key === 'Enter') teach(); });
+
+  // Try it: one reply from this agent, without switching.
+  $('a-try-go').addEventListener('click', () => {
+    const v = $('a-try-text').value.trim();
+    if (!v) return;
+    $('a-try-go').disabled = true;
+    $('a-try-note').textContent = `${$('a-edit-title').textContent} is thinking…`;
+    $('a-try-out').hidden = true;
+    post({ type: 'action', name: 'assistant-try', id: editing, text: v });
+  });
+  function tried(e) {
+    if (e.id !== editing) return;
+    $('a-try-go').disabled = false;
+    $('a-try-note').textContent = '';
+    $('a-try-out').textContent = e.error || e.text;
+    $('a-try-out').classList.toggle('bad', !!e.error);
+    $('a-try-out').hidden = false;
+  }
+  $('a-export').addEventListener('click', () => post({ type: 'action', name: 'assistant-export', id: editing }));
+  $('a-import').addEventListener('click', () => { if (confirm('Import an agent from a file? Only import files you trust: its persona and role shape what it does, though the safety rules still apply.')) post({ type: 'action', name: 'assistant-import' }); });
 
   // ---------- skills and MCP servers ----------
   // ext: what main found on this Mac (Settings › Skills & MCP), sel: the open assistant's ticks
@@ -472,32 +593,23 @@
     const names = ext.mcp.map((m) => m.name);
     $('a-mcp').replaceChildren(...(ext.mcp.length ? ext.mcp.map((m) => pickRow(isOn('mcp', m.name), m.name, m.target, span('st ' + m.status.split(' ')[0], cap(m.status)), (on) => toggle('mcp', names, m.name, on))) : [Object.assign(li('empty'), { textContent: 'Checking your MCP servers…' })]));
     $('a-mcp-count').textContent = ext.mcp.length ? `${sel.mcp ? sel.mcp.size : ext.mcp.length} of ${ext.mcp.length} on` : '';
+    renderTools();
   }
   $('a-skill-find').addEventListener('input', renderPicks);
   $('a-skill-all').addEventListener('click', () => { sel.skills = null; renderPicks(); });
   $('a-skill-none').addEventListener('click', () => { sel.skills = new Set(); renderPicks(); });
 
   // Settings › Skills & MCP: what's here, and getting more.
-  function xNote(text, bad) { $('x-note').textContent = text || ''; $('x-note').classList.toggle('bad', !!bad); }
+  function xNote(text, bad) { for (const id of ['x-note', 'k-note']) { $(id).textContent = text || ''; $(id).classList.toggle('bad', !!bad); } }
   const busy = (text) => xNote(text);
   function setExt(e) {
     ext = { skills: e.skills || [], mcp: e.mcp || [], markets: e.markets || [] };
     if (e.error) xNote(e.error, true); else if (e.done) xNote(e.done);
-    $('sc-ext').textContent = `${ext.skills.length} skills · ${ext.mcp.length} MCP servers`;
+    $('sc-ext').textContent = `${ext.mcp.length} servers and connectors`;
+    $('sc-skills').textContent = `${ext.skills.length} on this Mac`;
     if (assistants.length) renderAssistantCards();
     renderPicks();
-    $('x-skill-count').textContent = String(ext.skills.length);
-    $('x-skills').replaceChildren(...(ext.skills.length ? ext.skills.map((x) => {
-      const row = li();
-      row.append(span('nm', x.name), span('ds', x.description), span('src', SRC[x.source] || String(x.plugin)));
-      row.title = x.description;
-      if (x.source === 'jarvis') {
-        const b = document.createElement('button'); b.className = 'btn small'; b.textContent = 'Remove';
-        b.addEventListener('click', () => { if (confirm(`Remove the skill ${x.name}?`)) { busy(`Removing ${x.name}…`); post({ type: 'action', name: 'ext:skill-remove', id: x.id }); } });
-        row.append(b);
-      }
-      return row;
-    }) : [Object.assign(li('empty'), { textContent: 'No skills yet' })]));
+    renderSkillsPage();
     const ms = $('x-market'), keep = ms.value;
     ms.replaceChildren(...ext.markets.map((m) => new Option(`${m.name} (${m.plugins.length})`, m.name)));
     if (ext.markets.some((m) => m.name === keep)) ms.value = keep;
@@ -514,6 +626,59 @@
       return row;
     }) : [Object.assign(li('empty'), { textContent: 'Checking…' })]));
   }
+  // Settings › Skills: every skill, which agents use it, and what it costs each turn. A tick changes that
+  // agent straight away (null = all skills, so new ones are on by default).
+  const tokens = (x) => Math.ceil((x.name.length + x.description.length) / 4) + 8;
+  const kfmt = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
+  function agentSkills(a) { return a.skills ? new Set(a.skills) : null; }
+  function setAgentSkill(a, id, on) {
+    const all = ext.skills.map((x) => x.id);
+    const cur = agentSkills(a) || new Set(all);
+    if (on) cur.add(id); else cur.delete(id);
+    const list = [...cur].filter((x) => all.includes(x));
+    a.skills = list.length === all.length ? null : list;
+    if (sel.id === a.id) sel.skills = a.skills ? new Set(a.skills) : null;
+    post({ type: 'action', name: 'assistant-update', id: a.id, skills: a.skills || 'all' });
+    renderSkillsPage();
+  }
+  function renderSkillsPage() {
+    const find = $('k-find').value.trim().toLowerCase(), src = $('k-src').value;
+    $('k-cost').replaceChildren(...assistants.map((a) => {
+      const on = agentSkills(a);
+      const list = on ? ext.skills.filter((x) => on.has(x.id)) : ext.skills;
+      const c = el('span', 'kc');
+      paint(c, a.color);
+      c.append(el('b', '', a.name), el('small', '', `${list.length} skills · ~${kfmt(list.reduce((n, x) => n + tokens(x), 0))} tokens a turn`));
+      return c;
+    }));
+    const shown = ext.skills.filter((x) => (!src || x.source === src) && (!find || (x.name + ' ' + x.description + ' ' + (x.plugin || '')).toLowerCase().includes(find)));
+    $('k-skills').replaceChildren(...(shown.length ? shown.map((x) => {
+      const row = li();
+      const top = el('div', 'krow');
+      top.append(span('nm', x.name), span('src', SRC[x.source] || String(x.plugin)), span('src', `~${tokens(x)} tokens`));
+      const who = el('div', 'kwho');
+      for (const a of assistants) {
+        const on = !agentSkills(a) || agentSkills(a).has(x.id);
+        const b = el('button', 'kchip' + (on ? ' on' : ''), a.name);
+        paint(b, a.color);
+        b.title = `${on ? 'Turn off' : 'Turn on'} ${x.name} for ${a.name}`;
+        b.addEventListener('click', () => setAgentSkill(a, x.id, !on));
+        who.append(b);
+      }
+      if (x.source === 'jarvis') {
+        const b = el('button', 'btn small', 'Remove');
+        b.addEventListener('click', () => { if (confirm(`Remove the skill ${x.name}?`)) { busy(`Removing ${x.name}…`); post({ type: 'action', name: 'ext:skill-remove', id: x.id }); } });
+        who.append(b);
+      }
+      const box = el('div', 'kbody');
+      box.append(top, span('ds wrap', x.description), who);
+      row.append(box);
+      return row;
+    }) : [Object.assign(li('empty'), { textContent: ext.skills.length ? 'No skill matches' : 'Looking for skills…' })]));
+  }
+  $('k-find').addEventListener('input', renderSkillsPage);
+  $('k-src').addEventListener('change', renderSkillsPage);
+
   function renderPlugins() {
     const m = ext.markets.find((x) => x.name === $('x-market').value);
     const find = $('x-find').value.trim().toLowerCase();
@@ -562,7 +727,12 @@
     if (!a) return;
     const settings = {};
     document.querySelectorAll('#a-edit [data-s]').forEach((f) => { if (f.value !== '') settings[f.dataset.s] = f.type === 'number' ? Number(f.value) : f.value.trim(); });
-    const patch = { id: a.id, persona: $('a-persona').value, wakeWords: $('a-wake').value, settings };
+    const patch = {
+      id: a.id, persona: $('a-persona').value, wakeWords: $('a-wake').value, settings,
+      role: $('a-role').value, roleText: $('a-role-text').value, commands: cmds.filter((c) => c.name.trim() && c.prompt.trim()),
+      color, sharedMemory: $('a-shared').checked, guard, blockedPaths: $('a-blocked').value.split('\n'),
+      tools: sel.id === a.id && sel.tools ? [...sel.tools] : 'all',
+    };
     if (sel.id === a.id && ext.skills.length) patch.skills = sel.skills ? [...sel.skills] : 'all';
     if (sel.id === a.id && ext.mcp.length) patch.mcp = sel.mcp ? [...sel.mcp] : 'all';
     if (a.custom) Object.assign(patch, { title: $('a-name').value, tier: $('a-tier').value, about: $('a-about').value });
@@ -575,7 +745,7 @@
   $('a-create').addEventListener('click', () => {
     const name = $('a-new-name').value.trim();
     if (!name) { aNote('Type a name for the new agent first.', true); return; }
-    post({ type: 'action', name: 'assistant-create', from: editing, title: name });
+    post({ type: 'action', name: 'assistant-create', from: $('a-new-from').value, title: name });
     $('a-new-name').value = '';
   });
 
@@ -729,7 +899,7 @@
     document.querySelectorAll('#nav a').forEach((a) => a.classList.toggle('active', a.dataset.view === v));
     if (v === 'cc') resize();
     if (v === 'history') { const c = $('chat'); c.scrollTop = c.scrollHeight; }
-    if (v === 'agents') post({ type: 'action', name: 'ext:list' });   // the skills and servers to tick
+    if (v === 'agents' || v === 'settings') post({ type: 'action', name: 'ext:list' });   // the skills and servers to tick
   }
   document.querySelectorAll('#nav a').forEach((a) => a.addEventListener('click', () => showView(a.dataset.view)));
   if (location.hash.length > 1 && document.getElementById('v-' + location.hash.slice(1))) setTimeout(() => showView(location.hash.slice(1)), 4500);
@@ -1140,6 +1310,7 @@
         case 'assistants': setAssistants(e); break;
         case 'assistant': setAssistants({ id: e.id }); break;
         case 'assistant-error': aNote(e.text, true); break;
+        case 'assistant-try': tried(e); break;
         case 'ext': setExt(e); break;
         case 'context': setContext(e.data); break;
         case 'schedule': setSchedule(e.data); break;

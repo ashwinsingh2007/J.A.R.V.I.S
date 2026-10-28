@@ -696,11 +696,57 @@ input.key:focus { outline: none; border-color: var(--cyan); }
 .savebar { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin: 30px -40px 0; padding: 14px 40px; border-top: 1px solid var(--hair); background: var(--pop-bg); }
 .savebar .msg { margin-right: auto; }
 
+/* the agent editor: tabs, role, commands, training, guardrails, try it */
+.ag-tabs { position: sticky; top: 0; z-index: 2; display: flex; gap: 4px; flex-wrap: wrap; margin: 14px -40px 18px; padding: 10px 40px 0; border-bottom: 1px solid var(--hair); background: var(--pop-bg); }
+/* covers the page's top padding, so nothing scrolls into view above the sticky tabs */
+.ag-tabs::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 64px; background: var(--pop-bg); }
+.ag-tabs button { height: 40px; padding: 0 14px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted); font: 500 14.5px var(--font-ui); cursor: pointer; }
+.ag-tabs button:hover { color: var(--bright); }
+.ag-tabs button.on { color: var(--bright); border-bottom-color: var(--cyan); }
+#a-edit .at[hidden], #a-role-own[hidden] { display: none !important; }
+#a-role-own { padding-bottom: 12px; }
+#a-role-own textarea { min-height: 80px; }
+.ag-new { display: grid; gap: 8px; margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--hair); }
+.ag-new h3 { margin: 0; }
+.ag-new .pickbar { margin: 0; }
+.ag-new .pickbar select { flex: 1; width: auto; }
+.ag-new input.key { max-width: none; }
+.cmds { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 8px; }
+.cmds li { display: flex; gap: 8px; align-items: center; }
+.cmds input.key { flex: 1; max-width: none; }
+.cmds input.key.name { flex: 0 0 150px; }
+.ui input[type=color] { width: 44px; height: 34px; padding: 2px; border: 1px solid var(--line); border-radius: var(--r2); background: var(--field-bg); cursor: pointer; }
+.levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.level { display: grid; gap: 4px; text-align: left; padding: 14px; border-radius: var(--r2); border: 1px solid var(--line); background: rgba(var(--rgb), 0.04); color: var(--bright); cursor: pointer; }
+.level b { font: 600 15px var(--font-ui); }
+.level small { font: 13px/1.4 var(--font-ui); color: var(--muted); }
+.level.on { border-color: var(--cyan); background: rgba(var(--rgb), 0.16); box-shadow: inset 0 0 0 1px var(--cyan); }
+.ui .picks .ds.wrap { white-space: normal; overflow: visible; }
+.tryout { white-space: pre-wrap; padding: 16px 18px; border-radius: var(--r); border: 1px solid var(--hair); background: rgba(var(--rgb), 0.05); font: 15px/1.6 var(--font-ui); color: var(--bright); margin-bottom: 20px; }
+.tryout.bad { color: var(--red); }
+.tryout[hidden] { display: none; }
+/* Settings › Skills */
+.kcost { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 6px; }
+.kc { display: grid; padding: 8px 12px; border-radius: var(--r2); border: 1px solid var(--hair); border-left: 3px solid var(--cyan); background: rgba(var(--rgb), 0.04); }
+.kc b { font: 600 13.5px var(--font-ui); color: var(--bright); }
+.kc small { font: 12.5px var(--font-ui); color: var(--muted); }
+.ui .kskills { max-height: none; }
+.ui .kskills li { align-items: flex-start; }
+.kbody { display: grid; gap: 6px; flex: 1; min-width: 0; }
+.krow { display: flex; gap: 12px; align-items: baseline; }
+.krow .src:first-of-type { margin-left: auto; }
+.kwho { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.kchip { height: 26px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--faint); font: 600 11.5px var(--font-ui); letter-spacing: 0.04em; cursor: pointer; }
+.kchip.on { border-color: var(--cyan); background: rgba(var(--rgb), 0.14); color: var(--cyan); }
+.kwho .btn.small { margin-left: auto; height: 26px; }
+
 @media (max-width: 900px) {
   .ui { flex-direction: column; }
   .ui .side, .ui .ag-list { width: auto; max-height: 34vh; border-right: 0; border-bottom: 1px solid var(--hair); padding: 16px; }
   .ui .main { padding: 22px 20px 0; }
   .savebar { margin: 24px -20px 0; padding: 12px 20px; }
+  .ag-tabs { margin: 12px -20px 16px; padding: 8px 20px 0; }
+  .cmds li { flex-wrap: wrap; }
   .ui .rows.form select { width: 200px; }
 }
 /* A hidden window keeps nothing moving. */

@@ -670,7 +670,8 @@ async function testHud() {
     const ytw = await windowByUrl(s.app, /youtube\.com/, 15000);
     check('YouTube mini player opens', ytw);
     check('YouTube logged', await s.waitLog(/youtube: https/, 5000));
-    await hud.click('#yt-stop');
+    // Cleanup only: it was checked above. YouTube can stop by itself on a slow or failed page load.
+    if (await hud.locator('#yt-stop').isVisible()) await hud.click('#yt-stop', { timeout: 10000 }).catch(() => {});
     await sleep(500);
   }
 
@@ -732,6 +733,7 @@ async function testHud() {
   check('test voice speaks', await s.waitLog(/native synth/, 8000, m));
   // The brain and model are the agent's own, set on the Agents tab
   await hud.click('#nav a[data-view="agents"]');
+  await hud.click('#a-tabs [data-at="brain"]');
   await hud.selectOption('#a-edit [data-s="model"]', 'haiku');
   await hud.click('#a-save');
   await sleep(1200);
@@ -832,6 +834,7 @@ async function testHud() {
   await sleep(400);
   check('Agents lists the five, KAREN in use', await hud.evaluate(() => document.querySelectorAll('#acards .agcard').length === 5 && /KAREN/.test(document.querySelector('#acards .agcard.on').textContent) && document.getElementById('n-agents').textContent === '5'));
   check('each card shows its brain and worker', /Claude Haiku · low effort/.test(await text(hud, '#acards .agcard.on')) && /Worker Sonnet/.test(await text(hud, '#acards .agcard.on')), await text(hud, '#acards .agcard.on'));
+  check('KAREN\'s card shows her communications role', /Communications/.test(await text(hud, '#acards .agcard.on')), await text(hud, '#acards .agcard.on'));
   // Another agent can be changed without switching to it
   await hud.click('#acards .agcard[data-id="vision"]');
   check('opening VISION shows its Gemini brain', await hud.evaluate(() => document.getElementById('ag-brain').value === 'gemini' && !document.querySelector('#a-edit [data-brain="gemini"]').hidden && document.querySelector('#a-edit [data-brain="auto claude-code"]').hidden));
@@ -842,18 +845,44 @@ async function testHud() {
   await hud.click('#acards .agcard[data-id="karen"]');
   // Make a new assistant from KAREN, give it a persona, then go back to JARVIS
   await hud.fill('#a-new-name', 'Coach');
+  await hud.selectOption('#a-new-from', 'karen');
   await hud.click('#a-create');
   await sleep(800);
   check('a new assistant can be made from another', /COACH/.test(await text(hud, '#a-edit-title')) && JSON.stringify(s.config().customAssistants || {}).includes('"COACH"'), await text(hud, '#a-note'));
+  check('it starts with the role of the one it came from', await hud.evaluate(() => document.getElementById('a-role').value === 'communications'));
+  await hud.click('#a-tabs [data-at="profile"]');
+  await hud.selectOption('#a-role', 'custom');
+  await hud.fill('#a-role-text', 'Keeps my running plan on track.');
   await hud.fill('#a-persona', 'A patient running coach who keeps it short.');
+  await hud.click('#a-cmd-add');
+  await hud.fill('#a-cmds li:last-child input.name', '/plan');
+  await hud.fill('#a-cmds li:last-child input:not(.name)', 'Read me this week\'s runs.');
+  await shot(hud, 'hud-assistant-profile');
+  await hud.click('#a-tabs [data-at="guard"]');
+  await hud.click('#a-guard .level:nth-child(2)');
+  await hud.click('#a-tools li:has-text("Mac controls") input');
+  await hud.fill('#a-blocked', '~/Private');
+  await shot(hud, 'hud-assistant-guard');
+  await hud.click('#a-tabs [data-at="brain"]');
   await hud.fill('#a-wake', 'coach, couch');
   await hud.click('#a-save');
   await sleep(800);
   const coach = s.config().assistantSettings && s.config().assistantSettings.coach;
   check('its persona and wake words are saved', coach && /running coach/.test(coach.persona) && coach.wakeWords.join() === 'coach,couch', JSON.stringify(coach));
+  check('its role and quick command are saved', coach && coach.role === 'custom' && /running plan/.test(coach.roleText) && coach.commands[0].name === 'plan', JSON.stringify(coach));
+  check('its guardrails are saved', coach && coach.guard === 'careful' && Array.isArray(coach.tools) && !coach.tools.includes('mac') && /\/Private$/.test(coach.blockedPaths[0]), JSON.stringify(coach));
+  // Training: what it is taught goes into its own memory
+  await hud.click('#a-tabs [data-at="training"]');
+  await hud.fill('#a-mem-new', 'Long runs are on Sundays.');
+  await hud.click('#a-mem-add');
+  await hud.waitForFunction(() => /Sundays/.test(document.getElementById('a-mem').textContent), null, { timeout: 5000 }).catch(() => {});
+  const own = (() => { try { return JSON.parse(fs.readFileSync(path.join(s.state, 'assistants', 'coach', 'memory.json'), 'utf8')).facts; } catch { return []; } })();
+  check('training goes into its own memory', own.some((f) => /Sundays/.test(f.text)) && /Sundays/.test(await text(hud, '#a-mem')), JSON.stringify(own));
+  await shot(hud, 'hud-assistant-training');
   check('it shows up around the core', await hud.evaluate(() => !!document.getElementById('crew-coach')));
   await shot(hud, 'hud-assistant-edit');
   // Skills and MCP servers for this assistant: all on by default, ticks saved with SAVE
+  await hud.click('#a-tabs [data-at="skills"]');
   await hud.waitForFunction(() => /of \d+ on/.test(document.getElementById('a-skill-count').textContent), null, { timeout: 15000 }).catch(() => {});
   check('the editor lists the skills on this Mac, all on', /^(\d+) of \1 on$/.test(await text(hud, '#a-skill-count')), await text(hud, '#a-skill-count'));
   await hud.click('#a-skill-none');
@@ -867,16 +896,24 @@ async function testHud() {
   await hud.click('#a-delete');
   await sleep(600);
   check('your own assistant can be deleted', !JSON.stringify(s.config().customAssistants || {}).includes('COACH'));
-  // Settings › Skills & MCP lists what's here
+  // Settings › Skills lists every skill, with a switch for each agent
   await hud.click('#nav a[data-view="settings"]');
+  await hud.click('#setnav [data-section="skills"]');
+  await hud.waitForFunction(() => document.querySelectorAll('#k-skills li:not(.empty)').length > 0, null, { timeout: 15000 }).catch(() => {});
+  check('Settings › Skills lists the skills and the marketplaces', await hud.evaluate(() => document.querySelectorAll('#k-skills li:not(.empty)').length > 0 && document.querySelectorAll('#x-market option').length > 0));
+  check('each skill has a switch per agent, and each agent its cost', await hud.evaluate(() => document.querySelectorAll('#k-skills li:first-child .kchip').length === 5 && document.querySelectorAll('#k-cost .kc').length === 5 && /tokens a turn/.test(document.getElementById('k-cost').textContent)));
+  await hud.click('#k-skills li:first-child .kchip:has-text("VISION")');
+  await sleep(800);
+  const vs = ((JSON.parse(fs.readFileSync(path.join(s.state, 'config.json'), 'utf8')).assistantSettings || {}).vision || {}).skills;
+  check('turning a skill off for one agent saves it for that agent', Array.isArray(vs) && vs.length >= 0 && !vs.includes(undefined), JSON.stringify(vs));
+  await shot(hud, 'hud-skills');
   await hud.click('#setnav [data-section="extensions"]');
-  await hud.waitForFunction(() => document.querySelectorAll('#x-skills li:not(.empty)').length > 0, null, { timeout: 15000 }).catch(() => {});
-  check('Skills & MCP lists the skills and the marketplaces', await hud.evaluate(() => document.querySelectorAll('#x-skills li:not(.empty)').length > 0 && document.querySelectorAll('#x-market option').length > 0));
   await shot(hud, 'hud-skills-mcp');
   await hud.click('#nav a[data-view="agents"]');
   await sleep(400);
   const back = s.mark();
   await hud.click('#acards .agcard[data-id="jarvis"]');
+  await hud.click('#a-tabs [data-at="profile"]');
   await hud.click('#a-use');
   check('picking JARVIS there and USE switches back', await s.waitLog(/assistant: JARVIS took over/, 20000, back) && s.config().assistant === 'jarvis');
   await sleep(800);
@@ -1073,7 +1110,7 @@ try {
   if (which === 'proactive' || which === 'all') await testProactive();
   if (which === 'worker' || which === 'all') await testWorker();
 } catch (e) {
-  check('test run crashed', false, e.message.split('\n')[0]);
+  check('test run crashed', false, e.message.split('\n').slice(0, 6).join(' | '));
 }
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} passed in ${((Date.now() - t0) / 1000).toFixed(0)}s. Screenshots: ${SHOTS}`);

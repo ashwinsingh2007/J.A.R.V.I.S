@@ -7,7 +7,7 @@
   const $ = (id) => document.getElementById(id);
   const post = (msg) => { try { window.webkit.messageHandlers.jarvis.postMessage(msg); } catch (e) { /* demo */ } };
   const ask = (name, extra = {}) => post({ type: 'action', name, ...extra });
-  const TITLES = { general: 'General', look: 'Appearance', brain: 'Brains & keys', extensions: 'Skills & MCP', access: 'Access', ears: 'Listening', voice: 'Voice', extras: 'Telegram & extras', system: 'System' };
+  const TITLES = { general: 'General', look: 'Appearance', brain: 'Brains & keys', skills: 'Skills', extensions: 'MCP servers', access: 'Access', ears: 'Listening', voice: 'Voice', extras: 'Telegram & extras', system: 'System' };
 
   let info = null;           // setupInfo() from main: cfg (secrets as has_*), found, installed, brain, workerAvailable
   let page = '';
@@ -36,7 +36,7 @@
     if (section === 'brain') { msg('b-msg', ''); $('b-restart').hidden = true; }
     ask('cfg:info');
     if (section === 'access') ask('cfg:perms', { op: 'state' });
-    if (section === 'extensions') ask('ext:list');
+    if (section === 'extensions' || section === 'skills') ask('ext:list');
     if (section === 'brain') ask('cfg:ollama', { action: 'state', url: $('b-ol-url').value.trim() || undefined });
     syncRows();
   }

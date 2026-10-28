@@ -74,11 +74,11 @@ function which(name) {
 }
 
 /** Run a command, resolve {out, err, code}. Never rejects. */
-function run(exe, args, { timeout = 60000, cwd, input } = {}) {
+function run(exe, args, { timeout = 60000, cwd, input, extraEnv } = {}) {
   return new Promise((resolve) => {
     let out = '', err = '';
     let p;
-    try { p = spawn(exe, args, { env: env(), cwd }); } catch (e) { return resolve({ out: '', err: String(e), code: -1 }); }
+    try { p = spawn(exe, args, { env: env(extraEnv), cwd }); } catch (e) { return resolve({ out: '', err: String(e), code: -1 }); }
     const timer = setTimeout(() => p.kill('SIGTERM'), timeout);
     p.stdout.on('data', (d) => { out += d; });
     p.stderr.on('data', (d) => { err += d; });

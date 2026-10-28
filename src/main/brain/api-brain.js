@@ -171,7 +171,7 @@ class ApiBrain extends EventEmitter {
         if (!calls.length) break;
         for (const c of calls) this.emit('tool', { name: c.name, summary: summarise(c.name, c.input) });
         const results = [];
-        for (const c of calls) results.push({ call: c, out: c.name === 'delegate' && this.worker && this.cfg.worker === 'claude-code' ? this.delegate(c.input) : await tools.execute(c.name, c.input) });
+        for (const c of calls) results.push({ call: c, out: c.name === 'delegate' && this.worker && this.cfg.worker === 'claude-code' ? this.delegate(c.input) : await tools.execute(c.name, c.input, this.cfg) });
         if (abort.signal.aborted) return;
         this.pushToolResults(results);
         // Handed to the worker: the user has heard "on it", and the result comes back later. Stop here so the

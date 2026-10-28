@@ -9,7 +9,7 @@ const HOME = os.homedir();
 const STATE_DIR = process.env.JARVIS_STATE_DIR || path.join(HOME, '.jarvis');
 const CONFIG_FILE = path.join(STATE_DIR, 'config.json');
 const SECRET_KEYS = new Set(['anthropicApiKey', 'geminiApiKey', 'elevenLabsApiKey', 'telegramToken']);
-const { SCOPED, assistantOf, exists } = require('./assistants');
+const { SCOPED, PROFILE, assistantOf, exists } = require('./assistants');
 
 const DEFAULTS = {
   onboarded: false,
@@ -224,15 +224,15 @@ function resetAssistant(id) {
 }
 
 /**
- * The user's persona prompt, skills and MCP servers for one assistant. A value of null or '' goes back
- * to the default (the preset's persona, every skill, every server).
+ * The user's own profile for one assistant (PROFILE: persona, skills, MCP servers, role, quick commands,
+ * tools, colour, shared memory). A value of null or '' goes back to the default (the preset's).
  */
 function saveProfile(id, fields) {
   const raw = readRaw();
   migrate(raw);
   raw.assistantSettings = raw.assistantSettings || {};
   const mine = { ...(raw.assistantSettings[id] || {}) };
-  for (const k of ['persona', 'skills', 'mcp', 'wakeWords']) {
+  for (const k of PROFILE) {
     if (!(k in fields)) continue;
     if (fields[k] === null || fields[k] === '') delete mine[k]; else mine[k] = fields[k];
   }

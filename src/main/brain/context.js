@@ -159,8 +159,8 @@ class Context {
     const said = lines.filter((l) => l.who === 'user');
     if (!said.length) return 0;
     try {
-      const { Memory } = require('../memory');
-      const mem = new Memory();
+      // The assistant in use: the shared memory, or its own when it doesn't use the shared one.
+      const mem = require('../memory').learnInto(C.load());
       const known = mem.facts.map((f) => `${f.id}: ${f.text}`).join('\n') || '(nothing yet)';
       const out = String(await complete(LEARN_PROMPT, `TODAY: ${new Date().toDateString()}\n\nALREADY REMEMBERED:\n${known}\n\nTHE USER'S LINES:\n${said.map((l) => `[${l.t}] ${l.text}`).join('\n')}`) || '');
       const json = out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1);

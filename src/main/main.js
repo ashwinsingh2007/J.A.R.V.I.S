@@ -2,10 +2,11 @@
 // and the orchestrator that runs everything else.
 const fs = require('fs');
 const path = require('path');
-const { app, BrowserWindow, Menu, Tray, nativeImage, nativeTheme, ipcMain, shell, safeStorage, Notification } = require('electron');
+const { app, BrowserWindow, Menu, Tray, nativeImage, nativeTheme, ipcMain, shell, safeStorage, Notification, dialog } = require('electron');
 const C = require('./config');
-const { ASSISTANTS, SCOPED, assistantOf, allAssistants, findByName, newId, exists } = require('./assistants');
+const { ASSISTANTS, SCOPED, ROLES, TOOLS, GUARDS, PROFILE, assistantOf, allAssistants, findByName, newId, exists } = require('./assistants');
 const { log, initPaths, paths, run, which } = require('./util');
+const { Memory, ownFile } = require('./memory');
 
 app.setName('JARVIS');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -240,11 +241,20 @@ function sendAssistants(extra = {}) {
       ollamaModels: (f.ollama && f.ollama.models) || [],
       engine: cfg.ttsEngine,
     },
+    // The roles and tools to choose from.
+    roles: Object.fromEntries(Object.entries(ROLES).map(([k, r]) => [k, r.label])),
+    tools: Object.fromEntries(Object.entries(TOOLS).map(([k, t]) => [k, { label: t.label, about: t.about }])),
+    guards: Object.fromEntries(Object.entries(GUARDS).map(([k, g]) => [k, { label: g.label, about: g.about }])),
     list: allAssistants(cfg).map((a) => {
       const own = mine[a.id] || {};
+      const def = ASSISTANTS[a.id] || (cfg.customAssistants || {})[a.id] || {};
       return {
         id: a.id, name: a.name, tier: a.tier, about: a.about, needs: a.needs, custom: a.custom, persona: a.persona,
-        defaultPersona: (ASSISTANTS[a.id] || (cfg.customAssistants || {})[a.id] || {}).persona || '',
+        defaultPersona: def.persona || '', defaultRole: def.role || 'none',
+        role: a.role, roleText: a.roleText, commands: a.commands, tools: a.tools, color: a.color, sharedMemory: a.sharedMemory,
+        guard: a.guard, blockedPaths: a.blockedPaths,
+        // Its training: the facts only it keeps.
+        memory: new Memory(ownFile(a.id)).facts,
         wakeWords: own.wakeWords || a.settings.wakeWords || [], changed: Object.keys(own).length > 0,
         skills: Array.isArray(own.skills) ? own.skills : null, mcp: Array.isArray(own.mcp) ? own.mcp : null,
         // Its brain, model, worker and voice as they stand: defaults, then its preset, then the user's changes.
@@ -341,25 +351,147 @@ async function extensionsAction(name, msg = {}) {
 const NAME_OK = /^[A-Z0-9][A-Z0-9 .'-]{1,19}$/;
 const wakeList = (v) => [...new Set(String(v || '').toLowerCase().split(',').map((w) => w.replace(/[^a-z0-9 ']/g, '').trim()).filter((w) => w.length >= 3))].slice(0, 6);
 
+const BLANK_PERSONA = 'A capable, friendly assistant: clear, direct and to the point.';
+
+/**
+ * The parts of an agent the user set in the Agents tab (or an imported file), checked: skills, MCP
+ * servers and tools (lists, or 'all'), role, quick commands, colour and the shared-memory switch.
+ * Missing keys are left alone; { error } when something doesn't fit.
+ */
+function profileFields(b) {
+  const out = {};
+  for (const k of ['skills', 'mcp']) {
+    if (!(k in b)) continue;
+    out[k] = b[k] === 'all' || !Array.isArray(b[k]) ? null : b[k].map(String).filter((x) => x.length < 200).slice(0, 500);
+  }
+  if ('tools' in b) out.tools = b.tools === 'all' || !Array.isArray(b.tools) ? null : b.tools.filter((t) => TOOLS[t]);
+  if ('role' in b) {
+    if (!ROLES[b.role]) return { error: 'Pick a role from the list.' };
+    out.role = b.role;
+  }
+  if ('roleText' in b) out.roleText = String(b.roleText || '').trim().slice(0, 600) || null;
+  if ('commands' in b) {
+    const list = Array.isArray(b.commands) ? b.commands : [];
+    out.commands = list.map((c) => ({ name: String((c && c.name) || '').replace(/^\/+/, '').trim().toLowerCase().slice(0, 30), prompt: String((c && c.prompt) || '').trim().slice(0, 600) }))
+      .filter((c) => c.name && c.prompt).slice(0, 20);
+    if (!out.commands.length) out.commands = null;
+  }
+  if ('color' in b) {
+    const c = String(b.color || '').trim();
+    if (c && !/^#[0-9a-f]{6}$/i.test(c)) return { error: 'The colour should look like #3fd0ff.' };
+    out.color = c.toLowerCase() || null;
+  }
+  if ('sharedMemory' in b) out.sharedMemory = b.sharedMemory === false ? false : null;
+  if ('guard' in b) {
+    if (!GUARDS[b.guard]) return { error: 'Pick a safety level from the list.' };
+    out.guard = b.guard;
+  }
+  if ('blockedPaths' in b) {
+    const list = [];
+    for (const raw of Array.isArray(b.blockedPaths) ? b.blockedPaths : String(b.blockedPaths || '').split('\n')) {
+      const t = String(raw || '').trim();
+      if (!t) continue;
+      const p = path.resolve(t.replace(/^~(?=\/|$)/, C.HOME));
+      if (!p.startsWith('/') || p === '/' || p.length > 300) return { error: `${t} is not a folder path.` };
+      if (!list.includes(p)) list.push(p);
+    }
+    out.blockedPaths = list.length ? list.slice(0, 30) : null;
+  }
+  return out;
+}
+
+/** "Try it" in the Agents tab: one reply from that agent, without switching to it. */
+async function tryAssistant(id, text) {
+  text = String(text || '').trim().slice(0, 2000);
+  if (!text || !hud) return;
+  const name = assistantOf(id, cfg).name;
+  log(`assistant: trying ${name}`);
+  try {
+    const reply = String(await require('./brain').tryAgent(C.load(id), found || {}, text)).trim();
+    hud.send('assistant-try', { id, text: reply || '(no reply)' });
+  } catch (e) {
+    log(`assistant: trying ${name} failed: ${e.message}`);
+    hud.send('assistant-try', { id, error: `${name} couldn't answer. ${String(e.message || e).slice(0, 200)}` });
+  }
+}
+
+/** Save an agent to a file: who it is, its role, prompts, tools, skills, settings and training. No keys. */
+async function exportAssistant(id) {
+  const a = assistantOf(id, cfg);
+  const live = C.load(id);
+  const own = (cfg.assistantSettings || {})[id] || {};
+  const data = {
+    jarvisAgent: 1, name: a.name, tier: a.tier, about: a.about, persona: a.persona, role: a.role, roleText: a.roleText,
+    commands: a.commands, tools: a.tools, color: a.color, sharedMemory: a.sharedMemory, guard: a.guard, blockedPaths: a.blockedPaths,
+    settings: { ...Object.fromEntries(SCOPED.map((k) => [k, live[k]])), wakeWords: own.wakeWords || a.settings.wakeWords || [] },
+    skills: Array.isArray(own.skills) ? own.skills : null, mcp: Array.isArray(own.mcp) ? own.mcp : null,
+    training: new Memory(ownFile(id)).facts.map((f) => f.text),
+  };
+  const r = await dialog.showSaveDialog(hud.win, { title: `Export ${a.name}`, defaultPath: path.join(app.getPath('downloads'), `${a.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.jarvis-agent.json`), filters: [{ name: 'JARVIS agent', extensions: ['json'] }] });
+  if (r.canceled || !r.filePath) return;
+  fs.writeFileSync(r.filePath, JSON.stringify(data, null, 1), { mode: 0o600 });
+  log(`assistant: exported ${a.name}`);
+  hud.send('notice', { text: `Saved ${a.name} to ${path.basename(r.filePath)}.` });
+}
+
+/**
+ * An agent from a file someone exported. It becomes one of the user's own, under a free name. The file is
+ * data: every field is checked as if typed in the Agents tab, and its persona goes in with the safety
+ * rules still on top.
+ */
+async function importAssistant() {
+  const fail = (text) => hud && hud.send('assistant-error', { text });
+  const r = await dialog.showOpenDialog(hud.win, { title: 'Import an agent', properties: ['openFile'], filters: [{ name: 'JARVIS agent', extensions: ['json'] }] });
+  if (r.canceled || !r.filePaths[0]) return;
+  let d;
+  try { d = JSON.parse(fs.readFileSync(r.filePaths[0], 'utf8').slice(0, 500000)); } catch { return fail('That file is not a JARVIS agent.'); }
+  if (!d || d.jarvisAgent !== 1 || typeof d.name !== 'string') return fail('That file is not a JARVIS agent.');
+  let name = d.name.trim().toUpperCase().replace(/[^A-Z0-9 .'-]/g, '').slice(0, 17);
+  if (!NAME_OK.test(name)) name = 'IMPORTED';
+  for (let i = 2; findByName(name, cfg); i++) name = `${name.replace(/ \d+$/, '')} ${i}`;
+  const fields = profileFields(d);
+  if (fields.error) return fail(`Couldn't import it: ${fields.error}`);
+  delete fields.error;
+  const id = newId(name, cfg);
+  const settings = d.settings && typeof d.settings === 'object' ? d.settings : {};
+  const wake = wakeList((settings.wakeWords || []).join(','));
+  C.saveCustom(id, { name, tier: String(d.tier || 'YOUR OWN').toUpperCase().slice(0, 24), about: String(d.about || 'Imported.').slice(0, 200), needs: '', hello: '', persona: String(d.persona || BLANK_PERSONA).trim().slice(0, 4000), role: ROLES[d.role] ? d.role : 'none', settings: { wakeWords: wake.length ? wake : [name.toLowerCase()] } });
+  C.saveProfile(id, fields);
+  C.saveSettings(id, settings);
+  const mem = new Memory(ownFile(id));
+  for (const t of (Array.isArray(d.training) ? d.training : []).slice(0, 200)) mem.add(String(t).replace(/\s+/g, ' '), 'other');
+  log(`assistant: imported ${name}`);
+  Object.assign(cfg, C.load());
+  sendAssistants({ edit: id });
+}
+
 /** The Agents tab: make a new assistant from another one, change one, or delete one of the user's own. */
 function editAssistant(kind, b = {}) {
   const fail = (text) => hud && hud.send('assistant-error', { text });
   if (kind === 'assistant-create') {
-    const from = exists(b.from, cfg) ? b.from : cfg.assistant;
-    const src = assistantOf(from, cfg);
     const name = String(b.title || '').trim().toUpperCase();
     if (!NAME_OK.test(name)) return fail('Give it a name of 2 to 20 letters or numbers.');
     if (findByName(name, cfg)) return fail(`There is already an assistant called ${name}.`);
     const id = newId(name, cfg);
-    const own = (cfg.assistantSettings || {})[from] || {};
-    const settings = { ...src.settings, ...Object.fromEntries(SCOPED.filter((k) => k in own).map((k) => [k, own[k]])), wakeWords: [name.toLowerCase()] };
-    C.saveCustom(id, { name, tier: 'YOUR OWN', about: `Started from ${src.name}.`, needs: src.needs, hello: '', persona: src.persona, settings });
-    if (own.skills || own.mcp) C.saveProfile(id, { skills: own.skills || null, mcp: own.mcp || null });
-    log(`assistant: made ${name} from ${src.name}`);
+    // A blank one: the defaults, a plain persona and no role. Otherwise a copy of the one it starts from.
+    if (b.from === 'blank') {
+      C.saveCustom(id, { name, tier: 'YOUR OWN', about: 'Made from scratch.', needs: 'Claude Code (or an API key)', hello: '', persona: BLANK_PERSONA, role: 'none', settings: { wakeWords: [name.toLowerCase()] } });
+      log(`assistant: made ${name} from scratch`);
+    } else {
+      const from = exists(b.from, cfg) ? b.from : cfg.assistant;
+      const src = assistantOf(from, cfg);
+      const own = (cfg.assistantSettings || {})[from] || {};
+      const settings = { ...src.settings, ...Object.fromEntries(SCOPED.filter((k) => k in own).map((k) => [k, own[k]])), wakeWords: [name.toLowerCase()] };
+      C.saveCustom(id, { name, tier: 'YOUR OWN', about: `Started from ${src.name}.`, needs: src.needs, hello: '', persona: src.persona, role: src.role, roleText: src.roleText, settings });
+      const copy = Object.fromEntries(PROFILE.filter((k) => !['persona', 'wakeWords', 'role', 'roleText'].includes(k) && k in own).map((k) => [k, own[k]]));
+      if (Object.keys(copy).length) C.saveProfile(id, copy);
+      log(`assistant: made ${name} from ${src.name}`);
+    }
     Object.assign(cfg, C.load());
     sendAssistants({ edit: id });
     return;
   }
+  if (kind === 'assistant-import') return importAssistant();
   const id = b.id;
   if (!exists(id, cfg)) return;
   const custom = (cfg.customAssistants || {})[id];
@@ -380,16 +512,23 @@ function editAssistant(kind, b = {}) {
     if (other && other !== id) return fail(`There is already an assistant called ${name}.`);
     C.saveCustom(id, { ...custom, name, tier: String(b.tier ?? custom.tier).trim().toUpperCase().slice(0, 24) || 'YOUR OWN', about: String(b.about ?? custom.about).trim().slice(0, 200) });
   }
-  const fields = {};
+  if (kind === 'assistant-export') return exportAssistant(id);
+  if (kind === 'assistant-try') return tryAssistant(id, b.text);
+  if (kind === 'assistant-memory-add' || kind === 'assistant-memory-forget') {
+    const mem = new Memory(ownFile(id));
+    if (kind === 'assistant-memory-add') mem.add(String(b.text || '').replace(/\s+/g, ' '), 'other'); else mem.forget(String(b.fact || ''));
+    log(`assistant: ${kind === 'assistant-memory-add' ? 'trained' : 'forgot a fact for'} ${assistantOf(id, cfg).name}`);
+    // The brain in use reads its memory when it starts, so it starts again (quietly) to take it in.
+    if (id === cfg.assistant) refreshCurrent('The training'); else sendAssistants();
+    return;
+  }
+  const fields = profileFields(b);
+  if (fields.error) return fail(fields.error);
+  delete fields.error;
   if ('persona' in b) {
     const p = String(b.persona || '').trim().slice(0, 4000);
     const def = (ASSISTANTS[id] || custom).persona;
     fields.persona = !p || p === def ? null : p;
-  }
-  // Skills and MCP servers: a list of ids or names, or 'all'.
-  for (const k of ['skills', 'mcp']) {
-    if (!(k in b)) continue;
-    fields[k] = b[k] === 'all' || !Array.isArray(b[k]) ? null : b[k].map(String).filter((x) => x.length < 200).slice(0, 500);
   }
   if ('wakeWords' in b) {
     const w = wakeList(b.wakeWords);

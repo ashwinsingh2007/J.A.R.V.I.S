@@ -360,7 +360,8 @@ class Orchestrator extends EventEmitter {
       case 'context-roll': if (this.brain.rollNow) this.brain.rollNow(); break;
       case 'assistant': if (exists(body.id, this.cfg)) this.requestSwitch(body.id); break;
       case 'assistant-reset': if (exists(body.id, this.cfg)) this.emit('reset-assistant', body.id); break;
-      case 'assistant-create': case 'assistant-update': case 'assistant-delete': this.emit('assistant-edit', a, body); break;
+      case 'assistant-create': case 'assistant-update': case 'assistant-delete': case 'assistant-export': case 'assistant-import':
+      case 'assistant-try': case 'assistant-memory-add': case 'assistant-memory-forget': this.emit('assistant-edit', a, body); break;
       case 'schedule-cancel': if (body.id) this.scheduler.cancel(body.id); break;
       case 'hands-permit': this.emit('hands-permit'); break;
       case 'test-voice': this.speaker.stop(); this.speaker.speak(`This is how I sound, ${this.cfg.honorific}.`); break;
