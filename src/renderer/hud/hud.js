@@ -235,8 +235,8 @@
     { id: 'vision', name: 'VISION', tier: 'NO CLAUDE NEEDED', about: "Runs on Google's Gemini, with a free tier.", needs: 'A Gemini API key' },
   ];
   let current = 'jarvis';
-  // The nodes around the core. 'main': the built-in agents, a Custom node when there are custom agents,
-  // and a Devices node when other computers are paired. A group node opens (explodes) into its members
+  // The nodes around the core. 'main': the built-in agents, FORGE (the custom agents, dim until there is
+  // one) and MESH (this computer and the user's others, dim until one is paired). A group node opens (explodes) into its members
   // and a node back: custom agents with a System node; one node per device; a device's built-in agents
   // with one node for its custom agents. Another device's agent opens that device's tab.
   let crewGroup = 'main';
@@ -250,8 +250,14 @@
     const builtIn = others.filter((a) => !a.custom), custom = others.filter((a) => a.custom);
     const devs = machine ? [] : remoteDevices();
     const sys = groupNode('main', 'SYSTEM', 'BUILT-IN AGENTS');
-    if (crewGroup === 'custom') return place(custom.map((a) => agentNode(a)), [sys]);
-    if (crewGroup === 'devices') return place(devs.map((d) => groupNode('device:' + d.id, d.name.toUpperCase(), (d.os || 'DEVICE').toUpperCase(), d.via)), [sys]);
+    if (crewGroup === 'custom') return place(custom.map((a) => agentNode(a)), [{ ...groupNode('create', '+ CREATE', 'MAKE AN AGENT'), dim: true }, sys]);
+    if (crewGroup === 'devices') {
+      // Every paired computer (dim when it can't be reached), and one more to pair a new one.
+      const nodes = devList.map((d) => ({ ...groupNode('device:' + d.id, d.name.toUpperCase(), d.via === 'offline' ? 'NOT REACHABLE' : (d.os || 'DEVICE').toUpperCase(), d.via), dim: d.via === 'offline' }));
+      const self = groupNode('main', (devName || 'This computer').toUpperCase(), 'THIS COMPUTER');
+      self.id = 'g-self';
+      return place([self, ...nodes], [{ ...groupNode('pair', '+ PAIR', 'ADD A COMPUTER'), dim: true }, sys]);
+    }
     const dm = /^(device|dcustom):(.+)$/.exec(crewGroup);
     if (dm) {
       const d = devs.find((x) => x.id === dm[2]);
@@ -260,11 +266,11 @@
       if (dm[1] === 'dcustom') return place(rest.filter((a) => a.custom).map((a) => agentNode(a, d.id)), [groupNode('device:' + d.id, d.name.toUpperCase(), 'BACK')]);
       return place(rest.filter((a) => !a.custom).map((a) => agentNode(a, d.id)), [
         ...(rest.some((a) => a.custom) ? [groupNode('dcustom:' + d.id, 'CUSTOM', `${d.name.toUpperCase()} · ${rest.filter((a) => a.custom).length} AGENTS`)] : []),
-        groupNode('devices', 'DEVICES', 'BACK')]);
+        groupNode('devices', 'MESH', 'BACK')]);
     }
     return place(builtIn.map((a) => agentNode(a)), [
-      ...(custom.length ? [groupNode('custom', 'CUSTOM', `${custom.length} AGENT${custom.length > 1 ? 'S' : ''}`)] : []),
-      ...(devs.length ? [groupNode('devices', 'DEVICES', `${devs.length} CONNECTED`)] : [])]);
+      { ...groupNode('custom', 'FORGE', custom.length ? `${custom.length} CUSTOM AGENT${custom.length > 1 ? 'S' : ''}` : 'MAKE YOUR OWN'), dim: !custom.length },
+      ...(machine ? [] : [{ ...groupNode('devices', 'MESH', devList.length ? `${devList.length} CONNECTED` : 'PAIR A COMPUTER'), dim: !devList.length }])]);
   }
   const hubsFor = () => crewItems().slice(0, SLOTS.length).map((a, i) => ({ nx: SLOTS[i].x, ny: SLOTS[i].y, ...SLOTS[i], ...a }));
   let HUBS = hubsFor();
@@ -349,7 +355,7 @@
       const d = pts.length > 1 ? curve(pts) : '';
       const sparks = d ? [0, 1].map((k) => `<circle class="spark" r="0.6"><animateMotion dur="${f(2.4 + pts.length * 0.35)}s" begin="${f(k * 1.3 + rnd())}s" repeatCount="indefinite" path="${d}"/></circle>`).join('') : '';
       const right = h.x >= 0, lx = h.x + (right ? 5.5 : -5.5), anchor = right ? 'start' : 'end';
-      return `<g class="mate${h.extra ? ' extra' : ''}${h.group ? ' group' : ''}${popping ? ' pop' : ''}" id="crew-${h.id}" data-id="${h.id}" style="--i:${n};--hx:${h.x};--hy:${h.y};--nx:${h.nx};--ny:${h.ny}${/^#[0-9a-f]{6}$/i.test(h.color || '') ? `;--cyan:${h.color}` : ''}">`
+      return `<g class="mate${h.extra ? ' extra' : ''}${h.group ? ' group' : ''}${h.dim ? ' dim' : ''}${popping ? ' pop' : ''}" id="crew-${h.id}" data-id="${h.id}" style="--i:${n};--hx:${h.x};--hy:${h.y};--nx:${h.nx};--ny:${h.ny}${/^#[0-9a-f]{6}$/i.test(h.color || '') ? `;--cyan:${h.color}` : ''}">`
         + (d ? `<path class="fire" d="${d}" style="--d:${f(rnd())}s"/>` : '') + sparks
         + `<circle class="hit" cx="${f(h.x)}" cy="${f(h.y)}" r="7"/><circle class="aura" cx="${f(h.x)}" cy="${f(h.y)}" r="5.6"/><circle class="halo" cx="${f(h.x)}" cy="${f(h.y)}" r="3.4"/><circle class="ring" cx="${f(h.x)}" cy="${f(h.y)}" r="2.1"/><circle class="core" cx="${f(h.x)}" cy="${f(h.y)}" r="1.05"/>`
         + `<text class="nm" text-anchor="${anchor}" x="${f(lx)}" y="${f(h.y - 0.3)}">${h.name}</text>`
@@ -371,6 +377,7 @@
     if (e.roles) catalog = { roles: e.roles, tools: e.tools || {}, guards: e.guards || {} };
     if (e.id) current = e.id;
     if (e.edit) { editing = e.edit; aNote(`Made ${(assistants.find((a) => a.id === e.edit) || {}).name}. Change it here, then use it.`); }
+    if (e.edit && making) { making = false; unspot(); crewGroup = 'custom'; setTimeout(() => showView('agents'), 0); }
     else if (e.list) aNote('');
     const me = assistants.find((a) => a.id === current) || assistants[0];
     if (spotted) unspot(false);
@@ -819,10 +826,88 @@
     $('spot-hint').classList.toggle('bad', !!notHere);
     $('spot-go').textContent = `SWITCH TO ${h.name}`;
     $('spot-go').disabled = false;
+    $('spot-go').hidden = false;
+    $('spot-pair').hidden = true;
+    $('spot-make').hidden = true;
     $('spot').hidden = false;
   }
+
+  // Pairing, right on the HUD: the + PAIR node comes forward with a code to show or one to type.
+  function spotPair() {
+    const h = HUBS.find((x) => x.group === 'pair');
+    if (body.dataset.view !== 'cc') showView('cc');
+    spotted = h ? h.id : 'g-pair';
+    body.classList.remove('focus');
+    body.classList.add('spot');
+    HUBS.forEach((x) => $('crew-' + x.id).classList.toggle('spot', x.id === spotted));
+    $('spot-name').textContent = 'PAIR';
+    $('spot-role').textContent = 'Connect another computer running JARVIS. Show a code here and type it there, or type the one it shows. Both need JARVIS open and internet.';
+    pairHint('');
+    $('spot-code').textContent = '';
+    $('spot-code').hidden = true;
+    $('sp-host').hidden = false;
+    $('sp-code').value = '';
+    $('spot-go').hidden = true;
+    $('spot-make').hidden = true;
+    $('spot-pair').hidden = false;
+    $('spot').hidden = false;
+  }
+  // Making a custom agent, right on the HUD: a name, then its page in the Agents tab.
+  let making = false;
+  function spotMake() {
+    const h = HUBS.find((x) => x.group === 'create');
+    if (body.dataset.view !== 'cc') showView('cc');
+    spotted = h ? h.id : 'g-create';
+    body.classList.remove('focus');
+    body.classList.add('spot');
+    HUBS.forEach((x) => $('crew-' + x.id).classList.toggle('spot', x.id === spotted));
+    $('spot-name').textContent = 'FORGE';
+    $('spot-role').textContent = machine ? `Make a new agent on ${machineName(machine)}. Give it a name, then set its role, brain, voice and guardrails.` : 'Make an agent of your own. Give it a name, then set its role, brain, voice and guardrails.';
+    pairHint('');
+    $('sm-name').value = '';
+    $('spot-go').hidden = true;
+    $('spot-pair').hidden = true;
+    $('spot-make').hidden = false;
+    $('spot').hidden = false;
+    setTimeout(() => $('sm-name').focus(), 400);
+  }
+  const makeAgent = () => {
+    const name = $('sm-name').value.trim();
+    if (!name) return;
+    making = true;
+    pairHint('MAKING IT…');
+    post({ type: 'action', name: 'assistant-create', from: 'blank', title: name });
+  };
+  $('spot-make').addEventListener('click', (ev) => ev.stopPropagation());
+  $('sm-go').addEventListener('click', makeAgent);
+  $('sm-name').addEventListener('keydown', (ev) => { ev.stopPropagation(); if (ev.key === 'Enter') makeAgent(); if (ev.key === 'Escape') unspot(); });
+
+  function pairHint(text, bad) { $('spot-hint').textContent = text; $('spot-hint').classList.toggle('bad', !!bad); }
+  /** Main's news about a pairing, while the + PAIR node is in the spotlight. */
+  function pairNews(e) {
+    if ($('spot-pair').hidden || !spotted) return;
+    if (e.error) { pairHint(e.error.toUpperCase(), true); return; }
+    const p = e.pair;
+    if (!p) return;
+    if (p.state === 'waiting' && p.code) { $('spot-code').textContent = p.code; $('spot-code').hidden = false; $('sp-host').hidden = true; pairHint(`TYPE IT ON THE OTHER COMPUTER · GOOD FOR ${p.minutes} MINUTES`); }
+    else if (p.state === 'waiting') pairHint('LOOKING FOR THE OTHER COMPUTER…');
+    else if (p.state === 'expired') { pairHint('THE CODE RAN OUT · SHOW A NEW ONE', true); $('spot-code').hidden = true; $('sp-host').hidden = false; }
+    else if (p.state === 'paired') {
+      pairHint(`PAIRED WITH ${String(p.name).toUpperCase()}`);
+      $('spot-code').hidden = true;
+      setTimeout(() => { if (!$('spot-pair').hidden) { unspot(); openGroup('devices'); } }, 1600);
+    }
+  }
+  $('spot-pair').addEventListener('click', (ev) => ev.stopPropagation());
+  $('sp-host').addEventListener('click', () => { pairHint('GETTING A CODE…'); postLocal({ type: 'action', name: 'dev:host' }); });
+  const joinPair = () => { const code = $('sp-code').value.trim(); if (!code) return; pairHint('LOOKING FOR THE OTHER COMPUTER…'); postLocal({ type: 'action', name: 'dev:join', code }); };
+  $('sp-join').addEventListener('click', joinPair);
+  $('sp-code').addEventListener('keydown', (ev) => { ev.stopPropagation(); if (ev.key === 'Enter') joinPair(); if (ev.key === 'Escape') unspot(); });
   function unspot() {
     if (!spotted) return;
+    // Backing out of a pairing that's still going ends it.
+    if (!$('spot-pair').hidden) { postLocal({ type: 'action', name: 'dev:cancel' }); $('spot-pair').hidden = true; }
+    $('spot-make').hidden = true;
     spotted = '';
     body.classList.remove('spot');
     HUBS.forEach((x) => $('crew-' + x.id).classList.remove('spot'));
@@ -831,6 +916,11 @@
   }
   /** Open a group node: its members burst out of the core. */
   function openGroup(group) {
+    if (group === 'pair') { spotPair(); return; }
+    if (group === 'create') { spotMake(); return; }
+    // A computer whose agents haven't arrived (it isn't reachable): open its tab, with its last state.
+    const dm = /^device:(.+)$/.exec(group);
+    if (dm && !remoteDevices().some((d) => d.id === dm[1])) { showMachine(dm[1]); return; }
     if (spotted) unspot();
     crewGroup = group;
     popping = true;
@@ -1406,7 +1496,8 @@
         devList = e.list || []; devName = e.name || '';
         if (machine && !devList.some((d) => d.id === machine)) showMachine('');
         renderMachines();
-        if (!machine) { HUBS = hubsFor(); crew.innerHTML = buildCrew(); }
+        if (!machine && !spotted) { HUBS = hubsFor(); crew.innerHTML = buildCrew(); }
+        pairNews(e);
       }
       if (MIRRORED.includes(e.type)) { views[''][e.type] = e; if (machine) return; }
       dispatch(e);
@@ -1442,7 +1533,7 @@
         case 'memory': setMemory(e.data); break;
         case 'assistants': setAssistants(e); break;
         case 'assistant': setAssistants({ id: e.id }); break;
-        case 'assistant-error': aNote(e.text, true); break;
+        case 'assistant-error': aNote(e.text, true); if (making) { making = false; pairHint(String(e.text).toUpperCase(), true); } break;
         case 'assistant-try': tried(e); break;
         case 'ext': setExt(e); break;
         case 'context': setContext(e.data); break;
