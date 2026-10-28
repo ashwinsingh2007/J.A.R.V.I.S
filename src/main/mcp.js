@@ -9,7 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const C = require('./config');
-const { log, run, which } = require('./util');
+const { log, run, findClaude } = require('./util');
 
 const CLAUDE_JSON = path.join(C.HOME, '.claude.json');
 const STATUS_FILE = path.join(C.STATE_DIR, 'mcp-status.json');
@@ -32,7 +32,7 @@ function list() {
   return [...mine, ...connectors];
 }
 
-const claude = () => which('claude') || path.join(C.HOME, '.local', 'bin', 'claude');
+const claude = () => findClaude() || 'claude';
 
 /** `claude mcp list`: connects to each server, so it takes a few seconds. */
 async function check() {
