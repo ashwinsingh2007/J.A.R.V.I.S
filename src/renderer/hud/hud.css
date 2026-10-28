@@ -786,8 +786,17 @@ body.spot #spot:has(.spot-pair:not([hidden])) { top: 50%; }
 #spot .spot-pair input { width: 240px; padding: 6px 10px; border: 1px solid var(--line2); background: rgba(var(--rgb), 0.05); color: var(--bright); font: var(--lab) var(--mono); letter-spacing: 0.18em; text-transform: uppercase; outline: none; }
 #spot .spot-pair input:focus { border-color: var(--cyan); }
 #crew .mate.group .core { opacity: 0.35; }
-body.focus[data-view="cc"] #crew .mate.pop { animation: crewpop .55s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--i) * .06s); }
-@keyframes crewpop { from { opacity: 0; transform: scale(.25); } to { opacity: 1; transform: none; } }
+/* A group node opening: a flash where it was, and its members flying out from there to their places. */
+/* first the clicked node flies into the core and the rest fade, as when choosing an agent */
+#crew .mate .mi { transition: transform .42s cubic-bezier(.5,0,.75,0), opacity .42s ease; }
+#crew.swap .mate.gather .mi { transform: translate(calc(var(--gx) * 1px), calc(var(--gy) * 1px)) scale(1.8); opacity: 0; }
+#crew.swap .mate:not(.gather) { opacity: 0 !important; transition: opacity .25s ease !important; }
+/* then its members swirl out from the core */
+#crew .mate.pop .mi { transition: none; animation: crewburst .8s cubic-bezier(.12,.85,.25,1) both; animation-delay: calc(.05s + var(--i) * .06s); }
+@keyframes crewburst { from { opacity: 0; transform: translate(calc(var(--dx) * 1px), calc(var(--dy) * 1px)) rotate(-35deg) scale(.1); } 40% { opacity: 1; } to { opacity: 1; transform: none; } }
+#crew .burst { fill: none; stroke: var(--cyan); stroke-width: 0.5; pointer-events: none; transform-box: fill-box; transform-origin: center; opacity: 0; animation: crewflash .8s ease-out forwards; filter: drop-shadow(0 0 1.5px var(--cyan)); }
+#crew .burst.b2 { stroke-width: 0.25; animation-duration: 1.1s; animation-delay: .08s; }
+@keyframes crewflash { from { opacity: .95; transform: scale(.3); } to { opacity: 0; transform: scale(6); } }
 
 /* A hidden window keeps nothing moving. */
 body.asleep *, body.asleep *::before, body.asleep *::after { animation-play-state: paused !important; }

@@ -228,6 +228,8 @@ class Orchestrator extends EventEmitter {
         if (this.speaksAloud && this.awake) speaker.speak(clean(text) ? text : `Something went wrong, ${this.cfg.honorific}.`);
       }
       if (this.source.kind === 'telegram') this.emit('telegram-reply', this.source.chat, this.replyText || text);
+      // Said on another computer: its answer goes back there to be spoken.
+      if (this.source.kind === 'peer' && this.source.replyTo) this.emit('peer-reply', this.source.replyTo, this.replyText || text);
       const said = isSilent(this.replyText || text) ? '' : (this.replyText || text);
       if (this.source.kind === 'proactive') {
         if (said && (!this.awake || this.muted) && this.source.urgent && this.cfg.telegramChatId) this.emit('telegram-push', said);
@@ -354,7 +356,7 @@ class Orchestrator extends EventEmitter {
       case 'fullscreen': this.hud.toggleFullScreen(); break;
       case 'setup': this.emit('open-setup', body.section || ''); break;
       case 'type': this.handle(String(body.text || '').slice(0, 4000), TYPED); break;
-      case 'peer-type': this.handle(String(body.text || '').slice(0, 4000), { kind: 'peer', from: String(body.from || '') }); break;
+      case 'peer-type': this.handle(String(body.text || '').slice(0, 4000), { kind: 'peer', from: String(body.from || ''), replyTo: body.replyTo || '' }); break;
       case 'theme': this.emit('set-theme', { theme: body.theme, themeMode: body.mode }); break;
       case 'settings': if (body.patch && typeof body.patch === 'object') this.emit('settings', body.patch); break;
       case 'memory-forget': if (body.id && this.memory.forget(body.id)) this.brain.reconfigure && this.brain.reconfigure(); break;
@@ -513,6 +515,14 @@ class Orchestrator extends EventEmitter {
   }
 
   /** Proactive line without disturbing an in-progress turn. Silent while asleep. */
+  /** The answer from another computer's JARVIS to what was said here: spoken here. */
+  remoteAnswer(text) {
+    clearTimeout(this.remoteTimer);
+    this.state = 'idle';
+    const said = clean(cutSources(String(text || '')));
+    if (said && !isSilent(said)) this.speakNow(said);
+  }
+
   speakNow(text) {
     if (this.disabled) return;
     if (!this.awake) { log(`asleep: silent notice '${text.slice(0, 60)}'`); return; }
@@ -546,6 +556,18 @@ class Orchestrator extends EventEmitter {
       }
     }
     this.hud.send('transcript', { text: command, final: true });
+
+    // Another computer's tab is open: what is said here goes to that computer's JARVIS, and its answer
+    // is spoken here. Waking, sleeping and standby stay with this one.
+    if (this.remoteTarget && source.kind === 'voice' && !matches(command, WAKE_PHRASES) && !matches(command, STANDBY_PHRASES) && !isCommand(command.toLowerCase(), SLEEP_PHRASES)) {
+      log(`remote: '${command.slice(0, 60)}' to ${this.remoteTarget.name}`);
+      this.lastActivity = Date.now();
+      this.state = 'thinking';
+      clearTimeout(this.remoteTimer);
+      this.remoteTimer = setTimeout(() => { this.state = 'idle'; this.speakNow(`${this.remoteTarget ? this.remoteTarget.name : 'The other computer'} hasn't answered, ${this.cfg.honorific}.`); }, 90000);
+      this.emit('remote-say', this.remoteTarget.id, command);
+      return;
+    }
 
     const local = this.localIntent(command, source);
     if (local) { local(); return; }

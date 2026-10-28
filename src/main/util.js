@@ -26,15 +26,43 @@ const FALLBACK_PATH = process.platform === 'win32' ? ''
   : process.platform === 'darwin' ? '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin'
   : '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
 
+/** The shells to ask, in order: the user's own, then the platform's usual one. */
+function shellsToAsk() {
+  const own = process.env.SHELL && fs.existsSync(process.env.SHELL) ? [process.env.SHELL] : [];
+  const usual = SHELLS.find((sh) => fs.existsSync(sh) && !own.includes(sh));
+  return [...own, usual].filter(Boolean);
+}
+const lastLine = (out) => { const l = String(out || '').split('\n').map((s) => s.trim()).filter(Boolean); return l.length ? l[l.length - 1] : ''; };
+
+// The answer is kept between runs: asking login shells can take seconds (a slow profile), and the
+// first caller would otherwise wait for it at startup. A start uses the kept one and asks again quietly.
+const PATH_CACHE = path.join(C.STATE_DIR, 'login-path.txt');
+
+function shellPathLater() {
+  if (process.platform === 'win32') return;
+  const { execFile } = require('child_process');
+  const seen = new Set();
+  const ask = (list) => {
+    if (!list.length) {
+      const p = [...seen].join(':');
+      if (p) { loginPath = p; try { fs.writeFileSync(PATH_CACHE, p, { mode: 0o600 }); } catch {} }
+      return;
+    }
+    execFile(list[0], ['-lc', 'printf %s "$PATH"'], { timeout: 15000, encoding: 'utf8' }, (_e, out) => {
+      for (const dir of lastLine(out).split(':')) if (dir) seen.add(dir);
+      ask(list.slice(1));
+    });
+  };
+  ask(shellsToAsk());
+}
+
 function shellPath() {
   if (process.platform === 'win32') return '';
   // Ask the user's own shell and the platform's usual one, and keep the entries from both, in that order.
   // The user's shell is the one whose rc files usually set PATH up, but on a Mac whose login shell is bash,
   // tools are often set up for zsh, the default, so stopping at the first answer would miss them.
-  const own = process.env.SHELL && fs.existsSync(process.env.SHELL) ? [process.env.SHELL] : [];
-  const usual = SHELLS.find((sh) => fs.existsSync(sh) && !own.includes(sh));
   const seen = new Set();
-  for (const sh of [...own, usual].filter(Boolean)) {
+  for (const sh of shellsToAsk()) {
     try {
       // Take the last line: a profile is free to print warnings before it is asked.
       const lines = execFileSync(sh, ['-lc', 'printf %s "$PATH"'], { timeout: 8000, encoding: 'utf8' })
@@ -47,7 +75,12 @@ function shellPath() {
 
 let loginPath;               // undefined until the first call
 function env(extra = {}) {
-  if (loginPath === undefined) loginPath = shellPath() || FALLBACK_PATH;
+  if (loginPath === undefined) {
+    let kept = '';
+    try { kept = fs.readFileSync(PATH_CACHE, 'utf8').trim(); } catch {}
+    if (kept) { loginPath = kept; shellPathLater(); }
+    else { loginPath = shellPath() || FALLBACK_PATH; try { if (loginPath && process.platform !== 'win32') fs.writeFileSync(PATH_CACHE, loginPath, { mode: 0o600 }); } catch {} }
+  }
   // An empty value means "leave the inherited PATH alone".
   return { ...process.env, ...(loginPath ? { PATH: loginPath } : {}), ...extra };
 }

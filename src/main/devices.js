@@ -20,7 +20,7 @@
 // change its agents ('act'); main.js decides what it may do.
 //
 // events: 'change' (the list or a connection changed), 'task' (peer, frame), 'pair' ({ state, ... }),
-//         'remote' (peer, { snap } | { e }), 'say' (peer, text), 'act' (peer, action)
+//         'remote' (peer, { snap } | { e }), 'say' (peer, text, voice), 'said' (peer, text), 'act' (peer, action)
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -193,6 +193,8 @@ class Devices extends EventEmitter {
 
   /** Start when there is someone to talk to (or a pairing). Safe to call again. */
   async start() {
+    // A stop still under way (the last pair was just removed) finishes first.
+    if (this.stopping) await this.stopping;
     if (this.swarm) return;
     if (!this.data.peers.length && !this.pairing) return;
     const Hyperswarm = require('hyperswarm');
@@ -229,9 +231,11 @@ class Devices extends EventEmitter {
     this.relayAbort = null;
     for (const p of this.pending.values()) { clearTimeout(p.timer); p.resolve({ ok: false, text: 'JARVIS is shutting down.' }); }
     this.pending.clear();
-    if (this.swarm) await this.swarm.destroy().catch(() => {});
+    // The swarm goes at once, so nothing new joins it while it is being torn down.
+    const swarm = this.swarm;
     this.swarm = null;
     this.conns.clear();
+    if (swarm) { this.stopping = swarm.destroy().catch(() => {}); await this.stopping; this.stopping = null; }
   }
 
   hello() { return { t: 'hello', name: this.data.name, os: OS_NAME, v: 1 }; }
@@ -462,7 +466,9 @@ class Devices extends EventEmitter {
       if (f.t === 'snap' && f.id && this.pending.has(f.id)) { const w = this.pending.get(f.id); clearTimeout(w.timer); this.pending.delete(f.id); w.resolve(f); }
       this.emit('remote', p, f.t === 'snap' ? { snap: f.events || {} } : { e: f.e });
     } else if (f.t === 'say') {
-      this.emit('say', p, String(f.text || '').slice(0, 4000));
+      this.emit('say', p, String(f.text || '').slice(0, 4000), !!f.voice);
+    } else if (f.t === 'said') {
+      this.emit('said', p, String(f.text || '').slice(0, 4000));
     } else if (f.t === 'act') {
       if (f.action && typeof f.action === 'object') this.emit('act', p, f.action);
     } else if (f.t === 'progress') {
@@ -493,7 +499,8 @@ class Devices extends EventEmitter {
 
   /** Another device's HUD, once (for when it's only reachable through the relay). */
   fetchView(idOrName) { return this.request(idOrName, { t: 'get' }, { timeout: 30000 }); }
-  sayTo(idOrName, text) { const p = this.peer(idOrName); return p ? this.deliver(p, { t: 'say', text: String(text).slice(0, 4000) }) : Promise.resolve('No such device.'); }
+  /** voice: said out loud here, so the answer comes back ('said') to be spoken here. */
+  sayTo(idOrName, text, voice = false) { const p = this.peer(idOrName); return p ? this.deliver(p, { t: 'say', text: String(text).slice(0, 4000), voice }) : Promise.resolve('No such device.'); }
   actOn(idOrName, action) { const p = this.peer(idOrName); return p ? this.deliver(p, { t: 'act', action }) : Promise.resolve('No such device.'); }
 
   /** What the peer-to-peer side sees: its public address and NAT, and each pair's discovery and link. */
