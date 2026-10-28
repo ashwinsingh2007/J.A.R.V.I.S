@@ -8,6 +8,7 @@ const path = require('path');
 const EventEmitter = require('events');
 const { BrowserWindow, ipcMain, screen } = require('electron');
 const C = require('./config');
+const { log } = require('./util');
 
 const BOUNDS_FILE = path.join(C.STATE_DIR, 'window.json');
 
@@ -52,6 +53,7 @@ class HudWindow extends EventEmitter {
       const on = this.visible;
       if (on === was) return;
       was = on;
+      log(`hud: ${on ? 'awake' : 'asleep (in the background, minimised or hidden)'}`);
       this.send('window', { awake: on });
       this.emit('visible', on);
     });
