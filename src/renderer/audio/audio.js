@@ -3,7 +3,11 @@
 const ctx = new AudioContext();
 const analyser = ctx.createAnalyser();
 analyser.fftSize = 512;
-analyser.connect(ctx.destination);
+// The voice's volume (Settings, the speaker button): after the meter, so the HUD still sees it speak.
+const gain = ctx.createGain();
+analyser.connect(gain);
+gain.connect(ctx.destination);
+const setVoiceVolume = (v) => { if (Number.isFinite(+v)) gain.gain.value = Math.max(0, Math.min(1, +v)); };
 const samples = new Float32Array(analyser.fftSize);
 let source = null;
 let meter = null;
@@ -79,7 +83,8 @@ function chime() {
 
 host.on((msg) => {
   switch (msg.type) {
-    case 'tts-play': playTTS(msg.data); break;
+    case 'tts-play': setVoiceVolume(msg.volume); playTTS(msg.data); break;
+    case 'tts-volume': setVoiceVolume(msg.v); break;
     case 'tts-stop': stopTTS(false); break;
     case 'music-play': playMusic(msg.url, msg.volume); break;
     case 'music-stop': stopMusic(); break;

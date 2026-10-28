@@ -236,7 +236,7 @@ ipcMain.handle('setup:save', (e, patch) => (fromSetup(e) ? setupSave(patch) : fa
 
 // Settings the HUD can change live. Keys, Telegram and the brain provider stay in Setup.
 const HUD_KEYS = ['ttsEngine', 'kokoroVoice', 'kokoroSpeed', 'edgeVoice', 'nativeVoice', 'elevenLabsModel',
-  'sttEngine', 'appleSpeech', 'speechLocale', 'commandSilenceSeconds', 'requireEndWord', 'echoCancel',
+  'sttEngine', 'appleSpeech', 'speechLocale', 'commandSilenceSeconds', 'requireEndWord', 'echoCancel', 'voiceVolume', 'voiceMuted',
   'model', 'effort', 'agentModel', 'screenControl', 'morningBriefing', 'checkIns', 'honorific', 'announceSessions', 'autoHide', 'worker', 'greetOnStart'];
 
 /** The assistants for the HUD: who is in use, and what each one is, with the user's changes. */
@@ -545,7 +545,16 @@ async function devicesAction(name, msg = {}) {
   if (name === 'dev:list') return sendDevices();
   // This HUD showing another device: type to it, change its agents, or load its view through the relay.
   // Which computer's tab is open, so what is said out loud goes there.
-  if (name === 'dev:focus') { const p = msg.device ? devices.peer(msg.device) : null; orch.remoteTarget = p ? { id: p.id, name: p.name } : null; log(`remote: voice goes to ${p ? p.name : 'this computer'}`); return; }
+  if (name === 'dev:focus') {
+    const p = msg.device ? devices.peer(msg.device) : null;
+    // Its agent in use (from that computer's view): its name wakes this one too, since what is said goes there.
+    const agent = p && typeof msg.agent === 'string' && /^[\w .'-]{1,24}$/.test(msg.agent) ? msg.agent : '';
+    const same = orch.remoteTarget && p && orch.remoteTarget.id === p.id;
+    orch.remoteTarget = p ? { id: p.id, name: p.name, agent } : null;
+    orch.wake.setGuests(agent ? [agent] : []);
+    if (!same) log(`remote: voice goes to ${p ? p.name : 'this computer'}${agent ? ` (${agent})` : ''}`);
+    return;
+  }
   if (name === 'dev:say') { const e = await devices.sayTo(msg.device, msg.text); return e ? err(e) : null; }
   if (name === 'dev:act') { const e = await devices.actOn(msg.device, msg.action || {}); return e ? err(e) : null; }
   if (name === 'dev:view') { const r = await devices.fetchView(msg.device); if (!r.ok) err(r.text); return; }

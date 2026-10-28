@@ -291,7 +291,15 @@ class Devices extends EventEmitter {
     const old = this.conns.get(p.id);
     if (old && old !== conn) old.destroy();
     this.conns.set(p.id, conn);
-    conn.on('close', () => { if (this.conns.get(p.id) === conn) { this.conns.delete(p.id); this.watchers.delete(p.id); this.emit('change'); } });
+    conn.on('close', () => {
+      if (this.conns.get(p.id) !== conn) return;
+      this.conns.delete(p.id); this.watchers.delete(p.id);
+      // A closed link usually means it went away. If both are still running, each says it's there
+      // through the relay a moment later, so neither waits for the next 20-minute round.
+      this.aliveAt.delete(p.id);
+      this.emit('change');
+      setTimeout(() => { if (this.swarm && this.data.relay.on && !this.conns.get(p.id)) { this.toldHere.add(p.id); this.relaySend(p, { t: 'here' }); } }, 3000);
+    });
     frames(conn, (f) => this.onFrame(p, f));
     send(conn, this.hello());
     send(conn, { t: 'watch', on: true });

@@ -1617,7 +1617,6 @@
     if (spotted) unspot();
     machine = id;
     crewGroup = 'main';
-    postLocal({ type: 'action', name: 'dev:focus', device: id });
     body.classList.toggle('remote', !!id);
     if (id && ['settings', 'music'].includes(body.dataset.view)) showView('cc');
     const v = views[id] || {};
@@ -1633,12 +1632,22 @@
     remoteNote();
     renderMachines();
     coreLabel();
+    focusVoice();
+  }
+  /** Where what is said goes: the computer in view, and the name of its agent in use, which wakes it too. */
+  let focusSent = '';
+  function focusVoice() {
+    const a = machine && (views[machine] || {}).assistants, list = (a && a.list) || [];
+    const agent = machine ? ((list.find((x) => x.id === a.id) || {}).name || '') : '';
+    if (machine + '|' + agent === focusSent) return;
+    focusSent = machine + '|' + agent;
+    postLocal({ type: 'action', name: 'dev:focus', device: machine, agent });
   }
   function onRemote(e) {
     const v = views[e.device] || (views[e.device] = {});
     const evs = e.snap ? Object.values(e.snap) : e.e ? [e.e] : [];
     for (const x of evs) if (x && x.type && MIRRORED.includes(x.type)) { v[x.type] = x; if (machine === e.device) dispatch(x); }
-    if (machine === e.device) remoteNote();
+    if (machine === e.device) { remoteNote(); focusVoice(); }
     // Its agents feed the Devices node on this device's HUD.
     if (!machine && evs.some((x) => x && x.type === 'assistants') && crewGroup !== 'main') { HUBS = hubsFor(); crew.innerHTML = buildCrew(); }
     else if (!machine && evs.some((x) => x && x.type === 'assistants') && !HUBS.some((h) => h.group === 'devices') && remoteDevices().length) { HUBS = hubsFor(); crew.innerHTML = buildCrew(); }
@@ -1772,7 +1781,35 @@
     st.textContent = need.length ? 'needs ' + need.join(' + ') : 'allowed';
     btn.hidden = !need.length;
   }
+  // ---------- the voice: mute and volume (the speaker button next to the mic) ----------
+  let voiceMuted = false, voiceVolume = 1, volTimer = null;
+  function renderVoice() {
+    const pct = Math.round(voiceVolume * 100);
+    $('voice-btn').classList.toggle('off', voiceMuted);
+    $('voice-btn').title = voiceMuted ? 'Voice muted: replies show as text. Click to unmute' : `Voice at ${pct}%. Click to mute`;
+    $('voice-vol').value = pct;
+    $('voice-pct').textContent = voiceMuted ? 'MUTED' : pct + '%';
+  }
+  $('voice-btn').addEventListener('click', () => {
+    voiceMuted = !voiceMuted;
+    renderVoice();
+    post({ type: 'action', name: 'settings', patch: { voiceMuted } });
+  });
+  $('voice-vol').addEventListener('input', () => {
+    voiceVolume = Number($('voice-vol').value) / 100;
+    // Moving the volume while muted brings the voice back.
+    const patch = { voiceVolume };
+    if (voiceMuted) { voiceMuted = false; patch.voiceMuted = false; }
+    renderVoice();
+    clearTimeout(volTimer);
+    volTimer = setTimeout(() => post({ type: 'action', name: 'settings', patch }), 200);
+  });
+  renderVoice();
+
   function setSettings(e) {
+    if (e.values && 'voiceMuted' in e.values) voiceMuted = !!e.values.voiceMuted;
+    if (e.values && Number.isFinite(+e.values.voiceVolume) && e.values.voiceVolume !== undefined) voiceVolume = Math.max(0, Math.min(1, +e.values.voiceVolume));
+    if (e.values && ('voiceMuted' in e.values || 'voiceVolume' in e.values)) renderVoice();
     // The macOS voices, for each agent's voice on the Agents tab.
     if (Array.isArray(e.sayVoices) && e.sayVoices.length) {
       const ns = $('ag-native'), keep = ns.value;
