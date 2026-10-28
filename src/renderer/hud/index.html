@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>J.A.R.V.I.S</title>
-<link rel="stylesheet" href="hud.css?v=32">
+<link rel="stylesheet" href="hud.css?v=34">
 <link rel="stylesheet" href="../themes.css">
 <script src="../themes.js"></script>
 <script>(function(){var q=new URLSearchParams(location.search);jarvisTheme.apply(q.get('theme')||undefined,q.get('mode')||undefined);})();</script>
@@ -43,6 +43,14 @@
         <div class="spot-name" id="spot-name"></div>
         <div class="spot-role" id="spot-role"></div>
         <div class="spot-hint" id="spot-hint"></div>
+        <div class="spot-pair" id="spot-pair" hidden>
+          <div class="spot-code" id="spot-code"></div>
+          <button class="spot-go" id="sp-host">SHOW A CODE</button>
+          <div class="spot-pair-row"><input id="sp-code" maxlength="9" placeholder="OR TYPE ONE: K7M2-9QXA" spellcheck="false" autocomplete="off"><button class="spot-go" id="sp-join">PAIR</button></div>
+        </div>
+        <div class="spot-pair" id="spot-make" hidden>
+          <div class="spot-pair-row"><input id="sm-name" maxlength="20" placeholder="ITS NAME, FOR EXAMPLE COACH" spellcheck="false" autocomplete="off"><button class="spot-go" id="sm-go">CREATE</button></div>
+        </div>
         <button class="spot-go" id="spot-go">SWITCH</button>
         <button class="spot-back" id="spot-back" title="Back (Esc)">BACK</button>
       </div>
@@ -579,7 +587,7 @@
 </main>
 
 <script src="three.min.js"></script>
-<script src="hud.js?v=31"></script>
+<script src="hud.js?v=33"></script>
 <script src="settings.js?v=4"></script>
 </body>
 </html>

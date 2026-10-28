@@ -584,7 +584,8 @@ async function testHud() {
     const box = (el) => el.getBoundingClientRect();
     const hit = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
     const panels = ['lc', 'lf', 'brand', 'ask'].map((id) => box(document.getElementById(id)));
-    return ['friday', 'karen', 'edith', 'vision'].map((id) => {
+    // The four nodes the normal view shows: three agents and MESH.
+    return [...document.querySelectorAll('#crew .mate:not(.extra)')].map((m) => m.dataset.id).map((id) => {
       const m = document.getElementById('crew-' + id);
       const parts = [m.querySelector('.halo'), m.querySelector('.nm2'), m.querySelector('.rl2')].map(box);
       return { id, shown: getComputedStyle(m).opacity === '1', clear: parts.every((p) => panels.every((q) => !hit(p, q))) };
@@ -797,7 +798,44 @@ async function testHud() {
   await hud.mouse.move(mid[0], mid[1]);
   await sleep(2400);
   check('idle HOME hides the panels', await isFocus());
-  check('crew shows FRIDAY, EDITH and KAREN', await hud.evaluate(() => ['friday', 'edith', 'karen'].every((id) => getComputedStyle(document.getElementById('crew-' + id)).opacity === '1')));
+  // They fade in one after another, so give the last of them time.
+  await hud.waitForFunction(() => ['friday', 'edith', 'karen'].every((id) => document.getElementById('crew-' + id) && getComputedStyle(document.getElementById('crew-' + id)).opacity === '1'), null, { timeout: 5000 }).catch(() => {});
+  check('crew shows FRIDAY, EDITH and KAREN', await hud.evaluate(() => ['friday', 'edith', 'karen'].every((id) => document.getElementById('crew-' + id) && getComputedStyle(document.getElementById('crew-' + id)).opacity === '1')), await hud.evaluate(() => [...document.querySelectorAll('#crew .mate')].map((m) => m.dataset.id + '=' + getComputedStyle(m).opacity).join(',')));
+  check('and MESH, dim with nothing paired', await hud.evaluate(() => { const m = document.getElementById('crew-g-devices'); return !!m && m.classList.contains('dim') && /PAIR A COMPUTER/.test(m.textContent); }));
+  // MESH opens into + PAIR, which brings pairing into the spotlight
+  await hud.evaluate(() => document.getElementById('crew-g-devices').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  await sleep(300);
+  await hud.evaluate(() => document.getElementById('crew-g-pair').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  await sleep(300);
+  check('+ PAIR opens pairing on the HUD', await hud.evaluate(() => document.body.classList.contains('spot') && !document.getElementById('spot-pair').hidden && document.getElementById('spot-go').hidden));
+  await hud.click('#sp-host');
+  await hud.waitForFunction(() => /^[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(document.getElementById('spot-code').textContent), null, { timeout: 30000 }).catch(() => {});
+  check('and shows a code there', /^[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(await text(hud, '#spot-code')), await text(hud, '#spot-hint'));
+  await shot(hud, 'hud-pair');
+  check('MESH lists this computer too', await hud.evaluate(() => !!document.getElementById('crew-g-self')));
+  await hud.click('#spot-back');
+  await hud.evaluate(() => document.getElementById('crew-g-main').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  await sleep(300);
+  // FORGE: custom agents, dim with none yet; + CREATE makes one right on the HUD
+  check('FORGE is there, dim with no custom agents', await hud.evaluate(() => { const m = document.getElementById('crew-g-custom'); return !!m && m.classList.contains('dim') && /MAKE YOUR OWN/.test(m.textContent); }));
+  await hud.evaluate(() => document.getElementById('crew-g-custom').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  await sleep(300);
+  await hud.evaluate(() => document.getElementById('crew-g-create').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  await sleep(500);
+  await hud.fill('#sm-name', 'Scout');
+  await hud.click('#sm-go');
+  await hud.waitForFunction(() => document.body.dataset.view === 'agents' && /SCOUT/.test(document.getElementById('a-edit-title').textContent), null, { timeout: 8000 }).catch(() => {});
+  check('+ CREATE makes an agent and opens it in Agents', await hud.evaluate(() => document.body.dataset.view === 'agents' && /SCOUT/.test(document.getElementById('a-edit-title').textContent)));
+  hud.once('dialog', (d) => d.accept());
+  await hud.click('#a-delete');
+  await sleep(600);
+  await hud.click('#nav a[data-view="cc"]');
+  await sleep(300);
+  await hud.evaluate(() => { const g = document.getElementById('crew-g-main'); if (g) g.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+  await sleep(300);
+  // Back to full mode for the checks that follow.
+  await hud.mouse.move(mid[0], mid[1]);
+  await sleep(2400);
   await shot(hud, 'hud-focus');
   check('captions stay visible in full mode', await hud.evaluate(() => getComputedStyle(document.getElementById('status')).opacity === '1'));
   check('full mode hides the mic and the state word', await hud.evaluate(() => getComputedStyle(document.querySelector('#status .row1')).opacity === '0'));
@@ -1137,8 +1175,8 @@ async function testDevices() {
   await ha.click('#nav a[data-view="cc"]');
   await ha.waitForFunction(() => !document.getElementById('machines').hidden && /Home Mac/.test(document.getElementById('machines').textContent), null, { timeout: 15000 }).catch(() => {});
   check('a tab for the other device', /Home Mac/.test(await text(ha, '#machines')));
-  await ha.waitForFunction(() => !!document.getElementById('crew-g-devices'), null, { timeout: 15000 }).catch(() => {});
-  check('a Devices node on the HUD, in a slot the normal view shows', await ha.evaluate(() => { const m = document.getElementById('crew-g-devices'); return !!m && !m.classList.contains('extra'); }));
+  await ha.waitForFunction(() => /1 CONNECTED/.test((document.getElementById('crew-g-devices') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
+  check('MESH on the HUD, lit, in a slot the normal view shows', await ha.evaluate(() => { const m = document.getElementById('crew-g-devices'); return !!m && !m.classList.contains('extra') && !m.classList.contains('dim') && /1 CONNECTED/.test(m.textContent); }));
   await shot(ha, 'devices-home');
   await ha.evaluate(() => document.getElementById('crew-g-devices').dispatchEvent(new MouseEvent('click', { bubbles: true })));
   await sleep(400);

@@ -772,6 +772,19 @@ body.remote #nav a[data-view="history"], body.remote #nav a[data-view="memory"],
 body.remote #a-tabs [data-at="training"], body.remote #a-export, body.remote #a-import, body.remote #a-maint { display: none; }
 body.remote #a-edit li:has(#a-maint) { display: none; }
 #crew .mate.group .ring { stroke-dasharray: 0.9 0.6; }
+#crew .mate.dim .core, #crew .mate.dim .ring, #crew .mate.dim .halo { opacity: 0.22; }
+#crew .mate.dim .fire, #crew .mate.dim .spark { opacity: 0.12; }
+#crew .mate.dim text { opacity: 0.55; }
+/* While something is in the spotlight, the state word steps aside; pairing and making sit a bit higher. */
+body.spot #status { opacity: 0; pointer-events: none; }
+body.spot #spot:has(.spot-pair:not([hidden])) { top: 50%; }
+#spot .spot-pair { margin-top: 18px; display: grid; justify-items: center; gap: 12px; }
+#spot .spot-pair[hidden], #spot .spot-code[hidden], #spot [hidden] { display: none; }
+#spot .spot-code { font: 500 clamp(26px, 2.6vw, 44px)/1 var(--mono); letter-spacing: 0.3em; padding: 12px 18px 12px calc(18px + 0.3em); color: var(--cyan); border: 1px solid var(--line2); background: rgba(var(--rgb), 0.08); text-shadow: 0 0 14px rgba(var(--rgb), calc(0.6 * var(--glow))); }
+#spot .spot-pair .spot-go { margin: 0; }
+#spot .spot-pair-row { display: flex; gap: 8px; }
+#spot .spot-pair input { width: 240px; padding: 6px 10px; border: 1px solid var(--line2); background: rgba(var(--rgb), 0.05); color: var(--bright); font: var(--lab) var(--mono); letter-spacing: 0.18em; text-transform: uppercase; outline: none; }
+#spot .spot-pair input:focus { border-color: var(--cyan); }
 #crew .mate.group .core { opacity: 0.35; }
 body.focus[data-view="cc"] #crew .mate.pop { animation: crewpop .55s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--i) * .06s); }
 @keyframes crewpop { from { opacity: 0; transform: scale(.25); } to { opacity: 1; transform: none; } }

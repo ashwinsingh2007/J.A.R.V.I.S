@@ -141,10 +141,15 @@ Once paired, each computer gets a tab at the top of the HUD next to the view chi
 
 Its memory, history, settings and music stay on that computer. Over the relay, the tab shows the latest state it loaded instead of a live stream, to save the relay's daily messages.
 
-On the home screen, the nodes around the core are grouped:
-- **Custom** opens into your own agents, with a **System** node back to the built-in ones.
-- **Devices** opens into one node per computer. A computer opens into its built-in agents and one node for its custom agents.
-- Clicking another computer's agent opens that computer's tab with the agent in the spotlight.
+On the home screen, two nodes sit with the built-in agents around the core:
+- **FORGE** holds your own agents. It's dim until you make one.
+  - Click it to see them, plus **+ CREATE** and a **System** node back to the built-in ones.
+  - **+ CREATE** asks for a name right on the HUD, then opens the new agent in the Agents tab.
+- **MESH** holds your computers. It's dim until you pair one.
+  - Click it to see this computer, every paired computer (dim when it can't be reached), and **+ PAIR**.
+  - **+ PAIR** shows a pairing code or takes one, in the middle of the HUD.
+  - A computer opens into its built-in agents and one node for its custom agents.
+  - Clicking one of its agents opens that computer's tab with the agent in the spotlight.
 
 ## How it listens and speaks
 
