@@ -5,6 +5,9 @@
   devices.py status <device>                        what it is doing: jobs, CPU, RAM
   devices.py ask <device> "<description>" "<task>"  hand it a task and wait for the result
                                                     (can take minutes: run it from a background job)
+  devices.py pair-host                              show a pairing code (prints it; type it on the other device)
+  devices.py pair-wait                              wait for the pairing started with pair-host to finish
+  devices.py pair-join <code>                       pair with the device showing that code, and wait
 """
 import json
 import os
@@ -34,7 +37,7 @@ def call(req, timeout):
 
 
 def main(argv):
-    if not argv or argv[0] not in ('list', 'status', 'ask'):
+    if not argv or argv[0] not in ('list', 'status', 'ask', 'pair-host', 'pair-wait', 'pair-join'):
         print(__doc__.strip())
         return 0 if not argv else 2
     cmd = argv[0]
@@ -46,6 +49,21 @@ def main(argv):
         if not r.get('devices'):
             print('No other devices paired. The user pairs them in Settings > Devices.')
         return 0
+    if cmd == 'pair-host':
+        r = call({'op': 'pair-host'}, 30)
+        print(r.get('code') or r.get('text', 'No answer.'))
+        return 0 if r.get('ok') else 1
+    if cmd == 'pair-wait':
+        r = call({'op': 'pair-wait'}, 200)
+        print(r.get('text', 'No answer.'))
+        return 0 if r.get('ok') else 1
+    if cmd == 'pair-join':
+        if len(argv) < 2:
+            print('Give the code the other device shows.', file=sys.stderr)
+            return 2
+        r = call({'op': 'pair-join', 'code': argv[1]}, 200)
+        print(r.get('text', 'No answer.'))
+        return 0 if r.get('ok') else 1
     if len(argv) < 2:
         print('Say which device.', file=sys.stderr)
         return 2

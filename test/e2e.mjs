@@ -1173,8 +1173,12 @@ async function testDevices() {
   await ha.waitForFunction(() => /Home Mac/.test(document.getElementById('d-list').textContent), null, { timeout: 10000 }).catch(() => {});
   check('each lists the other', /Home Mac/.test(await text(ha, '#d-list')) && /Work Mac/.test(await text(hb, '#d-list')));
   await shot(ha, 'devices-paired');
-  // A tab for the other device, and its agents on this HUD's Devices node.
+  // A tab for the other device, and its agents on this HUD's Devices node. Pairing may have gone
+  // through the relay, so wait for the direct connection (it brings the live view).
   await ha.click('#nav a[data-view="cc"]');
+  await ha.waitForFunction(() => !!document.querySelector('#machines .mtab.live'), null, { timeout: 45000 }).catch(() => {});
+  await ha.waitForFunction(() => /1 CONNECTED/.test((document.getElementById('crew-g-devices') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
+  await sleep(1500);
   await ha.waitForFunction(() => !document.getElementById('machines').hidden && /Home Mac/.test(document.getElementById('machines').textContent), null, { timeout: 15000 }).catch(() => {});
   check('a tab for the other device', /Home Mac/.test(await text(ha, '#machines')));
   await ha.waitForFunction(() => /1 CONNECTED/.test((document.getElementById('crew-g-devices') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});

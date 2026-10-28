@@ -67,6 +67,10 @@ function pairProof(auth, myKey, theirKey) {
 }
 
 const peerTopic = (secret) => sha('jarvis-peer-v1', hex(secret));
+// Pairing through the relay, for networks that block the peer-to-peer one: a topic and a key from the
+// code (scrypt-stretched, so the relay can't guess them back), and nothing readable without the code.
+const pairRelayTopic = (keys) => 'jp' + hex(sha('jarvis-pair-relay', hex(keys.topic))).slice(0, 40);
+const pairRelayKey = (keys) => Buffer.from(crypto.hkdfSync('sha256', keys.auth, Buffer.alloc(0), 'jarvis-pair-relay-key', 32));
 const relayKey = (secret) => Buffer.from(crypto.hkdfSync('sha256', secret, Buffer.alloc(0), 'jarvis-relay-key', 32));
 /** The relay topic for messages going to device `to`. */
 const relayTopic = (secret, to) => 'jv' + hex(sha('jarvis-relay-topic', hex(secret), to)).slice(0, 40);
@@ -257,11 +261,18 @@ class Devices extends EventEmitter {
     if (!this.swarm) await this.start();
     const pg = this.pairing;
     pg.discovery = this.swarm.join(keys.topic, { server: true, client: true });
-    // The code is shown once this device is findable, so the other one finds it straight away.
-    if (role === 'host') await pg.discovery.flushed().catch(() => {});
-    else await this.swarm.flush().catch(() => {});
-    if (this.pairing !== pg) return { error: 'Cancelled.' };
+    // The relay too, at the same time: whichever finds the other device first wins.
+    this.pairViaRelay(pg);
+    // The code is shown once this device is findable, so the other one finds it straight away. A
+    // network that blocks the peer-to-peer traffic never gets there: then the relay carries the pairing.
+    const ready = role === 'host' ? pg.discovery.flushed() : this.swarm.flush();
+    const ok = await Promise.race([ready.then(() => true, () => false), new Promise((r) => setTimeout(() => r(false), 15000))]);
+    // Ended while getting ready: paired already (the other device was quick), or cancelled.
+    if (this.pairing !== pg) return this.data.peers.some((p) => p.pairedAt && Date.now() - Date.parse(p.pairedAt) < 120000) ? {} : { error: 'Cancelled.' };
+    if (!ok) log('devices: the peer-to-peer network is not answering from here (UDP may be blocked); pairing through the relay');
     log(`devices: pairing (${role})`);
+    // Still nothing after 45 seconds: say so, rather than wait in silence.
+    pg.slow = setTimeout(() => { if (this.pairing === pg) { log('devices: pairing: no sign of the other device yet'); this.emit('pair', { state: 'slow', role }); } }, 45000);
     const shown = `${code.slice(0, 4)}-${code.slice(4)}`;
     this.emit('pair', { state: 'waiting', role, code: role === 'host' ? shown : '', minutes: PAIR_MINUTES });
     return { code: role === 'host' ? shown : '' };
@@ -272,6 +283,9 @@ class Devices extends EventEmitter {
     const pg = this.pairing;
     if (!pg) return;
     clearTimeout(pg.timer);
+    clearTimeout(pg.slow);
+    clearInterval(pg.resend);
+    if (pg.relayAbort) pg.relayAbort.abort();
     if (this.swarm) this.swarm.leave(pg.keys.topic).catch(() => {});
     this.pairing = null;
     if (!keep && !this.data.peers.length) this.stop();
@@ -302,7 +316,64 @@ class Devices extends EventEmitter {
     send(conn, { t: 'pair', name: this.data.name, os: OS_NAME, proof: pairProof(pg.keys.auth, mine, conn.remotePublicKey) });
   }
 
+  /**
+   * Pairing over the relay. Both sides post who they are, sealed with the code's key; each answers the
+   * other's with a proof bound to both public keys; the device that showed the code then sends the
+   * pair's secret, again every few seconds, until the other confirms it ('got'). Only then does it
+   * count as paired, so a lost message can't leave one side paired and the other not. Messages from
+   * this device, or that don't open with the code's key, are ignored.
+   */
+  pairViaRelay(pg) {
+    if (!this.data.relay.on) return;
+    const key = pairRelayKey(pg.keys), url = `${this.data.relay.url}/${pairRelayTopic(pg.keys)}`;
+    const me = this.id, mine = this.swarm.keyPair.publicKey;
+    // A relay message can fail on a flaky network: try it three times.
+    const post = async (f) => {
+      for (let i = 0; i < 3; i++) {
+        try { const r = await this.fetch(url, { method: 'POST', body: seal(key, { ...f, from: me, ts: Date.now() }), signal: AbortSignal.timeout(15000) }); if (r.ok) return; } catch (e) { if (i === 2) log(`devices: pairing relay: ${e.message}`); }
+        await new Promise((r) => setTimeout(r, 1000 * (i + 1)));
+      }
+    };
+    let theirs = null, proved = false, secret = '';
+    pg.relayAbort = new AbortController();
+    this.relayStream(`${url}/json?since=${PAIR_MINUTES}m`, pg.relayAbort.signal, (_topic, text) => {
+      if (this.pairing !== pg) return;
+      const f = open(key, text);
+      if (!f || f.from === me || !/^[0-9a-f]{64}$/.test(f.from) || Math.abs(Date.now() - f.ts) > RELAY_MAX_AGE) return;
+      const them = Buffer.from(f.from, 'hex');
+      if (f.t === 'hi') {
+        theirs = { id: f.from, name: String(f.name || 'Another device').slice(0, 40), os: String(f.os || '').slice(0, 20) };
+        post({ t: 'proof', to: f.from, name: this.data.name, os: OS_NAME, proof: pairProof(pg.keys.auth, mine, them) });
+      } else if (f.t === 'proof' && f.to === me && f.proof === pairProof(pg.keys.auth, them, mine)) {
+        if (!theirs || theirs.id !== f.from) theirs = { id: f.from, name: String(f.name || 'Another device').slice(0, 40), os: String(f.os || '').slice(0, 20) };
+        if (proved) return;
+        proved = true;
+        log('devices: pairing through the relay');
+        if (pg.role === 'host') {
+          secret = hex(crypto.randomBytes(32));
+          const to = f.from, send = () => post({ t: 'secret', to, secret });
+          send();
+          pg.resend = setInterval(() => { if (this.pairing === pg) send(); else clearInterval(pg.resend); }, 4000);
+        } else post({ t: 'proof', to: f.from, name: this.data.name, os: OS_NAME, proof: pairProof(pg.keys.auth, mine, them) });
+      } else if (f.t === 'secret' && f.to === me && pg.role === 'join' && proved && theirs && theirs.id === f.from && /^[0-9a-f]{64}$/.test(f.secret)) {
+        // Confirm twice, a moment apart, in case one is lost; then the pair is ours.
+        const to = f.from;
+        post({ t: 'got', to });
+        setTimeout(() => post({ t: 'got', to }), 2500);
+        this.addPeer(f.from, theirs, f.secret, null);
+      } else if (f.t === 'got' && f.to === me && pg.role === 'host' && secret && theirs && theirs.id === f.from) {
+        clearInterval(pg.resend);
+        this.addPeer(f.from, theirs, secret, null);
+      }
+    }).then(() => {});
+    post({ t: 'hi', name: this.data.name, os: OS_NAME });
+  }
+
   addPeer(id, who, secret, conn) {
+    if (!this.pairing) return;   // the other path got there first
+    clearTimeout(this.pairing.slow);
+    clearInterval(this.pairing.resend);
+    if (this.pairing.relayAbort) this.pairing.relayAbort.abort();
     this.data.peers = this.data.peers.filter((p) => p.id !== id);
     this.data.peers.push({ id, name: this.uniqueName(who.name), os: who.os, secret, pairedAt: new Date().toISOString().slice(0, 16) });
     this.save();
@@ -314,6 +385,8 @@ class Devices extends EventEmitter {
     this.subscribeRelay();
     log(`devices: paired with ${name}`);
     this.emit('pair', { state: 'paired', name });
+    // Paired through the relay: the peer-to-peer connection, if any, comes when the two find each other.
+    if (!conn) { this.emit('change'); return; }
     // The pairing connection carries on as the pair's connection.
     this.conns.set(id, conn);
     conn.on('close', () => { if (this.conns.get(id) === conn) { this.conns.delete(id); this.watchers.delete(id); this.emit('change'); } });
@@ -470,35 +543,36 @@ class Devices extends EventEmitter {
     const ab = new AbortController();
     this.relayAbort = ab;
     const topics = this.data.peers.map((p) => relayTopic(Buffer.from(p.secret, 'hex'), this.id));
-    const url = `${this.data.relay.url}/${topics.join(',')}/json?since=5m`;
+    this.relayStream(`${this.data.relay.url}/${topics.join(',')}/json?since=5m`, ab.signal, (topic, message) => this.onRelay(topic, message));
+  }
+
+  /** Keep a relay subscription open until signal aborts, reconnecting with a growing wait. */
+  async relayStream(url, signal, onMessage) {
     let wait = 2000;
-    const loop = async () => {
-      while (!ab.signal.aborted) {
-        try {
-          const r = await this.fetch(url, { signal: ab.signal });
-          if (!r.ok || !r.body) throw new Error(`status ${r.status}`);
-          wait = 2000;
-          const reader = r.body.getReader();
-          let buf = '';
-          for (;;) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            buf += Buffer.from(value).toString();
-            let i;
-            while ((i = buf.indexOf('\n')) >= 0) {
-              const line = buf.slice(0, i); buf = buf.slice(i + 1);
-              try { const m = JSON.parse(line); if (m.event === 'message') this.onRelay(m.topic, m.message); } catch {}
-            }
+    while (!signal.aborted) {
+      try {
+        const r = await this.fetch(url, { signal });
+        if (!r.ok || !r.body) throw new Error(`status ${r.status}`);
+        wait = 2000;
+        const reader = r.body.getReader();
+        let buf = '';
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += Buffer.from(value).toString();
+          let i;
+          while ((i = buf.indexOf('\n')) >= 0) {
+            const line = buf.slice(0, i); buf = buf.slice(i + 1);
+            try { const m = JSON.parse(line); if (m.event === 'message') onMessage(m.topic, m.message); } catch {}
           }
-        } catch (e) {
-          if (ab.signal.aborted) return;
-          log(`devices: relay: ${String(e.message || e).slice(0, 80)}; again in ${wait / 1000}s`);
         }
-        await new Promise((r) => setTimeout(r, wait));
-        wait = Math.min(wait * 2, 120000);
+      } catch (e) {
+        if (signal.aborted) return;
+        log(`devices: relay: ${String(e.message || e).slice(0, 80)}; again in ${wait / 1000}s`);
       }
-    };
-    loop();
+      await new Promise((r) => setTimeout(r, wait));
+      wait = Math.min(wait * 2, 120000);
+    }
   }
 
   onRelay(topic, message) {
@@ -523,4 +597,4 @@ class Devices extends EventEmitter {
   }
 }
 
-module.exports = { Devices, normCode, newCode, pairKeys, pairProof, seal, open, relayTopic, relayKey, peerTopic };
+module.exports = { Devices, normCode, newCode, pairKeys, pairProof, seal, open, relayTopic, relayKey, peerTopic, pairRelayTopic, pairRelayKey };
