@@ -424,7 +424,7 @@ body.focus[data-view="cc"] #crew .mate { opacity: 1; transform: none; transition
 #crew .term { fill: var(--cyan); opacity: 0.7; }
 #crew .syn { stroke: var(--cyan); stroke-width: 0.12; opacity: 0.25; animation: synfire 3.6s ease-in-out infinite; animation-delay: calc(-1 * var(--d)); }
 #crew .nrn { fill: var(--cyan); opacity: 0.6; transform-box: fill-box; transform-origin: center; animation: nrnfire 4s ease-in-out infinite; animation-delay: calc(-1 * var(--d)); }
-#crew .spark { fill: var(--bright); filter: drop-shadow(0 0 1.2px rgba(var(--rgb), var(--glow))); }
+#crew .spark { fill: var(--bright); stroke: rgba(var(--rgb), calc(0.4 * var(--glow))); stroke-width: 0.6; }   /* a soft rim, not a blur filter: these move every frame */
 #crew .halo { fill: none; stroke: var(--cyan); stroke-width: 0.16; stroke-dasharray: 1.4 1.1; opacity: 0.6; transform-box: fill-box; transform-origin: center; animation: spin 14s linear infinite; }
 #crew .ring { fill: rgba(var(--rgb), calc(0.08 * var(--glow) + 0.04)); stroke: var(--line2); stroke-width: 0.2; }
 #crew .core { fill: var(--cyan); opacity: 0.55; transform-box: fill-box; transform-origin: center; animation: pulse 3.2s ease-in-out infinite; }
@@ -445,6 +445,9 @@ body.focus[data-view="cc"] #crew .mate { opacity: 1; transform: none; transition
 #crew .tether { stroke: var(--cyan); stroke-width: 0.14; stroke-dasharray: 0.6 1.6; opacity: 0.35; animation: crewflow 2.6s linear infinite; }
 #crew .tether.on { opacity: 0.9; stroke-width: 0.22; animation-duration: .8s; }
 #crew .fire, #crew .spark { transition: opacity .4s ease; }
+/* at rest the web is a still picture (crewMotion in hud.js) */
+#crew.still .fire, #crew.still .syn, #crew.still .nrn, #crew.still .halo, #crew.still .core, #crew.still .tether, #crew.still .aura { animation-play-state: paused !important; }
+#crew.nosparks .spark { opacity: 0 !important; }
 body[data-view="cc"]:not(.focus):not(.spot) #crew { opacity: 1; }
 body[data-view="cc"]:not(.focus):not(.spot) #crew .tethers { opacity: 1; }
 body[data-view="cc"]:not(.focus):not(.spot) #crew .mate { opacity: 1; pointer-events: auto; cursor: pointer; transform: translate(calc((var(--nx) - var(--hx)) * 1px), calc((var(--ny) - var(--hy)) * 1px)); transition: opacity .5s ease, transform .8s cubic-bezier(.2,.7,.2,1); }
