@@ -17,7 +17,7 @@ import Speech
 //      {"type":"restarted"} {"type":"pcm","b64":"…"} (while pcm is on: 16 kHz s16le mono)
 //      {"type":"devices","list":[{"id":1,"name":"…","default":true}]}
 //      {"type":"file_text","id":"…","text":"…"} {"type":"log","msg":"…"} {"type":"error","msg":"…"}
-// in:  {"cmd":"reset"} {"cmd":"mute","on":true} {"cmd":"armed","on":true}
+// in:  {"cmd":"reset"} {"cmd":"mute","on":true} {"cmd":"armed","on":true} {"cmd":"echo","on":false}
 //      {"cmd":"pcm","on":true} {"cmd":"suspend"} {"cmd":"resume"} {"cmd":"devices"} {"cmd":"set_input","id":42}
 //      {"cmd":"transcribe_file","id":"…","path":"/tmp/x.wav"}
 
@@ -258,6 +258,9 @@ final class Ears: NSObject {
     private let gateLock = NSLock()
     private var gate = SoundGate()
     private var gateState = GateState.open
+    // Echo cancellation (voice processing) costs about a quarter of a core, so JARVIS turns it on only
+    // while it talks or music plays ({"cmd":"echo"}). On until told otherwise.
+    private var echoOn = true
     private var preroll: [AVAudioPCMBuffer] = []
     private var prerollFrames: AVAudioFrameCount = 0
 
@@ -312,6 +315,21 @@ final class Ears: NSObject {
 
     func setArmed(_ on: Bool) { armed = on }
 
+    /// Echo cancellation on or off. The engine restarts to switch, a gap of a fraction of a second.
+    func setEcho(_ on: Bool) {
+        guard on != echoOn else { return }
+        echoOn = on
+        guard running, !suspended else { return }
+        endTask()
+        engine.inputNode.removeTap(onBus: 0)
+        engine.stop()
+        do { try startEngine() } catch { log("engine restart failed: \(error)") }
+        resetGate()
+        restartTask()
+        emit(["type": "restarted"])
+        log("echo cancellation \(on ? "on" : "off")")
+    }
+
     func reset() { if running { restartTask() } }
 
     func suspend() {
@@ -339,7 +357,7 @@ final class Ears: NSObject {
     private func startEngine() throws {
         let input = engine.inputNode
         do {
-            try input.setVoiceProcessingEnabled(true)
+            try input.setVoiceProcessingEnabled(echoOn)
             if #available(macOS 14.0, *) {
                 input.voiceProcessingOtherAudioDuckingConfiguration = AVAudioVoiceProcessingOtherAudioDuckingConfiguration(enableAdvancedDucking: false, duckingLevel: .min)
             }
@@ -575,6 +593,7 @@ func handle(_ obj: [String: Any]) {
     case "mute": ears.setMuted(obj["on"] as? Bool ?? true)
     case "pcm": ears.pcmOn = obj["on"] as? Bool ?? false
     case "armed": ears.setArmed(obj["on"] as? Bool ?? false)
+    case "echo": ears.setEcho(obj["on"] as? Bool ?? true)
     case "suspend": ears.suspend()
     case "resume": ears.resume()
     case "devices": AudioDevices.emitList()

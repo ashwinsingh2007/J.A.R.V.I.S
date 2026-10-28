@@ -22,6 +22,7 @@ const SWITCH_TO = /^(?:(?:please |can you |could you )?(?:switch|change|swap)(?:
 const STOP_WORDS = ['wait', 'stop', 'hold on', 'cancel', 'never mind', 'nevermind', 'quiet', 'shut up', "that's all", 'thats all', 'enough', 'okay stop', 'ok stop'];
 const FILLERS = ['On it.', 'One moment.', 'Right away.', 'Let me see.'];
 const ACK_MS = 1800;             // say a filler if the brain hasn't spoken by then
+const ECHO_OFF_MS = 5000;        // echo cancellation stays on this long after JARVIS and the music go quiet
 const CHECKIN_EVERY = { sometimes: 3 * 3600000, often: 90 * 60000 };
 const CHECKIN_AFTER_IDLE = 20 * 60000;
 const PROACTIVE_FILE = path.join(C.STATE_DIR, 'proactive.json');
@@ -117,6 +118,24 @@ class Orchestrator extends EventEmitter {
     const duck = s === 'listening' || s === 'speaking' || s === 'thinking';
     this.music.duck(duck);
     this.youtube.duck(duck);
+    this.updateEcho();
+  }
+
+  /** Echo cancellation is needed only while JARVIS talks or music plays, and costs about a quarter of a
+   *  CPU core, so the sidecar runs it only then. Switching restarts the mic for a moment, so it is
+   *  switched off only once nobody is speaking. echoCancel "always" keeps it on. */
+  updateEcho() {
+    if (!this.ears || !this.ears.echo) return;
+    const need = () => this.cfg.echoCancel === 'always' || this._state === 'thinking' || this._state === 'speaking'
+      || (this.speaker && this.speaker.isSpeaking) || (this.music && this.music.playing) || (this.youtube && this.youtube.playing);
+    clearTimeout(this.echoTimer);
+    if (need()) { this.ears.echo(true); return; }
+    const off = () => {
+      if (need()) return;
+      const quiet = this._state !== 'listening' && Date.now() - (this.lastHeard || 0) > 3000;
+      if (quiet) this.ears.echo(false); else this.echoTimer = setTimeout(off, 2000);
+    };
+    this.echoTimer = setTimeout(off, ECHO_OFF_MS);
   }
 
   /** The assistant in use: JARVIS, FRIDAY, KAREN, EDITH or VISION. */
@@ -180,8 +199,8 @@ class Orchestrator extends EventEmitter {
     this.inbox.on('event', (ev) => this.handleHookEvent(ev));
 
     this.music.on('stations', () => this.sendMusicStations());
-    this.music.on('change', (playing) => { if (playing) this.youtube.stopIfPlaying(); this.sendNowPlaying(); });
-    this.youtube.on('change', (playing) => { if (playing && this.music.playing) this.music.stop(); this.sendNowPlaying(); });
+    this.music.on('change', (playing) => { if (playing) this.youtube.stopIfPlaying(); this.sendNowPlaying(); this.updateEcho(); });
+    this.youtube.on('change', (playing) => { if (playing && this.music.playing) this.music.stop(); this.sendNowPlaying(); this.updateEcho(); });
 
     this.memory.on('change', (facts) => { hud.sendRaw('memory', facts); this.sendStats(); });
     this.scheduler.on('change', (items) => hud.sendRaw('schedule', items));
@@ -420,6 +439,7 @@ class Orchestrator extends EventEmitter {
     const has = (...keys) => keys.some((k) => changed.includes(k));
     if (has('ttsEngine', 'kokoroVoice', 'kokoroSpeed', 'edgeVoice', 'nativeVoice', 'elevenLabsModel')) this.speaker.reconfigure();
     if (has('speechLocale', 'appleSpeech')) { this.wake.restart(); this.ears.restart(); }
+    if (has('echoCancel')) this.updateEcho();
     if (has('sttEngine') && this.awake) { this.ears.setAwake(false); this.ears.setAwake(true); }
     if (has('model', 'effort', 'agentModel', 'honorific', 'screenControl') && this.brain.reconfigure) this.brain.reconfigure();
     log(`settings: applied ${changed.join(', ')}`);

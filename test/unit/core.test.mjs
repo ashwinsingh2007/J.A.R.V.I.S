@@ -290,3 +290,29 @@ test('findClaude() finds claude in its install locations when PATH lacks it', (t
   fs.chmodSync(native, 0o755);
   assert.equal(util.findClaude({ home, usePath: false, shell: null }), native, 'native installer wins');
 });
+
+test('echo cancellation runs only while JARVIS talks or music plays, and switches off once nobody speaks', (t) => {
+  const { Orchestrator } = require('../../src/main/orchestrator');
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+  const sent = [];
+  const o = Object.assign(Object.create(Orchestrator.prototype), {
+    cfg: { ...C.DEFAULTS }, _state: 'idle', lastHeard: 0,
+    ears: { echo: (on) => sent.push(on) }, speaker: { isSpeaking: false }, music: { playing: false }, youtube: { playing: false },
+  });
+  o._state = 'speaking'; o.updateEcho();
+  assert.deepEqual(sent, [true]);
+  o._state = 'idle'; o.updateEcho();
+  t.mock.timers.tick(4000);
+  assert.deepEqual(sent, [true], 'still on during the grace period');
+  o._state = 'listening'; o.lastHeard = Date.now();
+  t.mock.timers.tick(1000);
+  assert.deepEqual(sent, [true], 'not switched while the user is talking');
+  o._state = 'idle';
+  t.mock.timers.tick(4000);
+  assert.deepEqual(sent, [true, false]);
+  o.music.playing = true; o.updateEcho();
+  assert.deepEqual(sent, [true, false, true], 'music needs it');
+  o.music.playing = false; o.cfg.echoCancel = 'always'; o.updateEcho();
+  t.mock.timers.tick(60000);
+  assert.deepEqual(sent, [true, false, true, true], '"always" never switches it off');
+});

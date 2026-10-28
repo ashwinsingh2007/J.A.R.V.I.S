@@ -62,6 +62,7 @@ class Ears extends EventEmitter {
         if (this.inputId != null) this.send({ cmd: 'set_input', id: this.inputId });
         if (this.isMuted) this.send({ cmd: 'mute', on: true });
         if (this.isSuspended) this.send({ cmd: 'suspend' });
+        if (this.echoOn === false) this.send({ cmd: 'echo', on: false });
         this.emit('ready');
         break;
       case 'text': if (!this.cloudActive) this.emit('text', o.text, !!o.final); break;
@@ -91,6 +92,8 @@ class Ears extends EventEmitter {
   }
   mute(on) { this.isMuted = on; this.send({ cmd: 'mute', on }); }
   armed(on) { this.send({ cmd: 'armed', on }); }
+  /** Echo cancellation in the sidecar: on while JARVIS talks or music plays, off otherwise (it costs CPU). */
+  echo(on) { if (this.echoOn === on) return; this.echoOn = on; log(`ears: echo cancellation ${on ? 'on' : 'off'}`); this.send({ cmd: 'echo', on }); }
   suspend() { this.isSuspended = true; this.send({ cmd: 'suspend' }); this.setAwake(false); }
   resume() { this.isSuspended = false; this.send({ cmd: 'resume' }); }
   listDevices() { this.send({ cmd: 'devices' }); }

@@ -48,6 +48,7 @@ const DEFAULTS = {
   pauseGraceSeconds: 6.0,
   endWords: ['over', 'over and out'],
   requireEndWord: false,
+  echoCancel: 'auto',             // auto: only while JARVIS talks or music plays (saves about a quarter of a core) | always
 
   // Mouth
   ttsEngine: 'kokoro',            // kokoro | elevenlabs | edge | native
@@ -150,6 +151,7 @@ const ENUMS = {
   brainProvider: ['auto', 'claude-code', 'anthropic', 'gemini', 'ollama'],
   sttEngine: ['apple', 'elevenlabs'],
   appleSpeech: ['instant', 'accurate'],
+  echoCancel: ['auto', 'always'],
   ttsEngine: ['kokoro', 'elevenlabs', 'edge', 'native'],
   effort: ['low', 'medium', 'high'],
   agentModel: ['opus', 'sonnet', 'haiku', 'fable', 'inherit'],
