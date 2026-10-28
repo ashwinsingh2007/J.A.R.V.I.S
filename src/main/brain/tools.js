@@ -70,15 +70,34 @@ const DELEGATE_NOTE = `In this mode you do not have Bash. Use the tools instead:
 - Every task goes to delegate: web searches, websites, email and messages, coding, files, anything beyond a simple answer.
 - Ask the user before delegating anything that sends, posts, deletes, publishes, pays or changes account settings, exactly as the rules above say; when they agree, write "The user confirmed: …" in the task.`;
 
-async function execute(name, input = {}) {
+/** Why the assistant may not use this tool call ('' when it may): a tool or folder its guardrails keep it from. */
+function blocked(cfg, name, input) {
+  if (!cfg || !cfg.assistant) return '';
+  const { assistantOf, toolsOff, TOOLS, GUARDS } = require('../assistants');
+  const a = assistantOf(cfg.assistant, cfg);
+  const off = [...toolsOff(a).map((t) => TOOLS[t]), ...(a.guard === 'readonly' ? [{ ...GUARDS.readonly, label: 'Changing things (read only)' }] : [])];
+  const hit = off.find((t) => (t.api || []).includes(name) || (name === 'run_script' && (t.scripts || []).includes(input.script)));
+  if (hit) return `Error: ${hit.label.toLowerCase()} is switched off for you. The user can turn it on in the Agents tab.`;
+  if (name === 'read_file') {
+    const p = path.resolve(String(input.path || '').replace(/^~(?=\/|$)/, C.HOME));
+    if ((a.blockedPaths || []).some((b) => p === b || p.startsWith(b + path.sep))) return 'Error: that folder is off limits for you.';
+  }
+  return '';
+}
+
+/** cfg: the assistant's live config, for the tools switched off for it and its memory. */
+async function execute(name, input = {}, cfg = null) {
+  const extraEnv = cfg ? require('../memory').memoryEnv(cfg) : undefined;
   try {
+    const no = blocked(cfg, name, input);
+    if (no) return no;
     switch (name) {
       case 'run_script': {
         if (!SCRIPTS.includes(input.script)) return 'Error: script not allowed.';
         // Small models sometimes send the arguments as one string; split it the way a shell would, roughly.
         const args = Array.isArray(input.args) ? input.args.map(String) : typeof input.args === 'string' ? (input.args.match(/"[^"]*"|'[^']*'|\S+/g) || []).map((a) => a.replace(/^(["'])(.*)\1$/, '$2')) : [];
         const file = path.join(paths.scripts, input.script);
-        const r = input.script.endsWith('.py') ? await run('/usr/bin/python3', ['-I', file, ...args], { timeout: 60000 }) : await run('/bin/sh', [file, ...args], { timeout: 60000 });
+        const r = input.script.endsWith('.py') ? await run('/usr/bin/python3', ['-I', file, ...args], { timeout: 60000, extraEnv }) : await run('/bin/sh', [file, ...args], { timeout: 60000 });
         return (r.out + (r.code !== 0 ? `\n[exit ${r.code}] ${r.err}` : '')).slice(0, 12000) || '(no output)';
       }
       case 'open': {
@@ -112,7 +131,7 @@ async function execute(name, input = {}) {
       case 'remember': {
         const fact = String(input.fact || '').replace(/\n/g, ' ').trim();
         if (!fact) return 'Error: empty fact.';
-        const r = await run('/usr/bin/python3', ['-I', path.join(paths.scripts, 'memory.py'), 'add', fact], { timeout: 10000 });
+        const r = await run('/usr/bin/python3', ['-I', path.join(paths.scripts, 'memory.py'), 'add', fact], { timeout: 10000, extraEnv });
         return r.code === 0 ? r.out.trim() : `Error: ${r.err.trim()}`;
       }
       default: return `Error: unknown tool ${name}.`;
@@ -125,4 +144,4 @@ async function execute(name, input = {}) {
 /** Tool specs and the note for the system prompt, with or without the background worker. */
 const forBrain = (hasWorker) => (hasWorker ? { specs: [...SPECS, DELEGATE], note: DELEGATE_NOTE } : { specs: SPECS, note: TOOL_NOTE });
 
-module.exports = { SPECS, TOOL_NOTE, execute, forBrain };
+module.exports = { SPECS, TOOL_NOTE, execute, forBrain, blocked };

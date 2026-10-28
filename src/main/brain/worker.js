@@ -12,6 +12,7 @@ const { spawn } = require('child_process');
 const EventEmitter = require('events');
 const C = require('../config');
 const { log, env, jsonLines } = require('../util');
+const { memoryEnv } = require('../memory');
 const { workerPrompt, claudeSettings, claudeExtras, claudeDisallowed } = require('./common');
 
 const MAX_JOBS = 3;
@@ -48,7 +49,7 @@ class Worker extends EventEmitter {
       '--chrome',
     ];
     let proc;
-    try { proc = spawn(this.claudePath, args, { env: env({ JARVIS: '1', JARVIS_WORKER: '1' }), cwd: C.HOME, stdio: ['ignore', 'pipe', 'pipe'] }); }
+    try { proc = spawn(this.claudePath, args, { env: env({ JARVIS: '1', JARVIS_WORKER: '1', ...memoryEnv(this.cfg) }), cwd: C.HOME, stdio: ['ignore', 'pipe', 'pipe'] }); }
     catch (e) { log(`worker: failed to start: ${e}`); return `Error: the job could not start (${e.message}).`; }
     const job = { proc, description, text: '', result: '' };
     job.timer = setTimeout(() => { log(`worker: '${description}' ran over ${MAX_MINUTES} min, stopping`); proc.kill('SIGTERM'); }, MAX_MINUTES * 60000);

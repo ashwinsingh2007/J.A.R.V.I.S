@@ -53,12 +53,32 @@ function read(file, fallback) {
   try { return fs.readFileSync(path.join(paths.prompts, file), 'utf8'); } catch { return fallback; }
 }
 
+/**
+ * What makes this assistant its own: its guardrails, its role, the quick commands the user gave it, and
+ * the tools switched off for it. The safety rules above always win.
+ */
+function agentBlock(cfg) {
+  const { assistantOf, roleFocus, toolsOff, TOOLS, GUARDS } = require('../assistants');
+  const a = assistantOf(cfg.assistant, cfg);
+  let out = '';
+  const guard = (GUARDS[a.guard] || {}).rule;
+  if (guard) out += `\n\n${guard}`;
+  if ((a.blockedPaths || []).length) out += `\n\nGUARDRAIL: never open, read, list, search or change anything in these folders, with any tool or command: ${a.blockedPaths.join(', ')}. If a task needs them, say they are off limits for you.`;
+  const focus = roleFocus(a);
+  if (focus) out += `\n\nYOUR ROLE: ${focus} This is your focus, not a limit: you still do anything the user asks. Anything that sends, posts or replies to someone still needs the user's yes first.`;
+  const cmds = (a.commands || []).filter((c) => c && c.name && c.prompt);
+  if (cmds.length) out += `\n\nQUICK COMMANDS the user set up for you. When they say or type one (with or without a slash), do what it says:\n${cmds.map((c) => `- "${c.name}": ${c.prompt}`).join('\n')}`;
+  const off = toolsOff(a);
+  if (off.length) out += `\n\nSWITCHED OFF FOR YOU (the user can turn them on in the Agents tab): ${off.map((t) => TOOLS[t].label.toLowerCase()).join('; ')}. Don't try them; if a task needs one, say so in one sentence.`;
+  return out;
+}
+
 /** Instructions for the background worker, with what the assistant knows about the user. */
 function workerPrompt(cfg) {
   let text = fill(read('worker.md', 'Do the task fully, then end with one short paragraph starting with RESULT:.'), cfg);
   if (cfg.userName) text += `\n\nThe user's name is ${cfg.userName}.`;
-  const mem = new (require('../memory').Memory)().promptText();
-  if (mem) text += `\n\nWHAT YOU KNOW ABOUT THE USER (from memory; use it in your work, never recite it):\n${mem}`;
+  text += agentBlock(cfg);
+  text += require('../memory').promptFor(cfg, 'use it in your work, never recite it');
   return text;
 }
 
@@ -72,9 +92,9 @@ function systemPrompt(cfg, extra = '', { file = 'system.md', worker = false } = 
   try { text = fs.readFileSync(path.join(paths.prompts, file), 'utf8'); } catch { text = 'You are {{NAME}}, a concise spoken assistant.'; }
   text = fill(text, cfg).replace(/<!--worker-->([\s\S]*?)<!--\/worker-->\n?/g, (_, inner) => (worker ? inner : ''));
   if (cfg.userName) text += `\n\nThe user's name is ${cfg.userName}.`;
+  text += agentBlock(cfg);
   if (extra) text += '\n\n' + extra;
-  const mem = new (require('../memory').Memory)().promptText();
-  if (mem) text += `\n\nWHAT YOU KNOW ABOUT THE USER (from memory; use it naturally, never recite it):\n${mem}`;
+  text += require('../memory').promptFor(cfg);
   return text;
 }
 
@@ -89,6 +109,8 @@ function claudeSettings(cfg) {
   // Path rules only take effect as Edit(...); they cover Write as well.
   deny.push(`Edit(/${C.HOME}/.claude/**)`, `Edit(/${paths.root}/**)`, `Edit(/${C.STATE_DIR}/config.json)`);
   if (cfg) deny.push(...require('../mcp').denyFor(cfg));
+  // This assistant's tools and guardrails, folders it may not open included.
+  if (cfg && cfg.assistant) { const { assistantOf, denyRules } = require('../assistants'); deny.push(...denyRules(assistantOf(cfg.assistant, cfg))); }
   const out = { permissions: { deny } };
   if (user.hooks && Array.isArray(user.hooks.PreToolUse)) out.hooks = { PreToolUse: user.hooks.PreToolUse };
   return JSON.stringify(out);
@@ -106,8 +128,11 @@ function claudeExtras(cfg) {
  * The brain also has no web search: searching is the worker's job, so JARVIS hands it over instead.
  */
 function claudeDisallowed(cfg, { brain = false } = {}) {
-  return `Bash(${paths.scripts}/open-session.sh*),Bash(*open-session.sh*)` + (cfg.screenControl ? '' : ',Bash(*hands.sh*),Bash(*jarvis-hands*)')
-    + (brain ? ',WebSearch,WebFetch' : '');
+  const { assistantOf, denyRules } = require('../assistants');
+  // Path rules only hold as settings deny rules (claudeSettings), so they are left out here.
+  const off = cfg.assistant ? denyRules(assistantOf(cfg.assistant, cfg)).filter((r) => !/^(Read|Edit)\(\//.test(r)) : [];
+  return [`Bash(${paths.scripts}/open-session.sh*)`, 'Bash(*open-session.sh*)', ...(cfg.screenControl ? [] : ['Bash(*hands.sh*)', 'Bash(*jarvis-hands*)']),
+    ...(brain ? ['WebSearch', 'WebFetch'] : []), ...off].filter((x, i, all) => all.indexOf(x) === i).join(',');
 }
 
 function summarise(name, input = {}) {
@@ -125,4 +150,4 @@ function summarise(name, input = {}) {
   }
 }
 
-module.exports = { SentenceSplitter, systemPrompt, workerPrompt, summarise, claudeSettings, claudeExtras, claudeDisallowed, fill, read };
+module.exports = { SentenceSplitter, systemPrompt, workerPrompt, agentBlock, summarise, claudeSettings, claudeExtras, claudeDisallowed, fill, read };

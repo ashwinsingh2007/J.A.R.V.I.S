@@ -2,6 +2,10 @@
 // scripts/memory.py, the HUD and the fact pass before each summary) and a plain journal of each
 // day's exchanges (journal/YYYY-MM-DD.md), used for the morning recap and check-ins.
 //
+// The facts are shared by every assistant. Each assistant also has a memory of its own
+// (assistants/<id>/memory.json) that only it reads, and can stop reading the shared one
+// (assistantSettings[id].sharedMemory = false), in which case everything it learns goes to its own.
+//
 // events: 'change' (facts)
 const fs = require('fs');
 const path = require('path');
@@ -18,18 +22,23 @@ const SECRET = /\b(passwords?|passcodes?|passphrases?|otp|cvv|api[ -]?keys?|secr
 const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
 const day = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
+/** An assistant's own memory file. */
+const ownFile = (id) => path.join(C.STATE_DIR, 'assistants', String(id).replace(/[^a-z0-9-]/g, ''), 'memory.json');
+
 class Memory extends EventEmitter {
-  constructor() {
+  /** file: the shared memory by default, or one assistant's own (ownFile). */
+  constructor(file = FILE) {
     super();
+    this.file = file;
     this.facts = [];
     this.load();
   }
 
   load() {
     let data = null;
-    try { data = JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch {}
+    try { data = JSON.parse(fs.readFileSync(this.file, 'utf8')); } catch {}
     this.facts = data && Array.isArray(data.facts) ? data.facts : [];
-    if (!data) this.migrate();
+    if (!data && this.file === FILE) this.migrate();
   }
 
   /** The old memory.md held one fact per line. */
@@ -44,16 +53,16 @@ class Memory extends EventEmitter {
   }
 
   save() {
-    fs.mkdirSync(C.STATE_DIR, { recursive: true });
-    const tmp = FILE + '.tmp';
+    fs.mkdirSync(path.dirname(this.file), { recursive: true });
+    const tmp = this.file + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify({ facts: this.facts }, null, 1), { mode: 0o600 });
-    fs.renameSync(tmp, FILE);
+    fs.renameSync(tmp, this.file);
   }
 
   /** memory.py writes the file from the brain's shell; pick that up. */
   watch() {
     let t = null;
-    fs.watchFile(FILE, { interval: 1500 }, () => {
+    fs.watchFile(this.file, { interval: 1500 }, () => {
       clearTimeout(t);
       t = setTimeout(() => { this.load(); this.emit('change', this.facts); }, 200);
     });
@@ -121,4 +130,25 @@ class Memory extends EventEmitter {
   }
 }
 
-module.exports = { Memory, day, SECRET };
+/** Whether an assistant reads the shared memory (on unless the user switched it off). */
+const usesShared = (cfg, id = cfg.assistant) => ((cfg.assistantSettings || {})[id] || {}).sharedMemory !== false;
+
+/** Where what an assistant learns goes: the shared memory, or its own when it doesn't use the shared one. */
+function learnInto(cfg) {
+  return new Memory(usesShared(cfg) ? FILE : ownFile(cfg.assistant));
+}
+
+/** The memory part of an assistant's prompt: the shared facts (if it uses them), then its own. */
+function promptFor(cfg, how = 'use it naturally, never recite it') {
+  const shared = usesShared(cfg) ? new Memory().promptText() : '';
+  const own = new Memory(ownFile(cfg.assistant)).promptText();
+  let text = '';
+  if (shared) text += `\n\nWHAT YOU KNOW ABOUT THE USER (from memory; ${how}):\n${shared}`;
+  if (own) text += `\n\nYOUR OWN MEMORY (only you keep these; ${how}):\n${own}`;
+  return text;
+}
+
+/** For memory.py, run from the assistant's brain: which assistant it is and whether it uses the shared memory. */
+const memoryEnv = (cfg) => ({ JARVIS_AGENT: String(cfg.assistant || 'jarvis'), JARVIS_SHARED_MEMORY: usesShared(cfg) ? '1' : '0' });
+
+module.exports = { Memory, day, SECRET, ownFile, usesShared, learnInto, promptFor, memoryEnv };

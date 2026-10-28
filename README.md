@@ -44,21 +44,32 @@ Claude Code is the default and gets the full feature set, using your Claude subs
 
 Speech stays on the Mac by default. Apple's recogniser does the listening, Kokoro does the talking, and echo cancellation stops it from hearing its own voice.
 
-It has a personality, and you pick which one. There are five assistants. Each of them does everything, with the same tools, memory and conversation. What differs is how they run and how they sound:
+It has a personality, and you pick which one. There are five assistants. Each of them can do anything, with the same tools and conversation. They differ in how they run, how they sound and what they focus on:
 
-| Assistant | What it's like | Runs on |
-|---|---|---|
-| JARVIS (the default) | Balanced. Quick replies and strong background work. A calm British butler with a dry sense of humour | Claude Code: Sonnet, with Opus for background jobs |
-| FRIDAY | The smartest. She thinks hardest, so she takes longer to answer | Claude Code: Opus on high effort |
-| KAREN | The fastest and cheapest, with simpler answers | Claude Code: Haiku, with Sonnet for background jobs |
-| EDITH | Private. Her brain runs on a local model on your Mac, and she is the weakest of the five | Ollama |
-| VISION | For when you don't have Claude | Google's Gemini, which has a free tier |
+| Assistant | What it's like | Focus | Runs on |
+|---|---|---|---|
+| JARVIS (the default) | Balanced. Quick replies and strong background work. A calm British butler with a dry sense of humour | All-rounder | Claude Code: Sonnet, with Opus for background jobs |
+| FRIDAY | The smartest. She thinks hardest, so she takes longer to answer | Code and hard problems | Claude Code: Opus on high effort |
+| KAREN | The fastest and lightest | Communications: email, messages, WhatsApp, Telegram, LinkedIn and social media | Claude Code: Haiku, with Sonnet for background jobs |
+| EDITH | Private. Her brain runs on a local model on your Mac, and she is the weakest of the five | Security and privacy | Ollama |
+| VISION | For when you don't have Claude | Research | Google's Gemini, which has a free tier |
+
+KAREN triages your inbox, drafts replies in your tone, keeps track of who's waiting on you and chases follow-ups. The drafting itself goes to her background worker, which runs on Sonnet. She asks before she sends, posts or replies to anyone, like every assistant.
 
 Pick one in Setup, switch by clicking another one on the HUD's home screen, or say "switch to FRIDAY". Each one answers to its own name and has its own voice. Brain, model and voice changes are saved per assistant in the Agents tab. A switch waits until any running background job has finished.
 
-The Agents tab lists every assistant with its brain, model, background worker and voice. Open one to change any of those, its persona prompt, wake words, skills and MCP servers, without switching to it, or put it back to its preset. You can also make your own: start from any of them, give it a name, and change whatever you like. Your own assistants show up around the core with the rest. The safety rules apply to every assistant, whatever its persona says.
+The Agents tab lists every assistant. Open one to change it without switching to it:
 
-Each assistant also has its own skills and MCP servers. Settings lists every Claude Code skill on your Mac (yours in `~/.claude/skills` and the ones inside your plugins) and your MCP servers with their status, and you tick what each assistant may use in the Agents tab. Everything is on by default. Settings › Skills & MCP is where you get more: install plugins from a marketplace (Anthropic's skills marketplace included), add skills from a GitHub repository, or add an MCP server by its address or the command that starts it. Your Claude Code gets the plugins and servers too. JARVIS doesn't load your Claude Code settings, hooks or CLAUDE.md, so each assistant gets a small plugin of links to its chosen skills, and its servers are passed in when it starts. A skill or server can do anything JARVIS can, so JARVIS asks before it installs one. If a server needs you to sign in, run `claude` in a terminal and type `/mcp`.
+- **Profile:** its role (communications, coding, research, security and privacy, none, or one in your own words), persona prompt, quick commands you can say or type ("standup", "/plan"), and its colour on the home screen.
+- **Brain and voice:** brain, model, effort, background worker, voice and wake words.
+- **Training:** things you teach it go into its own memory, which only it reads. Every assistant also reads the shared memory from the Memory tab, unless you switch that off for it. Then it only knows its own memory and keeps what it learns to itself.
+- **Skills and MCP:** which skills and servers it may use.
+- **Guardrails:** a safety level (Standard, Careful, which asks before any change, or Read only), tools it may not use (the web and your browser, your terminals, Mac controls, screen control, editing files, reminders) and folders it may not open. Guardrails only add limits. The safety rules below always apply, whatever an assistant's persona or guardrails say.
+- **Try it:** ask it something and read its answer, without switching to it.
+
+You can make your own assistants from scratch or as a copy of another one, export one to a file, and import one someone shared. Your own assistants show up around the core with the rest. Any assistant can be put back to its preset.
+
+Settings › Skills lists every Claude Code skill on your Mac: yours in `~/.claude/skills`, the ones inside your plugins, and the ones added from GitHub. Each skill has a switch for every assistant, and each assistant shows what its skills add to every turn. Everything is on by default. You can get more there: install plugins from a marketplace (Anthropic's skills marketplace included) or add skills from a GitHub repository. Settings › MCP servers lists your servers with their status, and adds one by its address or the command that starts it. Your Claude Code gets the plugins and servers too. JARVIS doesn't load your Claude Code settings, hooks or CLAUDE.md, so each assistant gets a small plugin of links to its chosen skills, and its servers are passed in when it starts. A skill or server can do anything JARVIS can, so JARVIS asks before it installs one. If a server needs you to sign in, run `claude` in a terminal and type `/mcp`.
 
 Whichever one you use, it keeps answers short. When it looks something up, it tells you what it found in its own words and leaves out the list of links.
 

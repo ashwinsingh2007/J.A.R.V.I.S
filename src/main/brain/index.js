@@ -73,4 +73,18 @@ function make(cfg, found, kind, opts) {
   return new ApiBrain(cfg, kind, worker, opts);
 }
 
-module.exports = { detect, create, choose, unavailable };
+/**
+ * One reply from an assistant that may not be the one in use, for "Try it" in the Agents tab: its own
+ * brain, model and prompt, no tools and nothing saved, so the conversation and memory are untouched.
+ */
+async function tryAgent(cfg, found, text) {
+  const { systemPrompt } = require('./common');
+  const why = unavailable(cfg, found);
+  if (why) throw new Error(`It needs ${why}.`);
+  const kind = choose(cfg, found);
+  const system = systemPrompt(cfg, 'This is a test from the Agents tab: the user is trying you out. Answer as you normally would, but you have no tools here, so say what you would do instead of doing it.');
+  if (kind === 'claude-code') return ClaudeCodeBrain.prototype.complete.call({ claudePath: found.claude.path, cfg }, system, text);
+  return ApiBrain.prototype.complete.call({ kind, cfg }, system, text);
+}
+
+module.exports = { detect, create, choose, unavailable, tryAgent };

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>J.A.R.V.I.S</title>
-<link rel="stylesheet" href="hud.css?v=27">
+<link rel="stylesheet" href="hud.css?v=29">
 <link rel="stylesheet" href="../themes.css">
 <script src="../themes.js"></script>
 <script>(function(){var q=new URLSearchParams(location.search);jarvisTheme.apply(q.get('theme')||undefined,q.get('mode')||undefined);})();</script>
@@ -180,6 +180,12 @@
         <h2>Agents</h2>
         <p class="side-note">Every agent does everything, with the same memory and conversation. They differ in how they think, how they sound and who they are.</p>
         <div id="acards"></div>
+        <div class="ag-new">
+          <h3>New agent</h3>
+          <input class="key wide" id="a-new-name" maxlength="20" placeholder="Its name, for example COACH" autocomplete="off">
+          <div class="pickbar"><select id="a-new-from" aria-label="Start from"></select><button class="btn primary" id="a-create">Create</button></div>
+          <button class="btn" id="a-import">Import from a file…</button>
+        </div>
       </aside>
       <div class="main" id="a-edit">
         <header class="ag-top">
@@ -190,10 +196,58 @@
             <p class="lead" id="a-edit-about"></p>
           </div>
           <div class="ag-acts">
+            <button class="btn" id="a-export" title="Save this agent to a file">Export</button>
             <button class="btn primary" id="a-use">Use it</button>
             <span class="badge on" id="a-inuse" hidden>In use</span>
           </div>
         </header>
+
+        <nav class="ag-tabs" id="a-tabs">
+          <button data-at="profile" class="on">Profile</button>
+          <button data-at="brain">Brain &amp; voice</button>
+          <button data-at="training">Training</button>
+          <button data-at="skills">Skills &amp; MCP</button>
+          <button data-at="guard">Guardrails</button>
+          <button data-at="try">Try it</button>
+        </nav>
+
+        <div class="at" data-at="profile">
+        <h3>Role</h3>
+        <div class="group">
+          <ul class="rows form">
+            <li><b>Speciality<small>What it focuses on. It can still do anything you ask.</small></b><select id="a-role"></select></li>
+          </ul>
+          <div id="a-role-own" hidden><textarea id="a-role-text" rows="3" maxlength="600" placeholder="In your words, for example: keeps my running plan on track and nags me about rest days."></textarea></div>
+          <p class="note" id="a-role-note"></p>
+        </div>
+
+        <h3>Persona</h3>
+        <div class="group plain">
+          <p class="note">Who it is and how it talks. It is added to the safety rules, which always apply.</p>
+          <textarea id="a-persona" rows="6" maxlength="4000" spellcheck="true"></textarea>
+          <ul class="rows form" id="a-own">
+            <li data-own><b>Name</b><input class="key" id="a-name" maxlength="20" autocomplete="off"></li>
+            <li data-own><b>Tier line</b><input class="key" id="a-tier" maxlength="24" autocomplete="off"></li>
+            <li data-own><b>About</b><input class="key" id="a-about" maxlength="200" autocomplete="off"></li>
+          </ul>
+        </div>
+
+        <h3>Quick commands <span class="cnt" id="a-cmd-count"></span></h3>
+        <div class="group plain">
+          <p class="note">Say or type the name, with or without a slash, and it does the rest. For example "standup": tell me what my sessions did since yesterday.</p>
+          <ul class="cmds" id="a-cmds"></ul>
+          <button class="btn small" id="a-cmd-add">Add a command</button>
+        </div>
+
+        <h3>Colour</h3>
+        <div class="group">
+          <ul class="rows form">
+            <li><b>Its colour<small>On the main screen and its card here</small></b><span class="unit"><input type="color" id="a-color"><button class="btn small" id="a-color-reset">Theme colour</button></span></li>
+          </ul>
+        </div>
+        </div>
+
+        <div class="at" data-at="brain" hidden>
 
         <h3>Brain</h3>
         <div class="group">
@@ -238,27 +292,50 @@
           <p class="note" id="ag-voice-note"></p>
         </div>
 
-        <h3>Persona</h3>
-        <div class="group plain">
-          <p class="note">Who it is and how it talks. It is added to the safety rules, which always apply.</p>
-          <textarea id="a-persona" rows="6" maxlength="4000" spellcheck="true"></textarea>
-          <ul class="rows form" id="a-own">
-            <li data-own><b>Name</b><input class="key" id="a-name" maxlength="20" autocomplete="off"></li>
-            <li data-own><b>Tier line</b><input class="key" id="a-tier" maxlength="24" autocomplete="off"></li>
-            <li data-own><b>About</b><input class="key" id="a-about" maxlength="200" autocomplete="off"></li>
-          </ul>
         </div>
 
+        <div class="at" data-at="training" hidden>
+        <p class="lead">Teach it things to keep. What you add here goes into its own memory: it knows it in every conversation, and the other agents don't see it.</p>
+        <div class="pickbar"><input class="key" id="a-mem-new" maxlength="400" placeholder="For example: reply to the team in a casual tone, never with emoji" autocomplete="off"><button class="btn primary" id="a-mem-add">Teach</button></div>
+        <h3>What it knows <span class="cnt" id="a-mem-count"></span></h3>
+        <ul class="picks" id="a-mem"></ul>
+        <h3>Shared memory</h3>
+        <div class="group">
+          <ul class="rows form">
+            <li><b>Use the shared memory<small>What every agent knows about you, from the Memory tab. Turn it off and this agent only knows its own, and keeps what it learns to itself.</small></b><label class="tog"><input type="checkbox" id="a-shared"><span></span></label></li>
+          </ul>
+        </div>
+        </div>
+
+        <div class="at" data-at="skills" hidden>
         <h3>Skills <span class="cnt" id="a-skill-count"></span></h3>
         <div class="pickbar"><input class="key" id="a-skill-find" placeholder="Find a skill" autocomplete="off"><button class="btn" id="a-skill-all">All</button><button class="btn" id="a-skill-none">None</button></div>
         <ul class="picks" id="a-skills"></ul>
 
         <h3>MCP servers <span class="cnt" id="a-mcp-count"></span></h3>
         <ul class="picks" id="a-mcp"></ul>
-        <p class="note">Get more skills and servers in Settings › Skills &amp; MCP.</p>
+        <p class="note">Get more skills in Settings › Skills, and more servers in Settings › MCP servers.</p>
+        </div>
 
-        <h3>Make a new agent from this one</h3>
-        <div class="pickbar"><input class="key" id="a-new-name" maxlength="20" placeholder="Its name, for example COACH" autocomplete="off"><button class="btn" id="a-create">Create</button></div>
+        <div class="at" data-at="guard" hidden>
+        <p class="lead">Limits for this agent, on top of the safety rules every agent follows. They can only make it more careful, never less.</p>
+        <h3>Safety level</h3>
+        <div class="group plain"><div class="levels" id="a-guard"></div></div>
+        <h3>Tools <span class="cnt" id="a-tool-count"></span></h3>
+        <ul class="picks" id="a-tools"></ul>
+        <h3>Folders it may not open</h3>
+        <div class="group plain">
+          <p class="note">One folder per line, for example ~/Documents/Finance. Its file tools are blocked there and it is told never to go there.</p>
+          <textarea id="a-blocked" rows="3" spellcheck="false" placeholder="~/Documents/Private"></textarea>
+        </div>
+        </div>
+
+        <div class="at" data-at="try" hidden>
+        <p class="lead">Talk to it without switching. It answers with its own brain, persona, role and training, but has no tools here and nothing is saved. Save your changes first to try them.</p>
+        <textarea id="a-try-text" rows="3" maxlength="2000" placeholder="For example: draft a reply to my landlord saying I'll pay on Friday"></textarea>
+        <div class="sp-actions"><button class="btn primary" id="a-try-go">Ask</button><span class="msg" id="a-try-note"></span></div>
+        <div class="tryout" id="a-try-out" hidden></div>
+        </div>
 
         <footer class="savebar">
           <span class="msg" id="a-note"></span>
@@ -278,7 +355,8 @@
         <button class="navitem" data-section="general">General<small>Greetings, check-ins, updates</small></button>
         <button class="navitem" data-section="look">Appearance<small id="sc-look">—</small></button>
         <button class="navitem" data-section="brain">Brains &amp; keys<small id="sc-brain">—</small></button>
-        <button class="navitem" data-section="extensions">Skills &amp; MCP<small id="sc-ext">From your Claude Code</small></button>
+        <button class="navitem" data-section="skills">Skills<small id="sc-skills">From your Claude Code</small></button>
+        <button class="navitem" data-section="extensions">MCP servers<small id="sc-ext">From your Claude Code</small></button>
         <button class="navitem" data-section="access">Access<small id="sc-access">—</small></button>
         <button class="navitem" data-section="ears">Listening<small id="sc-ears">—</small></button>
         <button class="navitem" data-section="voice">Voice<small id="sc-voice">—</small></button>
@@ -351,16 +429,22 @@
           <div class="sp-actions"><button class="btn primary" id="b-save">Save</button><button class="btn" id="b-restart" hidden>Restart now</button><span class="sp-msg" id="b-msg"></span></div>
         </div>
 
-        <div class="sp" data-page="extensions">
-          <p class="lead">The skills and MCP servers your agents can use. They come from your Claude Code, so what you add here works there too. Each agent picks its own in Agents. A skill or server can do anything JARVIS can, so only add ones you trust.</p>
-          <p class="note" id="x-note"></p>
-          <h3>Skills <span class="cnt" id="x-skill-count"></span></h3>
-          <ul class="picks" id="x-skills"></ul>
-          <div class="pickbar"><input class="key" id="x-gh" placeholder="Add skills from GitHub: owner/repo" autocomplete="off"><button class="btn" id="x-gh-add">Add</button></div>
+        <div class="sp" data-page="skills">
+          <p class="lead">Every skill on this Mac: your own, the ones inside plugins, and the ones added from GitHub. Turn each one on or off for each agent. Every skill that's on adds a line about itself to each turn, which is the cost shown. A skill can do anything JARVIS can, so only add ones you trust.</p>
+          <p class="note" id="k-note"></p>
+          <div class="kcost" id="k-cost"></div>
+          <div class="pickbar"><input class="key" id="k-find" placeholder="Find a skill" autocomplete="off"><select id="k-src"><option value="">All sources</option><option value="personal">Yours</option><option value="plugin">From plugins</option><option value="jarvis">From GitHub</option></select></div>
+          <ul class="picks kskills" id="k-skills"></ul>
+          <h3>Add skills from GitHub</h3>
+          <div class="pickbar"><input class="key" id="x-gh" placeholder="owner/repo" autocomplete="off"><button class="btn" id="x-gh-add">Add</button></div>
           <h3>Plugins</h3>
           <div class="pickbar"><select id="x-market"></select><input class="key" id="x-find" placeholder="Search plugins" autocomplete="off"></div>
           <ul class="picks" id="x-plugins"></ul>
           <div class="pickbar"><input class="key" id="x-market-src" placeholder="Add a marketplace: anthropics/skills" autocomplete="off"><button class="btn" id="x-market-add">Add</button></div>
+        </div>
+        <div class="sp" data-page="extensions">
+          <p class="lead">The MCP servers your agents can use. They come from your Claude Code, so what you add here works there too. Each agent picks its own in Agents. A server can do anything JARVIS can, so only add ones you trust.</p>
+          <p class="note" id="x-note"></p>
           <h3>MCP servers <button class="btn small" id="x-check">Check</button></h3>
           <ul class="picks" id="x-mcp"></ul>
           <div class="pickbar">
@@ -456,7 +540,7 @@
 </main>
 
 <script src="three.min.js"></script>
-<script src="hud.js?v=27"></script>
-<script src="settings.js?v=2"></script>
+<script src="hud.js?v=28"></script>
+<script src="settings.js?v=3"></script>
 </body>
 </html>

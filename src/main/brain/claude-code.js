@@ -22,6 +22,7 @@ const EventEmitter = require('events');
 const C = require('../config');
 const { log, env, run, jsonLines } = require('../util');
 const { Context } = require('./context');
+const { memoryEnv } = require('../memory');
 const { SentenceSplitter, systemPrompt, workerPrompt, summarise, claudeSettings, claudeExtras, claudeDisallowed } = require('./common');
 
 const ENDED = new Set(['completed', 'failed', 'killed', 'stopped', 'cancelled']);
@@ -232,7 +233,7 @@ class ClaudeCodeBrain extends EventEmitter {
     if (this._sessionId) args.push('--resume', this._sessionId);
     let p;
     try {
-      p = spawn(this.claudePath, args, { env: env({ JARVIS: '1' }), cwd: C.HOME });
+      p = spawn(this.claudePath, args, { env: env({ JARVIS: '1', ...memoryEnv(this.cfg) }), cwd: C.HOME });
     } catch (e) { log(`brain: failed to start claude: ${e}`); return; }
     this.proc = p;
     this.startedAt = Date.now();
