@@ -114,7 +114,8 @@ enum AudioDevices {
 
 // MARK: SpeechAnalyzer (macOS 26+)
 
-#if compiler(>=6.2)
+// FoundationModels is new in the macOS 26 SDK, so it stands in for SpeechAnalyzer's availability.
+#if canImport(FoundationModels)
 @available(macOS 26, *)
 final class ModernTranscriber {
     var onText: ((String, Bool) -> Void)?
@@ -205,7 +206,7 @@ final class ModernTranscriber {
     }
 }
 #else
-// Older SDKs lack SpeechAnalyzer; setup() throws so the legacy recogniser takes over.
+// Older SDKs lack SpeechAnalyzer. Only reached on a macOS 26 runtime; setup() throws so the legacy recogniser takes over.
 @available(macOS 26, *)
 final class ModernTranscriber {
     var onText: ((String, Bool) -> Void)?
@@ -270,7 +271,7 @@ final class Ears: NSObject {
                         await MainActor.run { self.endTask(); m.reset(); emit(["type": "restarted"]) }
                     } catch {
                         log("SpeechAnalyzer failed (\(error)), using legacy recogniser")
-                        await MainActor.run { self.modern = nil; if self.running && !self.muted { self.beginTask() } }
+                        await MainActor.run { self.modern = nil; self.restartTask() }
                     }
                 }
             }
