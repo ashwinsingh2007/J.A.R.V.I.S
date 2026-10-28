@@ -143,3 +143,12 @@ test('pairing works through the relay when the peer-to-peer network is blocked',
   a.cancelPair({ keep: true }); b.cancelPair({ keep: true });
   for (const d of [a, b]) { clearInterval(d.refresher); if (d.relayAbort) d.relayAbort.abort(); }
 });
+
+test("another device's agent voice is kept only when it looks like a voice name", () => {
+  const { voiceOf } = D;
+  assert.deepEqual(voiceOf({ kokoroVoice: 'bf_emma', kokoroSpeed: 1.1, edgeVoice: 'en-GB-SoniaNeural', nativeVoice: 'Daniel' }),
+    { kokoroVoice: 'bf_emma', kokoroSpeed: 1.1, edgeVoice: 'en-GB-SoniaNeural', nativeVoice: 'Daniel' });
+  assert.deepEqual(voiceOf({ kokoroVoice: '../../x', kokoroSpeed: 9, edgeVoice: '--rate=+90%', nativeVoice: '-o /tmp/x' }), null);
+  assert.equal(voiceOf('bf_emma'), null);
+  assert.equal(voiceOf(null), null);
+});

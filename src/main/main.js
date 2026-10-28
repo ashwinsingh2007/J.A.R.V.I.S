@@ -419,16 +419,20 @@ function startDevices() {
   devices.on('say', (p, text, voice) => { log(`devices: ${p.name} ${voice ? 'said' : 'typed'} '${text.slice(0, 60)}'`); orch.action('peer-type', { text, from: p.name, replyTo: voice ? p.id : '' }); });
   // Said here while another computer's tab was open: it went there, and its answer is spoken here.
   orch.on('remote-say', (id, text) => devices.sayTo(id, text, true).then((e) => { if (e) orch.remoteAnswer(e); }));
-  devices.on('said', (p, text) => orch.remoteAnswer(text));
-  orch.on('peer-reply', (id, text) => { const p = devices.peer(id); if (p) devices.deliver(p, { t: 'said', text: String(text || '').slice(0, 4000) }); });
+  devices.on('said', (p, text, voice) => orch.remoteAnswer(text, voice));
+  orch.on('peer-reply', (id, text) => { const p = devices.peer(id); if (p) devices.deliver(p, { t: 'said', text: String(text || '').slice(0, 4000), voice: voiceHere() }); });
   devices.on('act', (p, a) => remoteAct(p, a));
   devices.start().catch((e) => log(`devices: couldn't start: ${e.message}`));
   serveInbox();
 }
 
-// The HUD events another device needs to show this one: system and services, the core and its state,
-// the agents, sessions, and the conversation on the right. Never memory, history, settings or music.
-const MIRROR = new Set(['state', 'system', 'stats', 'info', 'sessions', 'assistants', 'assistant', 'assistant-error', 'assistant-try', 'conversation', 'ext']);
+// The HUD events another of the user's devices needs to show this one in full: system and services,
+// the core and its state, the agents, sessions and jobs, the conversation, what the agent says and the
+// tools it uses, history, and memory with its schedule. Never settings or music, which stay here.
+const MIRROR = new Set(['state', 'system', 'stats', 'info', 'sessions', 'assistants', 'assistant', 'assistant-error', 'assistant-try', 'conversation', 'ext',
+  'reply', 'tool', 'notice', 'history', 'memory', 'schedule', 'context']);
+/** The voice of the agent in use here, so an answer spoken on another device sounds like it. */
+const voiceHere = () => { const c = (orch && orch.cfg) || cfg; return { kokoroVoice: c.kokoroVoice, kokoroSpeed: c.kokoroSpeed, edgeVoice: c.edgeVoice, nativeVoice: c.nativeVoice }; };
 function mirrorHud() {
   const send = hud.send.bind(hud), raw = hud.sendRaw.bind(hud);
   const tap = (e) => {

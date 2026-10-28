@@ -14,6 +14,8 @@
   }
   // While another device's tab is open, what is typed and what is changed in its agents goes to it.
   const REMOTE_ACTS = new Set(['assistant', 'assistant-update', 'assistant-create', 'assistant-delete', 'assistant-reset', 'assistant-try']);
+  // Another device's memory, schedule and conversation are shown read-only, so these never act on this one.
+  const LOCAL_ONLY_ACTS = new Set(['memory-add', 'memory-forget', 'schedule-cancel', 'context-roll', 'new']);
   let machine = '';   // '' is this device; otherwise the id of the device whose tab is open
   const views = { '': {} };        // device id ('' = this one) -> { event type: latest event }
   let devList = [], devName = '';  // paired devices, and this device's name
@@ -23,6 +25,7 @@
     if (machine && msg && msg.type === 'action') {
       if (msg.name === 'type') return postLocal({ type: 'action', name: 'dev:say', device: machine, text: msg.text });
       if (REMOTE_ACTS.has(msg.name)) return postLocal({ type: 'action', name: 'dev:act', device: machine, action: msg });
+      if (LOCAL_ONLY_ACTS.has(msg.name)) return;
     }
     postLocal(msg);
   }
@@ -1541,7 +1544,10 @@
   // ---------- other devices: their tabs and their HUD ----------
   // Events that make up a device's HUD. This device's are kept while another device's tab is open, and
   // shown again when it closes; another device's arrive as 'remote' and are kept per device.
-  const MIRRORED = ['info', 'stats', 'system', 'state', 'ext', 'assistants', 'assistant', 'sessions', 'conversation', 'assistant-error', 'assistant-try'];
+  const MIRRORED = ['info', 'stats', 'system', 'state', 'ext', 'assistants', 'assistant', 'sessions', 'conversation', 'assistant-error', 'assistant-try',
+    'reply', 'tool', 'notice', 'history', 'memory', 'schedule', 'context'];
+  // Passing lines: shown as they come, not replayed when a device's view is opened again.
+  const PASSING = /^(assistant-error|assistant-try|tool|notice)$/;
   const machineName = (id) => (devList.find((d) => d.id === id) || {}).name || 'Other device';
   /** Paired devices whose HUD we have, with their agents, for the Devices node. */
   function remoteDevices() {
@@ -1550,21 +1556,50 @@
       return { id: d.id, name: d.name, os: d.os, via: d.via, list: Array.isArray(a.list) ? a.list : [], current: a.id || '' };
     }).filter((d) => d.list.length);
   }
+  // The device picker at the top: the device in view, and a menu of this one and the paired ones.
+  const VIA = { 'local network': 'on your Wi-Fi', direct: 'connected directly', relay: 'through the relay', offline: 'not reachable' };
+  const viaClass = (d) => (d.via === 'relay' ? 'relay' : d.via === 'offline' ? 'off' : 'live');
+  let machineMenu = false;
   function renderMachines() {
     const bar = $('machines');
     bar.hidden = !devList.length;
-    const tab = (id, name, sub, cls) => {
+    const item = (id, name, sub, cls) => {
       const b = document.createElement('button');
       b.className = 'mtab' + (id === machine ? ' on' : '') + (cls ? ' ' + cls : '');
       b.dataset.device = id;
       b.innerHTML = '<i></i>';
       b.append(document.createTextNode(name));
-      b.title = sub;
-      b.addEventListener('click', () => showMachine(id));
+      const sm = document.createElement('small'); sm.textContent = sub; b.append(sm);
+      b.addEventListener('click', (ev) => { ev.stopPropagation(); machineMenu = false; showMachine(id); });
       return b;
     };
-    bar.replaceChildren(tab('', devName ? `${devName} (this)` : 'This device', 'This device'),
-      ...devList.map((d) => tab(d.id, d.name, `${d.os || ''} · ${{ 'local network': 'on your Wi-Fi', direct: 'connected directly', relay: 'through the relay', offline: 'not reachable' }[d.via] || d.via}`, d.via === 'relay' ? 'relay' : d.via === 'offline' ? 'off' : 'live')));
+    const here = devName ? `${devName} (this)` : 'This device';
+    const cur = machine && devList.find((d) => d.id === machine);
+    const pick = document.createElement('button');
+    pick.className = 'mpick' + (cur ? ' ' + viaClass(cur) : '') + (machineMenu ? ' open' : '');
+    pick.id = 'machine-pick';
+    pick.title = 'Show another computer';
+    pick.innerHTML = '<i></i>';
+    pick.append(document.createTextNode(cur ? cur.name : here), Object.assign(document.createElement('b'), { textContent: '▾' }));
+    pick.addEventListener('click', (ev) => { ev.stopPropagation(); machineMenu = !machineMenu; renderMachines(); });
+    const menu = document.createElement('div');
+    menu.className = 'mmenu';
+    menu.hidden = !machineMenu;
+    menu.append(item('', here, 'this computer'), ...devList.map((d) => item(d.id, d.name, [d.os, VIA[d.via] || d.via].filter(Boolean).join(' · '), viaClass(d))));
+    bar.replaceChildren(pick, menu);
+    remoteNote();
+  }
+  document.addEventListener('click', () => { if (machineMenu) { machineMenu = false; renderMachines(); } });
+  /** Under the nav: how fresh another device's view is, or why it can't be. */
+  function remoteNote() {
+    const note = $('remote-note');
+    if (!machine) { note.textContent = ''; return; }
+    const d = devList.find((x) => x.id === machine), v = views[machine] || {}, name = machineName(machine);
+    note.textContent = d && d.via === 'offline'
+      ? `${name} isn't reachable right now. This is its last known state, and what you say won't reach it until it's back.`
+      : !v.assistants ? `Loading ${name}…`
+      : d && (d.via === 'local network' || d.via === 'direct') ? ''
+      : `${name} isn't connected directly, so this is its latest state. Pick it again to refresh.`;
   }
   /** Show a device's HUD: this one ('') or a paired one. */
   function showMachine(id) {
@@ -1574,22 +1609,25 @@
     crewGroup = 'main';
     postLocal({ type: 'action', name: 'dev:focus', device: id });
     body.classList.toggle('remote', !!id);
-    if (id && ['history', 'memory', 'settings', 'music'].includes(body.dataset.view)) showView('cc');
+    if (id && ['settings', 'music'].includes(body.dataset.view)) showView('cc');
     const v = views[id] || {};
-    for (const t of MIRRORED) if (v[t] && !/^assistant-(error|try)$/.test(t)) dispatch(v[t]);
+    for (const t of MIRRORED) if (v[t] && !PASSING.test(t)) dispatch(v[t]);
+    // What that device hasn't sent (or an older JARVIS there doesn't mirror) mustn't show this one's.
+    const EMPTY = { history: { data: [] }, memory: { data: [] }, schedule: { data: [] }, context: { data: {} }, reply: { text: '' } };
+    for (const [t, e] of Object.entries(EMPTY)) if (!v[t]) dispatch({ type: t, ...e });
     if (id) {
       const d = devList.find((x) => x.id === id);
       // Over the relay there is no live stream: load the view once, and again with the tab.
       if (!d || d.via !== 'local network' && d.via !== 'direct') postLocal({ type: 'action', name: 'dev:view', device: id });
-      $('remote-note').textContent = !v.assistants ? `Loading ${machineName(id)}…` : d && (d.via === 'local network' || d.via === 'direct') ? '' : `${machineName(id)} isn't connected directly, so this is its latest state. Open the tab again to refresh.`;
-    } else $('remote-note').textContent = '';
+    }
+    remoteNote();
     renderMachines();
   }
   function onRemote(e) {
     const v = views[e.device] || (views[e.device] = {});
     const evs = e.snap ? Object.values(e.snap) : e.e ? [e.e] : [];
     for (const x of evs) if (x && x.type && MIRRORED.includes(x.type)) { v[x.type] = x; if (machine === e.device) dispatch(x); }
-    if (machine === e.device) $('remote-note').textContent = '';
+    if (machine === e.device) remoteNote();
     // Its agents feed the Devices node on this device's HUD.
     if (!machine && evs.some((x) => x && x.type === 'assistants') && crewGroup !== 'main') { HUBS = hubsFor(); crew.innerHTML = buildCrew(); }
     else if (!machine && evs.some((x) => x && x.type === 'assistants') && !HUBS.some((h) => h.group === 'devices') && remoteDevices().length) { HUBS = hubsFor(); crew.innerHTML = buildCrew(); }

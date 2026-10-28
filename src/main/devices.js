@@ -20,7 +20,7 @@
 // change its agents ('act'); main.js decides what it may do.
 //
 // events: 'change' (the list or a connection changed), 'task' (peer, frame), 'pair' ({ state, ... }),
-//         'remote' (peer, { snap } | { e }), 'say' (peer, text, voice), 'said' (peer, text), 'act' (peer, action)
+//         'remote' (peer, { snap } | { e }), 'say' (peer, text, voice), 'said' (peer, text, voice), 'act' (peer, action)
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -108,6 +108,20 @@ function frames(stream, onFrame) {
   });
 }
 const send = (stream, f) => { try { stream.write(JSON.stringify(f) + '\n'); return true; } catch { return false; } };
+
+/** The voice another device's agent speaks with, kept only if it looks like a voice name. */
+function voiceOf(v) {
+  if (!v || typeof v !== 'object') return null;
+  const ok = (x, re) => (typeof x === 'string' && re.test(x) ? x : undefined);
+  const speed = Number(v.kokoroSpeed);
+  const out = {
+    kokoroVoice: ok(v.kokoroVoice, /^[a-z]{2}_[a-z]{1,20}$/),
+    kokoroSpeed: speed >= 0.5 && speed <= 2 ? speed : undefined,
+    edgeVoice: ok(v.edgeVoice, /^[a-z]{2,3}-[A-Z]{2}-[A-Za-z]{1,30}Neural$/),
+    nativeVoice: ok(v.nativeVoice, /^[A-Za-z][A-Za-z ()]{0,39}$/),
+  };
+  return Object.values(out).some((x) => x !== undefined) ? out : null;
+}
 
 class Devices extends EventEmitter {
   /** dir: where devices.json and the device key live (~/.jarvis, or a test folder). */
@@ -468,7 +482,7 @@ class Devices extends EventEmitter {
     } else if (f.t === 'say') {
       this.emit('say', p, String(f.text || '').slice(0, 4000), !!f.voice);
     } else if (f.t === 'said') {
-      this.emit('said', p, String(f.text || '').slice(0, 4000));
+      this.emit('said', p, String(f.text || '').slice(0, 4000), voiceOf(f.voice));
     } else if (f.t === 'act') {
       if (f.action && typeof f.action === 'object') this.emit('act', p, f.action);
     } else if (f.t === 'progress') {
@@ -490,10 +504,14 @@ class Devices extends EventEmitter {
     }, 400));
   }
 
-  /** The latest of each mirrored event. small: for the relay, with only the end of the conversation. */
+  /** The latest of each mirrored event. small: for the relay, with only the end of the conversation,
+   *  history and memory, and none of the passing tool and notice lines. */
   snapshot({ small = false } = {}) {
     const out = { ...this.mirrorCache };
-    if (small && out.conversation && Array.isArray(out.conversation.entries)) out.conversation = { ...out.conversation, entries: out.conversation.entries.slice(-8) };
+    if (!small) return out;
+    if (out.conversation && Array.isArray(out.conversation.entries)) out.conversation = { ...out.conversation, entries: out.conversation.entries.slice(-8) };
+    for (const [k, n] of [['history', 8], ['memory', 30]]) if (out[k] && Array.isArray(out[k].data)) out[k] = { ...out[k], data: out[k].data.slice(-n) };
+    delete out.tool; delete out.notice;
     return out;
   }
 
@@ -629,4 +647,4 @@ class Devices extends EventEmitter {
   }
 }
 
-module.exports = { Devices, normCode, newCode, pairKeys, pairProof, seal, open, relayTopic, relayKey, peerTopic, pairRelayTopic, pairRelayKey };
+module.exports = { Devices, voiceOf, normCode, newCode, pairKeys, pairProof, seal, open, relayTopic, relayKey, peerTopic, pairRelayTopic, pairRelayKey };

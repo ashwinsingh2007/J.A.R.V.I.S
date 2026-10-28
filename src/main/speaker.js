@@ -23,6 +23,7 @@ class Speaker extends EventEmitter {
     this.audio = audio;
     this.queue = [];             // sentences waiting
     this.ready = new Map();      // sentence -> file
+    this.voiceFor = new Map();   // sentence -> another device's agent's voice, for its answers
     this.inflight = new Set();
     this.playing = false;
     this.generation = 0;
@@ -59,16 +60,23 @@ class Speaker extends EventEmitter {
     log(`tts: engine ${this.engine}`);
   }
 
-  speak(sentence) {
+  /** voice: another voice for this sentence ({ kokoroVoice, kokoroSpeed, edgeVoice, nativeVoice }),
+   *  for an answer from another device's agent. */
+  speak(sentence, voice) {
     const s = clean(sentence);
     if (!s) return;
+    if (voice) this.voiceFor.set(s, voice);
     this.queue.push(s);
     this.pump();
   }
 
+  /** A voice setting for this sentence: its own voice if it has one, else this device's. */
+  v(s, key) { const o = this.voiceFor.get(s); return (o && o[key] !== undefined) ? o[key] : this.cfg[key]; }
+
   stop() {
     this.generation++;
     this.queue = [];
+    this.voiceFor.clear();
     this.audio.stopTTS();
     for (const f of this.ready.values()) fs.rm(f, () => {});
     this.ready.clear();
@@ -86,6 +94,7 @@ class Speaker extends EventEmitter {
     if (!file) return;
     this.queue.shift();
     this.ready.delete(next);
+    this.voiceFor.delete(next);
     this.playing = true;
     if (!this.started) { this.started = true; this.emit('start'); }
     this.audio.playTTS(file);
@@ -124,7 +133,7 @@ class Speaker extends EventEmitter {
 
   async synth_native(s) {
     const out = this.tmp('wav');
-    const r = await run('/usr/bin/say', ['-v', this.cfg.nativeVoice, '--file-format=WAVE', '--data-format=LEI16@22050', '-o', out, s], { timeout: 30000 });
+    const r = await run('/usr/bin/say', ['-v', this.v(s, 'nativeVoice'), '--file-format=WAVE', '--data-format=LEI16@22050', '-o', out, s], { timeout: 30000 });
     if (r.code !== 0) {
       // Voice not installed: system default voice.
       const r2 = await run('/usr/bin/say', ['--file-format=WAVE', '--data-format=LEI16@22050', '-o', out, s], { timeout: 30000 });
@@ -135,7 +144,7 @@ class Speaker extends EventEmitter {
 
   async synth_edge(s) {
     const out = this.tmp('mp3');
-    const r = await run(paths.edgeTTS, ['--voice', this.cfg.edgeVoice, '--text', s, '--write-media', out], { timeout: 20000 });
+    const r = await run(paths.edgeTTS, ['--voice', this.v(s, 'edgeVoice'), '--text', s, '--write-media', out], { timeout: 20000 });
     if (r.code !== 0 || !fs.existsSync(out)) throw new Error(r.err || 'edge-tts failed');
     return out;
   }
@@ -184,7 +193,7 @@ class Speaker extends EventEmitter {
       const id = Math.random().toString(36).slice(2);
       const out = this.tmp('wav');
       this.kokoroJobs.set(id, { resolve, reject, out });
-      this.kokoro.stdin.write(JSON.stringify({ id, text: s, voice: this.cfg.kokoroVoice, speed: this.cfg.kokoroSpeed, out }) + '\n');
+      this.kokoro.stdin.write(JSON.stringify({ id, text: s, voice: this.v(s, 'kokoroVoice'), speed: this.v(s, 'kokoroSpeed'), out }) + '\n');
     });
   }
 
