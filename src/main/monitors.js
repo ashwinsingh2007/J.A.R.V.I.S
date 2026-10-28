@@ -64,12 +64,24 @@ class SystemMonitor extends EventEmitter {
 class EventInbox extends EventEmitter {
   start() {
     try { this.offset = fs.statSync(C.EVENTS_FILE).size; } catch { this.offset = 0; }   // only new events matter
-    this.timer = setInterval(() => this.poll(), 1000);
+    // Woken by the file changing; the slow poll covers a file made, replaced or not watchable yet.
+    this.watch();
+    this.timer = setInterval(() => this.poll(), 5000);
+  }
+
+  watch() {
+    if (this.watcher) { this.watcher.close(); this.watcher = null; }
+    try {
+      this.ino = fs.statSync(C.EVENTS_FILE).ino;
+      this.watcher = fs.watch(C.EVENTS_FILE, { persistent: false }, () => this.poll());
+      this.watcher.on('error', () => { if (this.watcher) this.watcher.close(); this.watcher = null; });
+    } catch { this.watcher = null; }
   }
 
   poll() {
-    let size;
-    try { size = fs.statSync(C.EVENTS_FILE).size; } catch { return; }
+    let size, ino;
+    try { ({ size, ino } = fs.statSync(C.EVENTS_FILE)); } catch { return; }
+    if (!this.watcher || ino !== this.ino) this.watch();
     if (size < this.offset) this.offset = 0;      // truncated
     if (size === this.offset) return;
     const fd = fs.openSync(C.EVENTS_FILE, 'r');
