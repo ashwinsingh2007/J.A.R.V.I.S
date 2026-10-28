@@ -33,6 +33,9 @@ const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const PAIR_MINUTES = 3;
 const MAX_FRAME = 4 * 1024 * 1024;  // a whole HUD snapshot (conversation included) fits
 const RELAY_PART = 3000;            // characters of ciphertext per relay message (ntfy's limit is 4 KB)
+// A device without a direct link says it's there through the relay every 20 minutes (about 72 messages
+// a day each, well inside ntfy's daily limit), and counts as reachable for 25 minutes after.
+const RELAY_HERE_MS = 20 * 60000, RELAY_ALIVE_MS = 25 * 60000;
 const RELAY_MAX_AGE = 15 * 60000;   // older relay messages are replays or stale
 // Node tries each address for only 250 ms before the next; a relay half the world away takes longer
 // to answer than that, and every attempt then fails.
@@ -110,6 +113,7 @@ function frames(stream, onFrame) {
 const send = (stream, f) => { try { stream.write(JSON.stringify(f) + '\n'); return true; } catch { return false; } };
 
 /** The voice another device's agent speaks with, kept only if it looks like a voice name. */
+
 function voiceOf(v) {
   if (!v || typeof v !== 'object') return null;
   const ok = (x, re) => (typeof x === 'string' && re.test(x) ? x : undefined);
@@ -142,6 +146,8 @@ class Devices extends EventEmitter {
     this.mirrorCache = {};       // HUD event type -> its latest payload, for another device's view
     this.watchers = new Set();   // peer ids watching this device's HUD
     this.mirrorTimers = new Map();
+    this.aliveAt = new Map();      // peer id -> when it was last heard from through the relay
+    this.toldHere = new Set();     // peers told through the relay that this device is here: told 'bye' on quitting
   }
 
   // ---------- state ----------
@@ -176,9 +182,19 @@ class Devices extends EventEmitter {
   list() {
     return this.data.peers.map((p) => {
       const c = this.conns.get(p.id);
-      return { id: p.id, name: p.name, os: p.os, pairedAt: p.pairedAt, lastSeen: p.lastSeen || '', via: c ? (c.rawStream && /^(10|192\.168|172\.(1[6-9]|2\d|3[01]))\./.test(c.rawStream.remoteHost || '') ? 'local network' : 'direct') : this.data.relay.on ? 'relay' : 'offline' };
+      return { id: p.id, name: p.name, os: p.os, pairedAt: p.pairedAt, lastSeen: p.lastSeen || '', via: c ? (c.rawStream && /^(10|192\.168|172\.(1[6-9]|2\d|3[01]))\./.test(c.rawStream.remoteHost || '') ? 'local network' : 'direct') : this.relayAlive(p) ? 'relay' : 'offline' };
     });
   }
+
+  /** Through the relay, to each paired device without a direct link: this one is here. */
+  sayHere() {
+    if (!this.swarm || !this.data.relay.on) return;
+    for (const p of this.data.peers) if (!this.conns.get(p.id)) { this.toldHere.add(p.id); this.relaySend(p, { t: 'here' }).then((e) => { if (e) log(`devices: relay: ${e}`); }); }
+  }
+
+  /** Reachable through the relay: it's on, and that device was heard from lately. The relay alone
+   *  doesn't say whether anyone is there, so a device that went quiet counts as offline. */
+  relayAlive(p) { return this.data.relay.on && Date.now() - (this.aliveAt.get(p.id) || 0) < RELAY_ALIVE_MS; }
 
   setName(name) {
     name = String(name || '').replace(/[^\w .'-]/g, '').trim().slice(0, 40);
@@ -222,8 +238,14 @@ class Devices extends EventEmitter {
     for (const p of this.data.peers) this.joinPeer(p);
     // Two devices that joined at the same moment can miss each other's announcement, and a refresh
     // alone doesn't always find them again: leave and join afresh for any that aren't connected.
-    this.refresher = setInterval(() => { for (const p of this.data.peers) if (!this.conns.get(p.id)) this.rejoin(p); }, 45000);
+    this.refresher = setInterval(() => {
+      for (const p of this.data.peers) if (!this.conns.get(p.id)) this.rejoin(p);
+      // A device heard only through the relay drops out once it has been quiet a while.
+      const now = this.list().map((x) => x.via).join();
+      if (now !== this.lastVias) { this.lastVias = now; this.emit('change'); }
+    }, 45000);
     this.subscribeRelay();
+    this.hereTimer = setTimeout(() => { this.sayHere(); this.hereTimer = setInterval(() => this.sayHere(), RELAY_HERE_MS); }, 15000);
     log(`devices: started as ${this.data.name} with ${this.data.peers.length} paired`);
   }
 
@@ -240,6 +262,12 @@ class Devices extends EventEmitter {
 
   async stop() {
     clearInterval(this.refresher);
+    clearTimeout(this.hereTimer); clearInterval(this.hereTimer);
+    // Devices reached only through the relay hear that this one is going, rather than waiting it out.
+    if (this.swarm && this.data.relay.on) {
+      const bye = this.data.peers.filter((p) => this.toldHere.has(p.id)).map((p) => this.relaySend(p, { t: 'bye' }));
+      await Promise.race([Promise.all(bye), new Promise((r) => setTimeout(r, 1500))]);
+    }
     this.topics.clear();
     if (this.relayAbort) this.relayAbort.abort();
     this.relayAbort = null;
@@ -458,8 +486,15 @@ class Devices extends EventEmitter {
     return this.relaySend(p, f);
   }
 
-  onFrame(p, f) {
+  /** relay: it came through the relay, which is what says a device without a direct link is there. */
+  onFrame(p, f, relay = false) {
+    if (f.t === 'bye') { this.aliveAt.delete(p.id); this.emit('change'); return; }
     p.lastSeen = new Date().toISOString().slice(0, 16);
+    const wasAlive = this.conns.has(p.id) || this.relayAlive(p);
+    if (relay) this.aliveAt.set(p.id, Date.now());
+    if (relay && !wasAlive) this.emit('change');
+    // Just heard that it's there: answer once, so it knows about this one without waiting 20 minutes.
+    if (f.t === 'here') { if (!f.answer && !wasAlive && !this.conns.get(p.id)) { this.toldHere.add(p.id); this.relaySend(p, { t: 'here', answer: true }); } return; }
     if (f.t === 'hello') {
       const name = String(f.name || '').slice(0, 40), osn = String(f.os || '').slice(0, 20);
       if (osn && osn !== p.os) { p.os = osn; this.save(); this.emit('change'); }
@@ -643,7 +678,7 @@ class Devices extends EventEmitter {
     if (!env || env.from !== p.id || env.to !== this.id || env.mid !== part.m || Math.abs(Date.now() - env.ts) > RELAY_MAX_AGE || !env.f || typeof env.f.t !== 'string') return;
     this.seen.add(part.m);
     if (this.seen.size > 2000) this.seen = new Set([...this.seen].slice(-1000));
-    this.onFrame(p, env.f);
+    this.onFrame(p, env.f, true);
   }
 }
 

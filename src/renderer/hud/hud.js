@@ -19,6 +19,9 @@
   let machine = '';   // '' is this device; otherwise the id of the device whose tab is open
   const views = { '': {} };        // device id ('' = this one) -> { event type: latest event }
   let devList = [], devName = '';  // paired devices, and this device's name
+  // The paired devices that can be reached now. Only these show on the HUD (MESH, the picker); every
+  // paired device stays in Settings › Devices.
+  const onlineDevs = () => devList.filter((d) => d.via !== 'offline');
   let popping = false;             // the crew being rebuilt because a group node opened
   let burstFrom = null;            // where it opened from: { x, y } in the crew's coordinates
   function post(msg) {
@@ -257,11 +260,12 @@
     const sys = groupNode('main', 'SYSTEM', 'BUILT-IN AGENTS');
     if (crewGroup === 'custom') return place(custom.map((a) => agentNode(a)), [{ ...groupNode('create', '+ CREATE', 'MAKE AN AGENT'), dim: true }, sys]);
     if (crewGroup === 'devices') {
-      // Every paired computer (dim when it can't be reached), and one more to pair a new one.
-      const nodes = devList.map((d) => ({ ...groupNode('device:' + d.id, d.name.toUpperCase(), d.via === 'offline' ? 'NOT REACHABLE' : (d.os || 'DEVICE').toUpperCase(), d.via), dim: d.via === 'offline' }));
+      // This computer (the way back to its agents), every paired one that can be reached now, and one
+      // more to pair a new one.
+      const nodes = onlineDevs().map((d) => groupNode('device:' + d.id, d.name.toUpperCase(), (d.os || 'DEVICE').toUpperCase(), d.via));
       const self = groupNode('main', (devName || 'This computer').toUpperCase(), 'THIS COMPUTER');
       self.id = 'g-self';
-      return place([self, ...nodes], [{ ...groupNode('pair', '+ PAIR', 'ADD A COMPUTER'), dim: true }, sys]);
+      return place([self, ...nodes], [{ ...groupNode('pair', '+ PAIR', 'ADD A COMPUTER'), dim: true }]);
     }
     const dm = /^(device|dcustom):(.+)$/.exec(crewGroup);
     if (dm) {
@@ -275,7 +279,7 @@
     }
     return place(builtIn.map((a) => agentNode(a)), [
       { ...groupNode('custom', 'FORGE', custom.length ? `${custom.length} CUSTOM AGENT${custom.length > 1 ? 'S' : ''}` : 'MAKE YOUR OWN'), dim: !custom.length },
-      ...(machine ? [] : [{ ...groupNode('devices', 'MESH', devList.length ? `${devList.length} CONNECTED` : 'PAIR A COMPUTER'), dim: !devList.length }])]);
+      { ...groupNode('devices', 'MESH', onlineDevs().length ? `${onlineDevs().length} CONNECTED` : 'PAIR A COMPUTER'), dim: !onlineDevs().length }]);
   }
   const hubsFor = () => crewItems().slice(0, SLOTS.length).map((a, i) => ({ nx: SLOTS[i].x, ny: SLOTS[i].y, ...SLOTS[i], ...a }));
   let HUBS = hubsFor();
@@ -929,7 +933,8 @@
     const me = assistants.find((a) => a.id === current) || assistants[0];
     const dm = /^(device|dcustom):(.+)$/.exec(crewGroup);
     // A computer opened from MESH: its agent in use in the core, with the computer's name under it.
-    let name = me ? me.name : 'JARVIS', sub = '';
+    // Another computer in view: its agent in use, with that computer's name under it.
+    let name = me ? me.name : 'JARVIS', sub = machine ? machineName(machine).toUpperCase() : '';
     if (crewGroup === 'devices') name = 'MESH';
     else if (crewGroup === 'custom') name = 'FORGE';
     else if (dm) {
@@ -945,12 +950,15 @@
   let openedFrom = null;   // set by a click: where the burst starts (the core, once the node got there)
   const f2 = (n) => Number(n).toFixed(2);
   /** Open a group node: its members burst out of it. */
-  function openGroup(group) {
+  /** id: the node clicked, when it matters (MESH's node for this computer). */
+  function openGroup(group, id = '') {
     if (group === 'pair') { spotPair(); return; }
     if (group === 'create') { spotMake(); return; }
-    // A computer whose agents haven't arrived (it isn't reachable): open its tab, with its last state.
+    // A computer in MESH switches to it, as the picker at the top does: its HUD, its agents, and what
+    // is said goes to its agent. MESH's node for this computer switches back.
     const dm = /^device:(.+)$/.exec(group);
-    if (dm && !remoteDevices().some((d) => d.id === dm[1])) { showMachine(dm[1]); return; }
+    if (dm) { showMachine(dm[1]); group = 'main'; }
+    else if (id === 'g-self' && machine) showMachine('');
     // The node that was clicked, where it shows now: the burst starts there.
     const from = HUBS.find((x) => x.group === group || (group === 'main' && x.group === 'main')) || null;
     const full = body.classList.contains('focus') || body.classList.contains('spot');
@@ -981,7 +989,7 @@
       // As when choosing an agent, the core steps back while the node takes its place, then comes back
       // with the group's name as its members burst out.
       body.classList.add('gathering');
-      setTimeout(() => { crew.classList.remove('swap'); body.classList.remove('gathering'); openedFrom = { x: 0, y: 0 }; openGroup(h.group); }, 600);
+      setTimeout(() => { crew.classList.remove('swap'); body.classList.remove('gathering'); openedFrom = { x: 0, y: 0 }; openGroup(h.group, h.id); }, 600);
       return;
     }
     // Another device's agent: open its tab, with that agent in the spotlight.
@@ -1551,7 +1559,7 @@
   const machineName = (id) => (devList.find((d) => d.id === id) || {}).name || 'Other device';
   /** Paired devices whose HUD we have, with their agents, for the Devices node. */
   function remoteDevices() {
-    return devList.map((d) => {
+    return onlineDevs().map((d) => {
       const a = (views[d.id] || {}).assistants || {};
       return { id: d.id, name: d.name, os: d.os, via: d.via, list: Array.isArray(a.list) ? a.list : [], current: a.id || '' };
     }).filter((d) => d.list.length);
@@ -1562,7 +1570,7 @@
   let machineMenu = false;
   function renderMachines() {
     const bar = $('machines');
-    bar.hidden = !devList.length;
+    bar.hidden = !onlineDevs().length;
     const item = (id, name, sub, cls) => {
       const b = document.createElement('button');
       b.className = 'mtab' + (id === machine ? ' on' : '') + (cls ? ' ' + cls : '');
@@ -1585,7 +1593,7 @@
     const menu = document.createElement('div');
     menu.className = 'mmenu';
     menu.hidden = !machineMenu;
-    menu.append(item('', here, 'this computer'), ...devList.map((d) => item(d.id, d.name, [d.os, VIA[d.via] || d.via].filter(Boolean).join(' · '), viaClass(d))));
+    menu.append(item('', here, 'this computer'), ...onlineDevs().map((d) => item(d.id, d.name, [d.os, VIA[d.via] || d.via].filter(Boolean).join(' · '), viaClass(d))));
     bar.replaceChildren(pick, menu);
     remoteNote();
   }
@@ -1603,7 +1611,7 @@
   }
   /** Show a device's HUD: this one ('') or a paired one. */
   function showMachine(id) {
-    if (id && !devList.some((d) => d.id === id)) id = '';
+    if (id && !onlineDevs().some((d) => d.id === id)) id = '';
     if (spotted) unspot();
     machine = id;
     crewGroup = 'main';
@@ -1622,6 +1630,7 @@
     }
     remoteNote();
     renderMachines();
+    coreLabel();
   }
   function onRemote(e) {
     const v = views[e.device] || (views[e.device] = {});
@@ -1639,7 +1648,8 @@
       if (e.type === 'remote') { onRemote(e); return; }
       if (e.type === 'devices') {
         devList = e.list || []; devName = e.name || '';
-        if (machine && !devList.some((d) => d.id === machine)) showMachine('');
+        // The device in view went away (unpaired, or can't be reached any more): back to this one.
+        if (machine && !onlineDevs().some((d) => d.id === machine)) { const gone = machineName(machine); showMachine(''); notice(`${gone} disconnected`); }
         renderMachines();
         if (!machine && !spotted) { HUBS = hubsFor(); crew.innerHTML = buildCrew(); }
         pairNews(e);
