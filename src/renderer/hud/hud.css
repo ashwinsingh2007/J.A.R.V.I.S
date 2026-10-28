@@ -768,16 +768,26 @@ input.key:focus { outline: none; border-color: var(--cyan); }
   .ui .rows.form select { width: 200px; }
 }
 /* other devices: a tab for each, and their HUD shown here */
-#machines { display: flex; gap: 6px; flex-wrap: wrap; padding-left: 18px; border-left: 1px solid var(--line); }
+#machines { position: relative; display: flex; padding-left: 18px; border-left: 1px solid var(--line); }
 #machines[hidden] { display: none; }
-.mtab { display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; border: 1px solid var(--line); background: rgba(var(--rgb), 0.03); color: var(--muted); font: var(--lab) var(--mono); letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer; }
-.mtab i { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
-.mtab.relay i { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
-.mtab.off i { background: var(--faint); box-shadow: none; }
-.mtab.on { color: var(--bright); border-color: var(--cyan); background: rgba(var(--rgb), 0.14); }
+.mpick, .mtab { display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; border: 1px solid var(--line); background: rgba(var(--rgb), 0.03); color: var(--muted); font: var(--lab) var(--mono); letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer; }
+.mpick { color: var(--bright); border-color: var(--line2); }
+.mpick b { font-weight: normal; color: var(--muted); transition: transform .2s ease; }
+.mpick.open b { transform: rotate(180deg); }
+.mpick i, .mtab i { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); flex: none; }
+.mpick.relay i, .mtab.relay i { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+.mpick.off i, .mtab.off i { background: var(--faint); box-shadow: none; }
+.mmenu { position: absolute; top: calc(100% + 6px); left: 18px; z-index: 60; min-width: 240px; display: flex; flex-direction: column; gap: 2px; padding: 4px; border: 1px solid var(--line2); background: var(--pop-bg); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45); }
+.mmenu[hidden] { display: none; }
+.mmenu .mtab { border-color: transparent; background: none; text-align: left; flex-wrap: wrap; }
+.mmenu .mtab small { flex-basis: 100%; padding-left: 14px; color: var(--faint); font-size: 0.85em; letter-spacing: 0.08em; text-transform: none; }
+.mmenu .mtab:hover { border-color: var(--line); background: rgba(var(--rgb), 0.08); color: var(--bright); }
+.mmenu .mtab.on { color: var(--bright); border-color: var(--cyan); background: rgba(var(--rgb), 0.14); }
 #remote-note { margin-top: 6px; font: var(--lab) var(--mono); letter-spacing: 0.12em; color: var(--amber); }
 #remote-note:empty { display: none; }
-body.remote #nav a[data-view="history"], body.remote #nav a[data-view="memory"], body.remote #nav a[data-view="settings"], body.remote #nav a[data-view="music"] { display: none; }
+body.remote #nav a[data-view="settings"], body.remote #nav a[data-view="music"] { display: none; }
+/* another device's memory, schedule and conversation are read-only here */
+body.remote #mem-add, body.remote #v-memory button { display: none; }
 /* Another device's agents: editable, but its training, files and code switch stay on that device. */
 body.remote #a-tabs [data-at="training"], body.remote #a-export, body.remote #a-import, body.remote #a-maint { display: none; }
 body.remote #a-edit li:has(#a-maint) { display: none; }

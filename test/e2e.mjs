@@ -1206,7 +1206,9 @@ async function testDevices() {
   if (karen) await ha.evaluate((id) => document.getElementById('crew-' + id).dispatchEvent(new MouseEvent('click', { bubbles: true })), karen);
   await sleep(900);
   check('its agent opens that device\'s tab, in the spotlight', await ha.evaluate(() => document.body.classList.contains('remote') && document.getElementById('spot-name').textContent === 'KAREN' && /FRIDAY/.test(document.querySelector('.corelabel .jv').textContent)));
-  check('history, memory, settings and music are hidden there', await ha.evaluate(() => ['history', 'memory', 'settings', 'music'].every((v) => getComputedStyle(document.querySelector(`#nav a[data-view="${v}"]`)).display === 'none')));
+  check('settings and music are hidden there, history and memory shown', await ha.evaluate(() => ['settings', 'music'].every((v) => getComputedStyle(document.querySelector(`#nav a[data-view="${v}"]`)).display === 'none') && ['history', 'memory'].every((v) => getComputedStyle(document.querySelector(`#nav a[data-view="${v}"]`)).display !== 'none')));
+  check('its memory is read-only here', await ha.evaluate(() => getComputedStyle(document.getElementById('mem-add')).display === 'none'));
+  check('the picker names the other device', /Home Mac/.test(await text(ha, '#machine-pick')));
   await shot(ha, 'devices-remote-home');
   // Its agents can be changed from here, and the change is saved there.
   await ha.click('#spot-back');
@@ -1228,6 +1230,8 @@ async function testDevices() {
   await ha.fill('#ask-input', 'what time is it there?');
   await ha.press('#ask-input', 'Enter');
   check('typing in its tab reaches the other device', await b.waitLog(/devices: Work Mac typed 'what time is it there\?'/, 10000, m));
+  await ha.waitForFunction(() => !!document.getElementById('reply').textContent.trim(), null, { timeout: 60000 }).catch(() => {});
+  check('its agent\'s reply shows here', !!(await text(ha, '#reply')).trim(), (await text(ha, '#reply')).slice(0, 80));
   // Said out loud here with its tab open: it goes there, is answered there silently, and spoken here.
   await a.say('jarvis wake up');
   await a.waitLog(/conversation mode on/, 10000);
@@ -1237,6 +1241,9 @@ async function testDevices() {
   check('a spoken command goes to the open tab\'s computer', await b.waitLog(/devices: Work Mac said 'what is two plus two'/, 15000, vb), a.log().slice(va).split('\n').filter((l) => /remote|devices/.test(l)).join(' | ').slice(0, 200));
   check('its answer is spoken here', await a.waitLog(/synth/, 60000, va) && !(await b.waitLog(/synth/, 1000, vb)));
   // Back to this device.
+  await ha.click('#machine-pick');
+  check('the picker opens a menu of computers', await ha.evaluate(() => !document.querySelector('#machines .mmenu').hidden && document.querySelectorAll('#machines .mmenu .mtab').length === 2));
+  await shot(ha, 'devices-picker');
   await ha.click('#machines .mtab[data-device=""]');
   await sleep(600);
   check('back on this device, its own HUD is back', await ha.evaluate(() => !document.body.classList.contains('remote') && /JARVIS/.test(document.querySelector('.corelabel .jv').textContent)));

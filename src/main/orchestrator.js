@@ -537,19 +537,20 @@ class Orchestrator extends EventEmitter {
 
   /** Proactive line without disturbing an in-progress turn. Silent while asleep. */
   /** The answer from another computer's JARVIS to what was said here: spoken here. */
-  remoteAnswer(text) {
+  /** voice: the other device's agent's own voice, so it sounds like the agent that answered. */
+  remoteAnswer(text, voice) {
     clearTimeout(this.remoteTimer);
     this.state = 'idle';
     const said = clean(cutSources(String(text || '')));
-    if (said && !isSilent(said)) this.speakNow(said);
+    if (said && !isSilent(said)) this.speakNow(said, voice);
   }
 
-  speakNow(text) {
+  speakNow(text, voice) {
     if (this.disabled) return;
     if (!this.awake) { log(`asleep: silent notice '${text.slice(0, 60)}'`); return; }
     if (this.brain.isBusy) { this.pendingNotices.push(text); return; }
     this.emit('notice', text);
-    this.speaker.speak(text);
+    this.speaker.speak(text, voice);
   }
 
   async answerApproval(yes) {
