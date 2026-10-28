@@ -65,7 +65,10 @@ class Speaker extends EventEmitter {
   speak(sentence, voice) {
     const s = clean(sentence);
     if (!s) return;
-    if (voice) this.voiceFor.set(s, voice);
+    if (voice) {
+      this.voiceFor.set(s, voice);
+      log(`tts: in another device's agent's voice (${this.engine} ${voice[{ kokoro: 'kokoroVoice', edge: 'edgeVoice', native: 'nativeVoice' }[this.engine]] || 'its own default'})`);
+    }
     this.queue.push(s);
     this.pump();
   }

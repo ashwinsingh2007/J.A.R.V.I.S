@@ -1242,6 +1242,9 @@ async function testDevices() {
   await a.say('what is two plus two');
   check('a spoken command goes to the open tab\'s computer', await b.waitLog(/devices: Work Mac said 'what is two plus two'/, 15000, vb), a.log().slice(va).split('\n').filter((l) => /remote|devices/.test(l)).join(' | ').slice(0, 200));
   check('its answer is spoken here', await a.waitLog(/synth/, 60000, va) && !(await b.waitLog(/synth/, 1000, vb)));
+  // FRIDAY is in use over there (macOS voice Moira); JARVIS here speaks as Daniel.
+  const spoke = await a.waitLog(/tts: in another device's agent's voice \((\w+) ([^)]+)\)/, 5000, va);
+  check('in the voice of the agent over there', !!spoke && spoke[2] === 'Moira', spoke && spoke[0]);
   // Back to this device.
   await ha.click('#machine-pick');
   check('the picker opens a menu of computers', await ha.evaluate(() => !document.querySelector('#machines .mmenu').hidden && document.querySelectorAll('#machines .mmenu .mtab').length === 2));
