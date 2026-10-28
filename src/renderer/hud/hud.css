@@ -774,7 +774,7 @@ body.remote #a-edit li:has(#a-maint) { display: none; }
 #crew .mate.group .ring { stroke-dasharray: 0.9 0.6; }
 #crew .mate.dim .core, #crew .mate.dim .ring, #crew .mate.dim .halo { opacity: 0.22; }
 #crew .mate.dim .fire, #crew .mate.dim .spark { opacity: 0.12; }
-#crew .mate.dim text { opacity: 0.55; }
+#crew .mate.dim text { fill-opacity: 0.55; }   /* not opacity: that would show both label sets */
 /* While something is in the spotlight, the state word steps aside; pairing and making sit a bit higher. */
 body.spot #status { opacity: 0; pointer-events: none; }
 body.spot #spot:has(.spot-pair:not([hidden])) { top: 50%; }

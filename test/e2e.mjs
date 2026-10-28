@@ -807,6 +807,8 @@ async function testHud() {
   await sleep(300);
   await hud.evaluate(() => document.getElementById('crew-g-pair').dispatchEvent(new MouseEvent('click', { bubbles: true })));
   await sleep(300);
+  check('MESH shows its own name in the core, and only computers around it', await hud.evaluate(() => document.querySelector('.corelabel .jv').textContent === 'MESH' && [...document.querySelectorAll('#crew .mate')].every((m) => m.dataset.id.startsWith('g-'))));
+  check('a dim node shows one name, not two', await hud.evaluate(() => { const m = document.getElementById('crew-g-pair'); return [...m.querySelectorAll('text')].filter((t) => getComputedStyle(t).opacity !== '0').length <= 2; }));
   check('+ PAIR opens pairing on the HUD', await hud.evaluate(() => document.body.classList.contains('spot') && !document.getElementById('spot-pair').hidden && document.getElementById('spot-go').hidden));
   await hud.click('#sp-host');
   await hud.waitForFunction(() => /^[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(document.getElementById('spot-code').textContent), null, { timeout: 30000 }).catch(() => {});
