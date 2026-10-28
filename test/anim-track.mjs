@@ -18,9 +18,10 @@ const track = await hud.evaluate(() => new Promise((done) => {
     const t = performance.now() - t0;
     const el = document.querySelector('#crew-g-devices .halo');
     const burst = !!document.querySelector('#crew .burst');
-    if (el) { const r = el.getBoundingClientRect(); out.push(`${Math.round(t)}ms x=${Math.round(r.x + r.width / 2)} y=${Math.round(r.y + r.height / 2)} w=${Math.round(r.width)} op=${getComputedStyle(el.closest('.mi')).opacity.slice(0, 4)}`); }
-    else out.push(`${Math.round(t)}ms ${burst ? 'BURST' : 'gone'} core=${document.querySelector('.corelabel .jv').textContent}`);
-    if (t < 900) requestAnimationFrame(step); else done(out);
+    const scene = getComputedStyle(document.getElementById('scene')).opacity.slice(0, 4), label = getComputedStyle(document.querySelector('.corelabel')).opacity.slice(0, 4);
+    if (el) { const r = el.getBoundingClientRect(); out.push(`${Math.round(t)}ms x=${Math.round(r.x + r.width / 2)} y=${Math.round(r.y + r.height / 2)} w=${Math.round(r.width)} op=${getComputedStyle(el.closest('.mi')).opacity.slice(0, 4)} core=${scene} label=${label}`); }
+    else out.push(`${Math.round(t)}ms ${burst ? 'BURST' : 'gone'} label=${document.querySelector('.corelabel .jv').textContent} core=${getComputedStyle(document.getElementById('scene')).opacity.slice(0, 4)}`);
+    if (t < 1400) requestAnimationFrame(step); else done(out);
   };
   requestAnimationFrame(step);
 }));

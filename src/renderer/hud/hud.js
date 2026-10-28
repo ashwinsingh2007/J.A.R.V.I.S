@@ -964,7 +964,10 @@
       m.style.setProperty('--gy', f2(-(full ? h.y : h.ny)));
       m.classList.add('gather');
       crew.classList.add('swap');
-      setTimeout(() => { crew.classList.remove('swap'); openedFrom = { x: 0, y: 0 }; openGroup(h.group); }, 600);
+      // As when choosing an agent, the core steps back while the node takes its place, then comes back
+      // with the group's name as its members burst out.
+      body.classList.add('gathering');
+      setTimeout(() => { crew.classList.remove('swap'); body.classList.remove('gathering'); openedFrom = { x: 0, y: 0 }; openGroup(h.group); }, 600);
       return;
     }
     // Another device's agent: open its tab, with that agent in the spotlight.

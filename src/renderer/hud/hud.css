@@ -469,8 +469,8 @@ body.focus.pointer[data-view="cc"] #focus-hint { opacity: 1; }
 
 /* spotlight: the chosen crew member glides to the centre, the core steps back */
 #scene, .corelabel { transition: opacity .7s ease, transform .8s cubic-bezier(.2,.7,.2,1); }
-body.spot #scene { opacity: .16; transform: scale(.62); }
-body.spot .corelabel { opacity: 0; transform: translate(-50%, -50%) scale(.6); }
+body.spot #scene, body.gathering #scene { opacity: .16; transform: scale(.62); }
+body.spot .corelabel, body.gathering .corelabel { opacity: 0; transform: translate(-50%, -50%) scale(.6); }
 body.spot #lc, body.spot #bl { transform: translateX(calc(-100% - 2 * var(--mx))); opacity: 0; pointer-events: none; }
 body.spot #tr, body.spot #br { transform: translateX(calc(100% + 2 * var(--mx))); opacity: 0; pointer-events: none; }
 body.spot #brand { transform: translateY(calc(-100% - 2 * var(--my))); opacity: 0; pointer-events: none; }
