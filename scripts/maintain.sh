@@ -39,7 +39,10 @@ worktree() {
 cmd=$1; [ $# -gt 0 ] && shift
 case "$cmd" in
   status)
-    pid=$(pgrep -x JARVIS | head -1 || true)
+    # -a: whoever asks is usually one of JARVIS's own agents, and pgrep leaves out its own ancestors
+    # without it. The copy built from this checkout first, so a test build running beside it isn't taken.
+    pid=$(pgrep -a -f "^$ROOT/JARVIS.app/Contents/MacOS/JARVIS" | head -1 || true)
+    [ -n "$pid" ] || pid=$(pgrep -a -x JARVIS | head -1 || true)
     if [ -z "$pid" ]; then echo "JARVIS is not running"; else
       ps -A -o pid=,ppid=,%cpu=,rss=,etime=,command= | awk -v root="$pid" '
         { pid[NR]=$1; pp[NR]=$2; line[NR]=$0 }
@@ -85,7 +88,11 @@ case "$cmd" in
   apply)
     [ "$(git -C "$ROOT" branch --show-current)" = main ] || die "the checkout is not on main; leave it for the user"
     [ -z "$(git -C "$ROOT" status --porcelain --untracked-files=no)" ] || die "the checkout has uncommitted changes; leave it for the user"
+    before=$(git -C "$ROOT" rev-parse HEAD)
     git -C "$ROOT" pull -q --ff-only origin main
+    # build.sh only builds the Swift helpers when they are missing; rebuild one whose code changed.
+    git -C "$ROOT" diff --quiet "$before" HEAD -- native/ears || sh "$ROOT/native/build-ears.sh"
+    git -C "$ROOT" diff --quiet "$before" HEAD -- native/hands || sh "$ROOT/native/build-hands.sh"
     load_build_env
     (cd "$ROOT" && ./build.sh >/dev/null)
     echo "built JARVIS.app at $(git -C "$ROOT" log --oneline -1)"
