@@ -54,8 +54,9 @@
   // ---------- three.js globe ----------
   const stage = $('stage');
   const canvas = $('scene');
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, premultipliedAlpha: false, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  // The default GPU and at most 1.5x pixels: the reactor is soft glow, and full Retina doubled the fill work.
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, premultipliedAlpha: false });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
   renderer.setClearColor(0x000000, 0);
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
@@ -999,12 +1000,27 @@
   let last = performance.now(), spinA = 0, tAcc = 0, nextBolt = 1.5;
   const tmp = new THREE.Color();
 
-  // 30 frames a second while something is happening, 20 at rest (the scene barely moves then), 4 on
+  // 30 frames a second while something is happening, 10 at rest (the scene barely moves then), 4 on
   // the other tabs, and none while the window is hidden. Full rate cost most of a CPU core.
-  const BUSY_MS = 1000 / 30, REST_MS = 1000 / 20, AWAY_MS = 250;
-  document.addEventListener('visibilitychange', () => body.classList.toggle('asleep', document.hidden));
+  const BUSY_MS = 1000 / 30, REST_MS = 1000 / 10, AWAY_MS = 250;
+  document.addEventListener('visibilitychange', () => { body.classList.toggle('asleep', document.hidden); crewMotion(); });
+
+  // The web's endless animations (signals, pulses, sparks) run only while JARVIS listens, thinks or
+  // speaks, or an assistant is in the spotlight. Idle, on another tab or hidden, the web is a still
+  // picture: SVG animations can't be composited, so each one repaints at the display's full rate
+  // whatever the frame cap above says. The sparks also rest, out of sight, in the normal view where
+  // they're hidden anyway (a paused spark that hasn't set off yet would sit on the reactor).
+  const LIVE_STATES = new Set(['listening', 'thinking', 'speaking']);
+  let crewLive = null, sparksLive = null;
+  function crewMotion() {
+    const live = !document.hidden && body.dataset.view === 'cc' && (LIVE_STATES.has(state) || !!spotted);
+    const sparks = live && (body.classList.contains('focus') || body.classList.contains('spot'));
+    if (live !== crewLive) { crewLive = live; crew.classList.toggle('still', !live); }
+    if (sparks !== sparksLive) { sparksLive = sparks; crew.classList.toggle('nosparks', !sparks); if (sparks) crew.unpauseAnimations(); else crew.pauseAnimations(); }
+  }
   function frame(now) {
     requestAnimationFrame(frame);
+    crewMotion();
     if (document.hidden) { last = now; return; }
     const calm = boot.assembled && (state === 'idle' || state === 'muted') && flash === 0 && !spotted;
     const gap = body.dataset.view !== 'cc' ? AWAY_MS : calm ? REST_MS : BUSY_MS;
@@ -1082,6 +1098,8 @@
     if (body.dataset.view === 'cc') renderer.render(scene, camera);
   }
   function drawWave(arr, lvl, maxH, t) {
+    // Every bar sits at its floor (0.1) while the level is that low: set them there once, then leave the DOM alone.
+    if (lvl <= 0.1) { if (arr.rest) return; arr.rest = true; } else arr.rest = false;
     for (let i = 0; i < arr.length; i++) {
       const c = Math.abs(i - arr.length / 2) / (arr.length / 2);
       const v = Math.max(0.1, lvl * (1 - c * c) * (0.55 + 0.45 * Math.abs(Math.sin(t * 9 + i * 0.7))));

@@ -11,7 +11,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const C = require('./config');
-const { log, run, which } = require('./util');
+const { log, run, which, findClaude } = require('./util');
 
 const PERSONAL = path.join(C.HOME, '.claude', 'skills');
 const OWN = path.join(C.STATE_DIR, 'skills');
@@ -119,7 +119,7 @@ function marketplaces() {
   });
 }
 
-const claude = () => which('claude') || path.join(C.HOME, '.local', 'bin', 'claude');
+const claude = () => findClaude() || 'claude';
 const tidy = (r) => (r.code === 0 ? '' : (r.err || r.out || `exit ${r.code}`).trim().split('\n').slice(-2).join(' ').slice(0, 240));
 
 /** A plugin from a marketplace, installed for the user's Claude Code too (user scope). */

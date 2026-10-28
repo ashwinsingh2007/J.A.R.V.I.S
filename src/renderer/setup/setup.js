@@ -43,7 +43,7 @@ function show(i) {
 
 let perms = {};
 let notified = false;
-const PERM_TEXT = { allowed: ['✓ allowed', 'ok'], 'not-asked': ['not yet', 'warn'], denied: ['✗ not allowed', 'bad'], unknown: ['—', ''], absent: ['not installed', ''] };
+const PERM_TEXT = { allowed: ['✓ allowed', 'ok'], 'not-asked': ['not yet', 'warn'], denied: ['✗ not allowed', 'bad'], unknown: ['—', ''], absent: ['not installed', ''], 'no-helper': ['speech helper not built', 'bad'] };
 
 function renderPerms() {
   document.querySelectorAll('#perms li').forEach((li) => {
@@ -52,12 +52,16 @@ function renderPerms() {
     const [label, cls] = k === 'notifications' && notified ? ['✓ test sent', 'ok'] : PERM_TEXT[st] || PERM_TEXT.unknown;
     status(li.querySelector('.chip'), label, cls);
     const btn = li.querySelector('button');
-    btn.hidden = st === 'allowed' || st === 'absent';
+    btn.hidden = st === 'allowed' || st === 'absent' || st === 'no-helper';
     btn.textContent = st === 'denied' ? 'Open Settings' : k === 'notifications' ? 'Send a test' : 'Allow';
     li.classList.toggle('done', st === 'allowed');
   });
   const missing = ['mic', 'speech'].filter((k) => perms[k] && perms[k] !== 'allowed');
-  if (STEPS[step] === 'access') status($('saved'), missing.length ? 'JARVIS cannot hear you until the microphone and speech recognition are allowed.' : '', missing.length ? 'bad' : '');
+  const noHelper = missing.some((k) => perms[k] === 'no-helper');
+  const why = noHelper
+    ? 'JARVIS cannot ask for the microphone or speech recognition yet, because its speech helper is not built. To fix it, update to macOS 14 or later, run xcode-select --install, then run ./setup.sh and ./build.sh again.'
+    : 'JARVIS cannot hear you until the microphone and speech recognition are allowed.';
+  if (STEPS[step] === 'access') status($('saved'), missing.length ? why : '', missing.length ? 'bad' : '');
 }
 
 async function refreshPerms() {
@@ -76,7 +80,7 @@ function updateNext() {
 function brainProblem() {
   const f = info.found, b = choice.brainProvider;
   if (b === 'claude-code') {
-    if (!f.claude.path) return 'Claude Code is not installed on this Mac. Pick Ollama for a free brain, or install Claude Code.';
+    if (!f.claude.path) return 'JARVIS can\'t find Claude Code on this Mac. Pick Ollama for a free brain, or install Claude Code. If it is installed, see the note under Claude Code.';
     if (!f.claude.loggedIn) return 'Claude Code needs you to sign in once: run claude in Terminal.';
     return null;
   }
@@ -238,7 +242,7 @@ function autoPick() {
 function renderDetection() {
   const f = info.found;
   const cc = $('cc-status');
-  if (!f.claude.path) { status(cc, '— not installed', ''); $('cc-help').innerHTML = 'Claude Code is not installed. To use it, run <code>npm install -g @anthropic-ai/claude-code</code> in Terminal, then <code>claude</code> once to sign in, and reopen Setup.'; }
+  if (!f.claude.path) { status(cc, '— not installed', ''); $('cc-help').innerHTML = 'JARVIS can\'t find Claude Code. To install it, run <code>npm install -g @anthropic-ai/claude-code</code> in Terminal, then <code>claude</code> once to sign in, and reopen Setup. If it is already installed, run <code>which claude</code> in Terminal and add that folder to PATH in <code>~/.zprofile</code> (<code>~/.zshrc</code> isn\'t read by apps), then reopen JARVIS.'; }
   else if (!f.claude.loggedIn) { status(cc, '! not signed in', 'warn'); $('cc-help').innerHTML = 'Run <code>claude</code> in Terminal once and sign in, then reopen Setup.'; }
   else { status(cc, `✓ ready · ${f.claude.version.replace(/\s*\(Claude Code\)/i, '')}`, 'ok'); $('cc-help').textContent = 'Runs without permission prompts and hands long tasks to background agents. It asks before anything that sends, posts, deletes or pays.'; }
   $('cc-fields').hidden = !(f.claude.path && f.claude.loggedIn);

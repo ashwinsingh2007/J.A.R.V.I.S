@@ -272,3 +272,21 @@ test('a running job shows its progress on the HUD but is never announced until i
   assert.equal(o.progress.size, 0);
   assert.equal(notices.at(-1), 'Finished: checking your Gmail');
 });
+
+test('findClaude() finds claude in its install locations when PATH lacks it', (t) => {
+  if (['/opt/homebrew/bin/claude', '/usr/local/bin/claude'].some((p) => fs.existsSync(p))) return t.skip('claude is installed system-wide here');
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'jarvis-home-'));
+  assert.equal(util.findClaude({ home, usePath: false, shell: null }), null);
+  const nvm = path.join(home, '.nvm', 'versions', 'node');
+  for (const v of ['v9.0.0', 'v20.11.0']) {
+    fs.mkdirSync(path.join(nvm, v, 'bin'), { recursive: true });
+    fs.writeFileSync(path.join(nvm, v, 'bin', 'claude'), '#!/bin/sh\n', { mode: 0o755 });
+  }
+  assert.equal(util.findClaude({ home, usePath: false, shell: null }), path.join(nvm, 'v20.11.0', 'bin', 'claude'));
+  const native = path.join(home, '.local', 'bin', 'claude');
+  fs.mkdirSync(path.dirname(native), { recursive: true });
+  fs.writeFileSync(native, '#!/bin/sh\n', { mode: 0o644 });
+  assert.equal(util.findClaude({ home, usePath: false, shell: null }), path.join(nvm, 'v20.11.0', 'bin', 'claude'), 'not executable: skipped');
+  fs.chmodSync(native, 0o755);
+  assert.equal(util.findClaude({ home, usePath: false, shell: null }), native, 'native installer wins');
+});
