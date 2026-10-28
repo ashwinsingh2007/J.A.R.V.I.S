@@ -1,7 +1,7 @@
 // Picks the brain: Claude Code if installed and signed in, else the Anthropic
 // API if a key is set, else Gemini if a key is set, else a local Ollama model.
 // "brainProvider" in the config forces one.
-const { which, run, log } = require('../util');
+const { findClaude, run, log } = require('../util');
 const ClaudeCodeBrain = require('./claude-code');
 const ApiBrain = require('./api-brain');
 const { Worker } = require('./worker');
@@ -9,7 +9,7 @@ const { Worker } = require('./worker');
 /** What is available on this Mac. Used by onboarding and at start-up. */
 async function detect(cfg) {
   const out = { claude: { path: null, version: '', loggedIn: false }, anthropic: { key: !!cfg.anthropicApiKey }, gemini: { key: !!cfg.geminiApiKey }, ollama: { running: false, models: [] } };
-  const claude = which('claude');
+  const claude = findClaude();
   if (claude) {
     out.claude.path = claude;
     out.claude.version = (await run(claude, ['--version'], { timeout: 15000 })).out.trim();

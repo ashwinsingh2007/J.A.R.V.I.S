@@ -76,7 +76,7 @@
     if (!info) return;
     const f = info.found;
     chip($('bc-claude-code'), !f.claude.path ? 'Not installed' : !f.claude.loggedIn ? 'Sign in needed' : 'Ready', ccReady() ? 'ok' : f.claude.path ? 'warn' : '');
-    $('b-cc-note').textContent = !f.claude.path ? 'Not installed. In Terminal: npm install -g @anthropic-ai/claude-code, then claude once to sign in.'
+    $('b-cc-note').textContent = !f.claude.path ? 'Not found. To install, in Terminal: npm install -g @anthropic-ai/claude-code, then claude once to sign in. Already installed? Run which claude in Terminal, add that folder to PATH in ~/.zprofile and reopen JARVIS.'
       : !f.claude.loggedIn ? 'Run claude in Terminal once and sign in.' : `Version ${String(f.claude.version || '').replace(/\s*\(Claude Code\)/i, '')}. Uses your Claude plan, and runs the background worker.`;
     chip($('bc-ollama'), !ol.installed ? 'Not installed' : !ol.running ? 'Not running' : ol.models.length ? `Ready · ${ol.models.length} model${ol.models.length === 1 ? '' : 's'}` : 'No model yet', ol.running && ol.models.length ? 'ok' : ol.installed ? 'warn' : '');
     chip($('bc-gemini'), info.cfg.has_geminiApiKey ? 'Key stored' : 'No key', info.cfg.has_geminiApiKey ? 'ok' : '');

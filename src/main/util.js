@@ -73,6 +73,46 @@ function which(name) {
   return null;
 }
 
+const runnable = (p) => {
+  try { return fs.statSync(p).isFile() && (fs.accessSync(p, fs.constants.X_OK), true); } catch { return false; }
+};
+
+/** Where Claude Code's installers put `claude`, for when PATH doesn't say:
+ *  a login shell skips ~/.zshrc, which is often the only place PATH gets it. */
+function claudeLocations(home = C.HOME) {
+  const nvm = path.join(home, '.nvm', 'versions', 'node');
+  let nodes = [];
+  try { nodes = fs.readdirSync(nvm).sort((a, b) => b.localeCompare(a, undefined, { numeric: true })).map((v) => path.join(nvm, v, 'bin', 'claude')); } catch {}
+  return [
+    path.join(home, '.local', 'bin', 'claude'),        // native installer
+    path.join(home, '.claude', 'local', 'claude'),     // older "local" install
+    '/opt/homebrew/bin/claude', '/usr/local/bin/claude',
+    path.join(home, '.npm-global', 'bin', 'claude'),
+    ...nodes,
+    path.join(home, '.bun', 'bin', 'claude'),
+    path.join(home, '.volta', 'bin', 'claude'),
+  ];
+}
+
+let claudePath = null;
+let shellMissAt = 0;        // an interactive shell is slow, so a miss is remembered for a minute
+/** Absolute path to Claude Code's `claude`, or null: PATH first, then the usual
+ *  install locations, then an interactive shell, which reads ~/.zshrc. */
+function findClaude({ home = C.HOME, usePath = true, shell = process.env.SHELL } = {}) {
+  if (usePath && claudePath && runnable(claudePath)) return claudePath;
+  let found = (usePath && which('claude')) || claudeLocations(home).find(runnable) || null;
+  if (!found && shell && process.platform !== 'win32' && fs.existsSync(shell) && Date.now() - shellMissAt > 60000) {
+    try {
+      const last = execFileSync(shell, ['-ilc', 'command -v claude'], { timeout: 8000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+        .trim().split('\n').pop().trim();
+      if (path.isAbsolute(last) && runnable(last)) found = last;
+    } catch {}
+    if (!found) shellMissAt = Date.now();
+  }
+  if (found && usePath) { claudePath = found; if (!which('claude')) log(`claude: not on PATH, using ${found}`); }
+  return found;
+}
+
 /** Run a command, resolve {out, err, code}. Never rejects. */
 function run(exe, args, { timeout = 60000, cwd, input, extraEnv } = {}) {
   return new Promise((resolve) => {
@@ -150,4 +190,4 @@ function initPaths(appDir) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const hhmm = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 
-module.exports = { log, env, which, run, jsonLines, clean, cutSources, SOURCES_START, paths, initPaths, sleep, hhmm };
+module.exports = { log, env, which, findClaude, claudeLocations, run, jsonLines, clean, cutSources, SOURCES_START, paths, initPaths, sleep, hhmm };

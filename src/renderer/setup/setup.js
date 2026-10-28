@@ -76,7 +76,7 @@ function updateNext() {
 function brainProblem() {
   const f = info.found, b = choice.brainProvider;
   if (b === 'claude-code') {
-    if (!f.claude.path) return 'Claude Code is not installed on this Mac. Pick Ollama for a free brain, or install Claude Code.';
+    if (!f.claude.path) return 'JARVIS can\'t find Claude Code on this Mac. Pick Ollama for a free brain, or install Claude Code. If it is installed, see the note under Claude Code.';
     if (!f.claude.loggedIn) return 'Claude Code needs you to sign in once: run claude in Terminal.';
     return null;
   }
@@ -238,7 +238,7 @@ function autoPick() {
 function renderDetection() {
   const f = info.found;
   const cc = $('cc-status');
-  if (!f.claude.path) { status(cc, '— not installed', ''); $('cc-help').innerHTML = 'Claude Code is not installed. To use it, run <code>npm install -g @anthropic-ai/claude-code</code> in Terminal, then <code>claude</code> once to sign in, and reopen Setup.'; }
+  if (!f.claude.path) { status(cc, '— not installed', ''); $('cc-help').innerHTML = 'JARVIS can\'t find Claude Code. To install it, run <code>npm install -g @anthropic-ai/claude-code</code> in Terminal, then <code>claude</code> once to sign in, and reopen Setup. If it is already installed, run <code>which claude</code> in Terminal and add that folder to PATH in <code>~/.zprofile</code> (<code>~/.zshrc</code> isn\'t read by apps), then reopen JARVIS.'; }
   else if (!f.claude.loggedIn) { status(cc, '! not signed in', 'warn'); $('cc-help').innerHTML = 'Run <code>claude</code> in Terminal once and sign in, then reopen Setup.'; }
   else { status(cc, `✓ ready · ${f.claude.version.replace(/\s*\(Claude Code\)/i, '')}`, 'ok'); $('cc-help').textContent = 'Runs without permission prompts and hands long tasks to background agents. It asks before anything that sends, posts, deletes or pays.'; }
   $('cc-fields').hidden = !(f.claude.path && f.claude.loggedIn);
