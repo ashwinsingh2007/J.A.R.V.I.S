@@ -204,17 +204,22 @@ class Devices extends EventEmitter {
     this.startedAt = Date.now();
     this.swarm.on('connection', (conn) => this.onConnection(conn));
     for (const p of this.data.peers) this.joinPeer(p);
-    // Two devices that started at the same moment can miss each other's announcement: look again
-    // for any that aren't connected.
-    this.refresher = setInterval(() => {
-      for (const [id, d] of this.topics) if (!this.conns.get(id)) d.refresh({ client: true, server: true }).catch(() => {});
-    }, 45000);
+    // Two devices that joined at the same moment can miss each other's announcement, and a refresh
+    // alone doesn't always find them again: leave and join afresh for any that aren't connected.
+    this.refresher = setInterval(() => { for (const p of this.data.peers) if (!this.conns.get(p.id)) this.rejoin(p); }, 45000);
     this.subscribeRelay();
     log(`devices: started as ${this.data.name} with ${this.data.peers.length} paired`);
   }
 
   joinPeer(p) {
     this.topics.set(p.id, this.swarm.join(peerTopic(Buffer.from(p.secret, 'hex')), { server: true, client: true }));
+  }
+
+  async rejoin(p) {
+    if (!this.swarm || this.conns.get(p.id)) return;
+    const topic = peerTopic(Buffer.from(p.secret, 'hex'));
+    await this.swarm.leave(topic).catch(() => {});
+    if (this.swarm && this.peer(p.id) && !this.conns.get(p.id)) this.joinPeer(p);
   }
 
   async stop() {
@@ -386,8 +391,13 @@ class Devices extends EventEmitter {
     this.lastPairedAt = Date.now();
     log(`devices: paired with ${name}`);
     this.emit('pair', { state: 'paired', name });
-    // Paired through the relay: the peer-to-peer connection, if any, comes when the two find each other.
-    if (!conn) { this.emit('change'); return; }
+    // Paired through the relay: the peer-to-peer connection comes when the two find each other. They
+    // joined at about the same moment, so look again soon rather than at the next 45-second round.
+    if (!conn) {
+      for (const ms of [6000, 15000, 30000]) setTimeout(() => { const p = this.peer(id); if (p) this.rejoin(p); }, ms);
+      this.emit('change');
+      return;
+    }
     // The pairing connection carries on as the pair's connection.
     this.conns.set(id, conn);
     conn.on('close', () => { if (this.conns.get(id) === conn) { this.conns.delete(id); this.watchers.delete(id); this.emit('change'); } });

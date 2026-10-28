@@ -508,6 +508,7 @@ function serveInbox() {
         else { const e = await Promise.race([done, new Promise((res) => setTimeout(() => res({ state: 'timeout' }), 180000))]); out = e.state === 'paired' ? { ok: true, text: `Paired with ${e.name}.` } : { ok: false, text: e.state === 'expired' ? 'The code ran out.' : 'No sign of the other device in 3 minutes.' }; }
       }
       else if (q.op === 'diag') out = { ok: true, ...devices.diag() };
+      else if (q.op === 'unpair') { const e = devices.remove(String(q.device || '')); out = e ? { ok: false, text: e } : { ok: true, text: 'Unpaired.' }; }
       else if (q.op === 'pair-wait') {
         const e = await new Promise((resolve) => { const on = (x) => { if (x.state === 'paired' || x.state === 'expired') { devices.off('pair', on); resolve(x); } }; devices.on('pair', on); setTimeout(() => resolve({ state: 'timeout' }), 180000); });
         out = e.state === 'paired' ? { ok: true, text: `Paired with ${e.name}.` } : { ok: false, text: e.state === 'expired' ? 'The code ran out.' : 'Nothing paired in 3 minutes.' };
