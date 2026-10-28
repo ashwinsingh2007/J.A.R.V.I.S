@@ -788,9 +788,15 @@ body.spot #spot:has(.spot-pair:not([hidden])) { top: 50%; }
 #crew .mate.group .core { opacity: 0.35; }
 /* A group node opening: a flash where it was, and its members flying out from there to their places. */
 /* first the clicked node flies into the core and the rest fade, as when choosing an agent */
-#crew .mate .mi { transition: transform .42s cubic-bezier(.5,0,.75,0), opacity .42s ease; }
-#crew.swap .mate.gather .mi { transform: translate(calc(var(--gx) * 1px), calc(var(--gy) * 1px)) scale(1.8); opacity: 0; }
-#crew.swap .mate:not(.gather) { opacity: 0 !important; transition: opacity .25s ease !important; }
+/* grows around itself (not the core) while it travels to the core */
+#crew.swap .mate.gather .mi { transform-origin: calc(var(--hx) * 1px) calc(var(--hy) * 1px); animation: crewgather .6s cubic-bezier(.3,.7,.25,1) forwards; }
+@keyframes crewgather {
+  0% { transform: none; opacity: 1; }
+  85% { transform: translate(calc(var(--gx) * 1px), calc(var(--gy) * 1px)) scale(2.4); opacity: 1; }
+  100% { transform: translate(calc(var(--gx) * 1px), calc(var(--gy) * 1px)) scale(3.2); opacity: 0; }
+}
+#crew.swap .mate.gather .nm, #crew.swap .mate.gather .rl, #crew.swap .mate.gather .nm2, #crew.swap .mate.gather .rl2, #crew.swap .mate.gather .fire, #crew.swap .mate.gather .spark { opacity: 0 !important; transition: opacity .15s ease !important; }
+#crew.swap .mate:not(.gather) { opacity: 0 !important; transition: opacity .3s ease !important; }
 /* then its members swirl out from the core */
 #crew .mate.pop .mi { transition: none; animation: crewburst .8s cubic-bezier(.12,.85,.25,1) both; animation-delay: calc(.05s + var(--i) * .06s); }
 @keyframes crewburst { from { opacity: 0; transform: translate(calc(var(--dx) * 1px), calc(var(--dy) * 1px)) rotate(-35deg) scale(.1); } 40% { opacity: 1; } to { opacity: 1; transform: none; } }
