@@ -1,5 +1,5 @@
 #!/bin/sh
-# VISION's view of this Mac: what's running, how busy it is, what's installed and what can be cleaned.
+# A view of this Mac: what's running, how busy it is, what's installed and what can be cleaned.
 #   system.sh overview             -> load, CPU, memory, disk, battery and uptime in one go
 #   system.sh top [cpu|mem] [n]    -> the busiest processes (default: cpu, 10)
 #   system.sh apps                 -> apps open right now

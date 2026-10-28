@@ -86,6 +86,7 @@ function startJarvis(brains) {
     telegram.start();
   }
   orch.start(!flags.has('--no-voice'));
+  watchRestart();
 }
 
 /** Theme for new windows; "system" resolved now (the page keeps following macOS). */
@@ -252,7 +253,7 @@ function sendAssistants(extra = {}) {
         id: a.id, name: a.name, tier: a.tier, about: a.about, needs: a.needs, custom: a.custom, persona: a.persona,
         defaultPersona: def.persona || '', defaultRole: def.role || 'none',
         role: a.role, roleText: a.roleText, commands: a.commands, tools: a.tools, color: a.color, sharedMemory: a.sharedMemory,
-        guard: a.guard, blockedPaths: a.blockedPaths,
+        guard: a.guard, blockedPaths: a.blockedPaths, maintainer: a.maintainer, defaultMaintainer: !!def.maintainer,
         // Its training: the facts only it keeps.
         memory: new Memory(ownFile(a.id)).facts,
         wakeWords: own.wakeWords || a.settings.wakeWords || [], changed: Object.keys(own).length > 0,
@@ -351,6 +352,29 @@ async function extensionsAction(name, msg = {}) {
 const NAME_OK = /^[A-Z0-9][A-Z0-9 .'-]{1,19}$/;
 const wakeList = (v) => [...new Set(String(v || '').toLowerCase().split(',').map((w) => w.replace(/[^a-z0-9 ']/g, '').trim()).filter((w) => w.length >= 3))].slice(0, 6);
 
+/**
+ * The agent that maintains JARVIS asks for a restart (scripts/maintain.sh restart) after it built an
+ * update. JARVIS restarts itself once it is idle: nothing being said, no answer or job in progress.
+ * A request left from before this start is already done.
+ */
+const RESTART_FILE = path.join(C.STATE_DIR, 'restart-request.json');
+function watchRestart() {
+  try { fs.unlinkSync(RESTART_FILE); } catch {}
+  let going = false;
+  setInterval(() => {
+    if (going || !orch || !fs.existsSync(RESTART_FILE)) return;
+    if (!orch.isIdle || orch.progress.size) return;
+    let why = 'maintenance';
+    try { why = String(JSON.parse(fs.readFileSync(RESTART_FILE, 'utf8')).reason || why).slice(0, 200); } catch {}
+    try { fs.unlinkSync(RESTART_FILE); } catch {}
+    going = true;
+    log(`restart: for ${why}`);
+    hud && hud.send('notice', { text: `Restarting for ${why}.` });
+    orch.speaker.speak(`Restarting for an update, ${cfg.honorific}. Back in a moment.`);
+    setTimeout(() => { app.relaunch(); app.quit(); }, 4000);
+  }, 3000);
+}
+
 const BLANK_PERSONA = 'A capable, friendly assistant: clear, direct and to the point.';
 
 /**
@@ -382,6 +406,7 @@ function profileFields(b) {
     out.color = c.toLowerCase() || null;
   }
   if ('sharedMemory' in b) out.sharedMemory = b.sharedMemory === false ? false : null;
+  if ('maintainer' in b) out.maintainer = typeof b.maintainer === 'boolean' ? b.maintainer : null;
   if ('guard' in b) {
     if (!GUARDS[b.guard]) return { error: 'Pick a safety level from the list.' };
     out.guard = b.guard;
@@ -451,7 +476,9 @@ async function importAssistant() {
   for (let i = 2; findByName(name, cfg); i++) name = `${name.replace(/ \d+$/, '')} ${i}`;
   const fields = profileFields(d);
   if (fields.error) return fail(`Couldn't import it: ${fields.error}`);
+  // A file never makes an agent able to change JARVIS: only the user does, in the Agents tab.
   delete fields.error;
+  delete fields.maintainer;
   const id = newId(name, cfg);
   const settings = d.settings && typeof d.settings === 'object' ? d.settings : {};
   const wake = wakeList((settings.wakeWords || []).join(','));
@@ -525,6 +552,11 @@ function editAssistant(kind, b = {}) {
   const fields = profileFields(b);
   if (fields.error) return fail(fields.error);
   delete fields.error;
+  // What matches the preset is the preset, so an agent saved unchanged isn't marked as changed.
+  const def = ASSISTANTS[id] || custom;
+  if (fields.role === (def.role || 'none')) fields.role = null;
+  if (fields.guard === (def.guard || 'standard')) fields.guard = null;
+  if ('maintainer' in fields && fields.maintainer === !!def.maintainer) fields.maintainer = null;
   if ('persona' in b) {
     const p = String(b.persona || '').trim().slice(0, 4000);
     const def = (ASSISTANTS[id] || custom).persona;

@@ -835,6 +835,8 @@ async function testHud() {
   check('Agents lists the five, KAREN in use', await hud.evaluate(() => document.querySelectorAll('#acards .agcard').length === 5 && /KAREN/.test(document.querySelector('#acards .agcard.on').textContent) && document.getElementById('n-agents').textContent === '5'));
   check('each card shows its brain and worker', /Claude Haiku · low effort/.test(await text(hud, '#acards .agcard.on')) && /Worker Sonnet/.test(await text(hud, '#acards .agcard.on')), await text(hud, '#acards .agcard.on'));
   check('KAREN\'s card shows her communications role', /Communications/.test(await text(hud, '#acards .agcard.on')), await text(hud, '#acards .agcard.on'));
+  await hud.click('#acards .agcard[data-id="edith"]');
+  check('EDITH maintains JARVIS, and only she may change its code', await hud.evaluate(() => document.getElementById('a-maint').checked && document.getElementById('a-role').value === 'maintainer'));
   // Another agent can be changed without switching to it
   await hud.click('#acards .agcard[data-id="vision"]');
   check('opening VISION shows its Gemini brain', await hud.evaluate(() => document.getElementById('ag-brain').value === 'gemini' && !document.querySelector('#a-edit [data-brain="gemini"]').hidden && document.querySelector('#a-edit [data-brain="auto claude-code"]').hidden));

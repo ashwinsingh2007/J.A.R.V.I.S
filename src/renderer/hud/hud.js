@@ -411,7 +411,7 @@
     renderTraining(a);
     document.querySelectorAll('#a-edit [data-own]').forEach((li) => { li.hidden = !a.custom; });
     // Fill the form only when another agent opens or its saved setup changed, so typing isn't lost.
-    const key = a.id + JSON.stringify([a.settings, a.persona, a.wakeWords, a.name, a.tier, a.about, a.role, a.roleText, a.commands, a.color, a.sharedMemory, a.guard, a.blockedPaths, a.tools]);
+    const key = a.id + JSON.stringify([a.settings, a.persona, a.wakeWords, a.name, a.tier, a.about, a.role, a.roleText, a.commands, a.color, a.sharedMemory, a.guard, a.blockedPaths, a.tools, a.maintainer]);
     if (filled !== key) {
       if (filled.slice(0, a.id.length + 1) !== a.id + '[') { $('a-try-out').hidden = true; $('a-try-note').textContent = ''; }
       filled = key;
@@ -426,6 +426,7 @@
       guard = a.guard || 'standard';
       renderGuard();
       $('a-blocked').value = (a.blockedPaths || []).join('\n');
+      $('a-maint').checked = !!a.maintainer;
       $('a-name').value = a.name; $('a-tier').value = a.tier; $('a-about').value = a.about;
       $('a-wake').value = (a.wakeWords || []).join(', ');
       $('a-persona').value = a.persona || '';
@@ -555,6 +556,10 @@
     $('a-try-out').classList.toggle('bad', !!e.error);
     $('a-try-out').hidden = false;
   }
+  $('a-maint').addEventListener('change', () => {
+    const name = $('a-edit-title').textContent;
+    if ($('a-maint').checked && !confirm(`Let ${name} change JARVIS's own code? Every change still goes through a pull request you merge.`)) $('a-maint').checked = false;
+  });
   $('a-export').addEventListener('click', () => post({ type: 'action', name: 'assistant-export', id: editing }));
   $('a-import').addEventListener('click', () => { if (confirm('Import an agent from a file? Only import files you trust: its persona and role shape what it does, though the safety rules still apply.')) post({ type: 'action', name: 'assistant-import' }); });
 
@@ -730,7 +735,7 @@
     const patch = {
       id: a.id, persona: $('a-persona').value, wakeWords: $('a-wake').value, settings,
       role: $('a-role').value, roleText: $('a-role-text').value, commands: cmds.filter((c) => c.name.trim() && c.prompt.trim()),
-      color, sharedMemory: $('a-shared').checked, guard, blockedPaths: $('a-blocked').value.split('\n'),
+      color, sharedMemory: $('a-shared').checked, guard, blockedPaths: $('a-blocked').value.split('\n'), maintainer: $('a-maint').checked,
       tools: sel.id === a.id && sel.tools ? [...sel.tools] : 'all',
     };
     if (sel.id === a.id && ext.skills.length) patch.skills = sel.skills ? [...sel.skills] : 'all';

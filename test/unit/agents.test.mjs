@@ -98,3 +98,38 @@ test('each agent has its own memory, and can stop reading the shared one', () =>
   assert.ok(!new Memory().facts.some((f) => f.text === 'Prefers short replies.'));
   C.saveProfile('karen', { sharedMemory: null });
 });
+
+test('EDITH maintains JARVIS: only a maintainer may work on its code, and never in the live checkout', () => {
+  let cfg = cfgFor('edith');
+  const a = A.assistantOf('edith', cfg);
+  assert.ok(a.maintainer);
+  assert.equal(a.role, 'maintainer');
+  assert.equal(cfg.brainProvider, 'claude-code');
+  assert.match(systemPrompt(cfg), /MAINTAINING JARVIS \(you are/);
+  assert.match(workerPrompt(cfg), /maintain\.sh start/);
+  let deny = JSON.parse(claudeSettings(cfg)).permissions.deny;
+  assert.ok(deny.includes(`Edit(/${ROOT}/**)`), 'the live checkout stays blocked');
+  assert.ok(!deny.some((r) => r.includes('/maintain/**')));
+  assert.doesNotMatch(claudeDisallowed(cfg), /maintain\.sh/);
+
+  cfg = cfgFor('jarvis');
+  assert.doesNotMatch(systemPrompt(cfg), /MAINTAINING JARVIS \(you are/);
+  deny = JSON.parse(claudeSettings(cfg)).permissions.deny;
+  assert.ok(deny.includes(`Edit(/${process.env.JARVIS_STATE_DIR}/maintain/**)`));
+  assert.match(claudeDisallowed(cfg), /Bash\(\*maintain\.sh\*\)/);
+
+  // The user can make another agent a maintainer, or stop EDITH being one.
+  C.saveProfile('jarvis', { maintainer: true });
+  assert.match(systemPrompt(cfgFor('jarvis')), /MAINTAINING JARVIS \(you are/);
+  C.saveProfile('jarvis', { maintainer: null });
+});
+
+test('maintain.sh only works in its own worktrees, and a restart is a request JARVIS picks up', () => {
+  const sh = path.join(ROOT, 'scripts', 'maintain.sh');
+  const env = { ...process.env, JARVIS_STATE_DIR: process.env.JARVIS_STATE_DIR };
+  assert.throws(() => execFileSync('/bin/sh', [sh, 'check', ROOT], { env, stdio: 'pipe' }), /not a maintenance worktree/);
+  assert.throws(() => execFileSync('/bin/sh', [sh, 'finish', os.tmpdir()], { env, stdio: 'pipe' }), /not a maintenance worktree/);
+  execFileSync('/bin/sh', [sh, 'restart', 'a "test" update'], { env });
+  const req = JSON.parse(fs.readFileSync(path.join(process.env.JARVIS_STATE_DIR, 'restart-request.json'), 'utf8'));
+  assert.equal(req.reason, 'a test update');
+});

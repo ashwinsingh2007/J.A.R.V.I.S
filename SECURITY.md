@@ -6,7 +6,7 @@ JARVIS has real access to your Mac. Please read this before you run it.
 
 The Claude Code brain and its background agents run without permission prompts (`--dangerously-skip-permissions`). They can run shell commands, read and write files in your home folder and use your signed-in Chrome. If you allow it, they can also click and type in other apps.
 
-Three things limit that. JARVIS asks out loud and waits for a yes before anything that sends, posts, deletes, publishes, pays or changes account settings. Your own Claude Code deny rules and PreToolUse hooks in `~/.claude/settings.json` still apply. And JARVIS blocks edits to `~/.claude`, to its own folder and to its config file.
+Three things limit that. JARVIS asks out loud and waits for a yes before anything that sends, posts, deletes, publishes, pays or changes account settings. Your own Claude Code deny rules and PreToolUse hooks in `~/.claude/settings.json` still apply. And JARVIS blocks edits to `~/.claude`, to its own folder and to its config file. The one exception is the agent that maintains JARVIS (EDITH by default, set in each agent's guardrails). It changes JARVIS's code only in a separate git worktree, through a pull request you merge, and it still can't edit `~/.claude`, the config file or the checkout JARVIS runs from. An agent imported from a file never gets this.
 
 Text from web pages, emails and documents is treated as data, never as instructions. That makes prompt injection harder but can't rule it out, so be careful about pointing JARVIS at content you don't trust while it's signed in to accounts you care about.
 

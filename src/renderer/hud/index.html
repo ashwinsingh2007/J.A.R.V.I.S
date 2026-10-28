@@ -323,6 +323,12 @@
         <div class="group plain"><div class="levels" id="a-guard"></div></div>
         <h3>Tools <span class="cnt" id="a-tool-count"></span></h3>
         <ul class="picks" id="a-tools"></ul>
+        <h3>JARVIS itself</h3>
+        <div class="group">
+          <ul class="rows form">
+            <li><b>May change JARVIS's own code<small>It makes each change on its own branch, runs the tests and opens a pull request for you to merge. Once you merge, it builds and restarts JARVIS when it's idle. It can never touch ~/.claude or your keys.</small></b><label class="tog"><input type="checkbox" id="a-maint"><span></span></label></li>
+          </ul>
+        </div>
         <h3>Folders it may not open</h3>
         <div class="group plain">
           <p class="note">One folder per line, for example ~/Documents/Finance. Its file tools are blocked there and it is told never to go there.</p>
@@ -540,7 +546,7 @@
 </main>
 
 <script src="three.min.js"></script>
-<script src="hud.js?v=28"></script>
+<script src="hud.js?v=29"></script>
 <script src="settings.js?v=3"></script>
 </body>
 </html>
