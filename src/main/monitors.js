@@ -33,6 +33,28 @@ class SystemMonitor extends EventEmitter {
     return Math.round((1 - (t.idle - prev.idle) / (total - prev.total)) * 100);
   }
 
+  /** GPU use, the power the Mac draws and how hot it runs, all readable without admin rights.
+   *  An exact temperature needs sudo (powermetrics), so heat is macOS's own thermal state. */
+  async gpuPowerHeat() {
+    if (process.platform !== 'darwin') return {};
+    const out = {};
+    const gpu = (await run('/usr/sbin/ioreg', ['-r', '-d', '1', '-c', 'IOAccelerator'], { timeout: 5000 })).out;
+    const g = /"Device Utilization %"=(\d+)/.exec(gpu);
+    if (g) out.gpu = parseInt(g[1], 10);
+    // SystemLoad: what the whole Mac draws, in milliwatts. Only Macs with a battery report it.
+    const bat = (await run('/usr/sbin/ioreg', ['-r', '-n', 'AppleSmartBattery'], { timeout: 5000 })).out;
+    const w = /"SystemLoad"=(\d+)/.exec(bat);
+    if (w) out.watts = Math.round(parseInt(w[1], 10) / 100) / 10;
+    const therm = (await run('/usr/bin/pmset', ['-g', 'therm'], { timeout: 5000 })).out;
+    const level = /thermal warning level[^\d\n]*(\d+)/i.exec(therm);
+    const limit = /CPU_Speed_Limit\s*=\s*(\d+)/.exec(therm);
+    if (therm) {
+      out.speedLimit = limit ? parseInt(limit[1], 10) : 100;
+      out.heat = (level && +level[1] > 0) || out.speedLimit < 100 ? 'hot' : /performance warning level[^\d\n]*[1-9]/i.test(therm) ? 'warm' : 'normal';
+    }
+    return out;
+  }
+
   async tick() {
     const out = { cpu: this.cpu() };
     // Used = active + wired + compressed (Activity Monitor's "Memory Used", roughly).
@@ -53,6 +75,7 @@ class SystemMonitor extends EventEmitter {
     const m = /(\d+)%/.exec(batt);
     out.battery = m ? parseInt(m[1], 10) : null;
     out.charging = !!m && /charging/.test(batt) && !/discharging/.test(batt);
+    Object.assign(out, await this.gpuPowerHeat());
     const up = os.uptime();
     const d = Math.floor(up / 86400), h = Math.floor((up % 86400) / 3600), mi = Math.floor((up % 3600) / 60);
     out.uptime = d ? `${d}d ${h}h` : (h ? `${h}h ${mi}m` : `${mi}m`);

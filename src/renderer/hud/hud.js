@@ -1404,6 +1404,10 @@
     kv('k-cpu', Math.round(s.cpu || 0) + '%', s.cpu);
     kv('k-ram', Math.round(s.ram || 0) + '%' + (s.ramUsedGB != null ? ' (' + s.ramUsedGB + '/' + s.ramTotalGB + ' GB)' : ''), s.ram);
     kv('k-disk', Math.round(s.disk || 0) + '%' + (s.diskFreeGB != null ? ' (' + s.diskFreeGB + ' GB FREE)' : ''), s.disk);
+    kv('k-gpu', s.gpu == null ? '—' : s.gpu + '%', s.gpu);
+    kv('k-watts', s.watts == null ? '—' : s.watts + ' W', 0);
+    // Heat is macOS's thermal state; "hot" means it is slowing the CPU down to cool off.
+    kv('k-heat', !s.heat ? '—' : s.heat === 'hot' ? 'HOT' + (s.speedLimit < 100 ? ' · CPU ' + s.speedLimit + '%' : '') : s.heat.toUpperCase(), s.heat === 'hot' ? 100 : s.heat === 'warm' ? 80 : 0);
     kv('k-bat', s.battery == null ? '—' : s.battery + '%' + (s.charging ? '⚡' : ''), 0);
     kv('k-up', s.uptime || '—', 0); kv('k-host', (s.host || '—').toUpperCase(), 0);
     host = s.host || host;
@@ -1857,7 +1861,7 @@
     ev({ type: 'music', playing: true, source: 'radio', id: 'lofi', name: 'Lofi Beats', note: 'chill lo-fi instrumentals · radio', title: 'Kupla - Valentine', volume: 24 });
     ev({ type: 'info', claude: '2.1.309 (Claude Code)', model: 'opus', voice: 'kokoro bm_george' });
     ev({ type: 'stats', turns: 22, toolCalls: 14, memories: 38, sessionsActive: 2, brainModel: 'opus', effort: 'low', brainReady: true, tts: 'kokoro bm_george', stt: 'apple on-device', telegram: '@my_jarvis_bot', agents: ['checking your Gmail'] });
-    ev({ type: 'system', cpu: 36, ram: 72, ramUsedGB: 12.5, ramTotalGB: 17.2, disk: 89, diskFreeGB: 24, battery: 70, charging: true, uptime: '4d 20h', host: 'macbook' });
+    ev({ type: 'system', cpu: 36, ram: 72, ramUsedGB: 12.5, ramTotalGB: 17.2, disk: 89, diskFreeGB: 24, gpu: 18, watts: 9.4, heat: 'normal', speedLimit: 100, battery: 70, charging: true, uptime: '4d 20h', host: 'macbook' });
     ev({ type: 'history', data: [
       { t: '09:30', you: 'what are my sessions doing', jarvis: 'Two are busy, sir. The web app is running its tests and the API server is mid-build. The blog and the docs are idle.' },
       { t: '10:12', you: 'open netflix in chrome', jarvis: 'Netflix is open in Chrome.' },
@@ -1913,7 +1917,7 @@
       if (s === 'speaking') ev({ type: 'reply', text: 'Two are busy, sir. The web app is running its tests and the API server is mid-build. The blog and the docs are idle.' });
       if (i % 7 === 0) ev({ type: 'notice', text: 'The web-app session has finished. All tests pass.' });
       if (i % 8 === 4) ev({ type: 'mode', conversation: true }); if (i % 8 === 0) ev({ type: 'mode', conversation: false });
-      ev({ type: 'system', cpu: 20 + Math.random() * 30, ram: 68 + Math.random() * 8, ramUsedGB: 12.5, ramTotalGB: 17.2, disk: 89, diskFreeGB: 24, battery: 70, charging: true, uptime: '4d 20h', host: 'macbook' });
+      ev({ type: 'system', cpu: 20 + Math.random() * 30, ram: 68 + Math.random() * 8, ramUsedGB: 12.5, ramTotalGB: 17.2, disk: 89, diskFreeGB: 24, gpu: 18, watts: 9.4, heat: 'normal', speedLimit: 100, battery: 70, charging: true, uptime: '4d 20h', host: 'macbook' });
     }, 3000);
     setInterval(() => { if (state === 'listening') micLevel = 0.3 + Math.random() * 0.7; if (state === 'speaking') voiceLevel = 0.2 + Math.random() * 0.8; }, 90);
     const wantView = (location.search.match(/view=(\w+)/) || [])[1];
