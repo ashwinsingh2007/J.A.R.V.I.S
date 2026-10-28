@@ -362,10 +362,17 @@ const wakeList = (v) => [...new Set(String(v || '').toLowerCase().split(',').map
 const RESTART_FILE = path.join(C.STATE_DIR, 'restart-request.json');
 function watchRestart() {
   try { fs.unlinkSync(RESTART_FILE); } catch {}
-  let going = false;
+  let going = false, said = 0;
   setInterval(() => {
     if (going || !orch || !fs.existsSync(RESTART_FILE)) return;
-    if (!orch.isIdle || orch.progress.size) return;
+    if (!orch.isIdle || orch.progress.size) {
+      // Say what it is waiting for, once a minute, so a restart that never comes can be explained.
+      if (Date.now() - said > 60000) {
+        said = Date.now();
+        log(`restart: waiting (state ${orch._state}, brain ${orch.brain.isBusy ? 'busy' : 'free'}, ${orch.speaker.isSpeaking ? 'speaking' : 'quiet'}, jobs: ${[...orch.progress.values()].map((j) => j.description).join('; ') || 'none'})`);
+      }
+      return;
+    }
     let why = 'maintenance';
     try { why = String(JSON.parse(fs.readFileSync(RESTART_FILE, 'utf8')).reason || why).slice(0, 200); } catch {}
     try { fs.unlinkSync(RESTART_FILE); } catch {}
