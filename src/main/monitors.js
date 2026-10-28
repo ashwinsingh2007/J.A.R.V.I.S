@@ -9,7 +9,17 @@ const C = require('./config');
 const { run } = require('./util');
 
 class SystemMonitor extends EventEmitter {
-  start(interval = 3000) { this.timer = setInterval(() => this.tick(), interval); this.tick(); }
+  start(interval = 3000) { this.interval = interval; this.timer = setInterval(() => this.tick(), interval); this.tick(); }
+
+  /** A new pace: slower while nobody sees the HUD, since every tick starts vm_stat and pmset. */
+  pace(interval) {
+    if (!this.timer || interval === this.interval) return;
+    const sooner = interval < this.interval;
+    clearInterval(this.timer);
+    this.interval = interval;
+    this.timer = setInterval(() => this.tick(), interval);
+    if (sooner) this.tick();
+  }
 
   cpu() {
     const t = os.cpus().reduce((a, c) => {

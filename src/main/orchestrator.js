@@ -147,7 +147,8 @@ class Orchestrator extends EventEmitter {
     });
     wake.on('partial', (t) => { this.lastHeard = this.lastActivity = Date.now(); if (this.awake) hud.send('transcript', { text: t }); });
     wake.on('command', (c) => this.handle(c, VOICE));
-    this.ears.on('level', (l) => hud.send('mic', { level: l }));
+    // The HUD only draws the mic level while listening; sending it otherwise wakes the page for nothing.
+    this.ears.on('level', (l) => { if (this._state === 'listening' && hud.visible !== false) hud.send('mic', { level: l }); });
     this.ears.on('error', (msg) => { hud.send('notice', { text: msg }); if (/permission/i.test(msg)) { this.state = 'error'; hud.send('reply', { text: msg, error: true }); } });
     this.ears.on('ready', () => {
       if (this._state !== 'booting') return;
@@ -159,7 +160,7 @@ class Orchestrator extends EventEmitter {
     this.wireBrain(brain);
 
     speaker.on('start', () => { wake.jarvisSpeaking = true; this.state = 'speaking'; });
-    speaker.on('level', (l) => hud.send('voice', { level: l }));
+    speaker.on('level', (l) => { if (hud.visible !== false) hud.send('voice', { level: l }); });
     speaker.on('finish', () => {
       // Small grace so the tail of his own voice isn't taken as the user's.
       setTimeout(() => { wake.jarvisSpeaking = false; }, 400);
@@ -176,6 +177,7 @@ class Orchestrator extends EventEmitter {
       if (this.view.startsWith('cc:')) this.sendConversation();
     });
     this.monitor.on('update', (s) => { hud.send('system', s); this.sendStats(); });
+    if (hud.on) hud.on('visible', (on) => this.monitor.pace(on ? 3000 : 15000));
     this.inbox.on('event', (ev) => this.handleHookEvent(ev));
 
     this.music.on('stations', () => this.sendMusicStations());
