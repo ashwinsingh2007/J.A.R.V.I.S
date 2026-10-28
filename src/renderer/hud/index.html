@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>J.A.R.V.I.S</title>
-<link rel="stylesheet" href="hud.css?v=40">
+<link rel="stylesheet" href="hud.css?v=41">
 <link rel="stylesheet" href="../themes.css">
 <script src="../themes.js"></script>
 <script>(function(){var q=new URLSearchParams(location.search);jarvisTheme.apply(q.get('theme')||undefined,q.get('mode')||undefined);})();</script>
@@ -36,7 +36,7 @@
   <!-- VIEW: command center (classic blue HUD) -->
   <section class="view on" id="v-cc">
     <div id="stage"><canvas id="scene"></canvas>
-      <div class="corelabel"><div class="jv">JARVIS</div></div>
+      <div class="corelabel"><div class="jv">JARVIS</div><div class="jv-sub" id="jv-sub"></div></div>
       <div id="panels"></div>
       <!-- another assistant brought to the centre, to switch to -->
       <div id="spot" hidden>
@@ -587,7 +587,7 @@
 </main>
 
 <script src="three.min.js"></script>
-<script src="hud.js?v=39"></script>
+<script src="hud.js?v=40"></script>
 <script src="settings.js?v=5"></script>
 </body>
 </html>
