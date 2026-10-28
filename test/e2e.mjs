@@ -44,7 +44,6 @@ async function launch(state, args = [], extraEnv = {}) {
       JARVIS_EARS_BIN: path.join(ROOT, 'test/fake-ears.js'),
       JARVIS_FAKE_SPEECH: speech,
       JARVIS_FAKE_EARS_LOG: earsLog,
-      JARVIS_TEST_UPDATE_MS: '8000',
       JARVIS_TEST_AUTOHIDE_MS: '600000',   // keep panels up while Playwright drives the HUD
       ...extraEnv,
     },
@@ -506,7 +505,7 @@ async function testVoice() {
   const footer = await text(hud, '#br-worker');
   check('HUD footer shows no jobs again', /NO JOBS RUNNING/.test(footer), footer);
 
-  // Longer job: quick spoken reply without technical words, live progress, "what's the status?" answered locally
+  // Longer job: quick spoken reply without technical words, progress shown but not spoken, "what's the status?" answered locally
   await s.quiet(hud);
   m = s.mark();
   await s.say('in the background, run the shell command ping -c 20 localhost three separate times one after another, then tell me the word finished over');
@@ -515,12 +514,16 @@ async function testVoice() {
   const ack = await text(hud, '#reply');
   check('reply hides the machinery', ack && !/\b(agent|subagent|worker|background task|task id)\b/i.test(ack), ack.slice(0, 120));
   check('agent writes plain status lines', await s.waitLog(/brain: agent status '/, 60000, m));
-  check('progress spoken while it works', await s.waitLog(/progress: '/, 60000, m));
+  await s.quiet(hud);
+  const pm = s.mark();
+  await sleep(20000);
+  const meanwhile = s.log().slice(pm).split(/brain: worker (?:completed|failed)/)[0];
+  check('progress is not spoken while it works', !/synth/.test(meanwhile), (meanwhile.match(/.*synth.*/) || [''])[0]);
   await s.quiet(hud);
   const sm = s.mark();
   await s.say("what's the status over");
   let st = await s.waitLog(/status: '(.*)'/, 5000, sm);
-  if (!st) { await s.quiet(hud); await s.say("what's the status over"); st = await s.waitLog(/status: '(.*)'/, 5000, sm); }   // a progress line may have talked over it
+  if (!st) { await s.quiet(hud); await s.say("what's the status over"); st = await s.waitLog(/status: '(.*)'/, 5000, sm); }   // JARVIS may have been talking over it
   check('status question answered at once, without the brain', st && !s.log().slice(sm).includes('brain: asked'), st && st[1]);
   check('long job completes', await s.waitLog(/brain: worker completed/, 180000, m));
 
@@ -1104,7 +1107,7 @@ async function testWorker() {
   const tags = await fetch('http://127.0.0.1:11434/api/tags').then((r) => r.json()).catch(() => null);
   if (!tags || !(tags.models || []).some((m) => m.name.startsWith('llama3.2'))) { console.log('  - skipped: Ollama with llama3.2 is not running'); return; }
   const state = makeState({ onboarded: true, brainProvider: 'ollama', ollamaModel: 'llama3.2', worker: 'claude-code', agentModel: 'opus', ttsEngine: 'native' });
-  const s = await launch(state, [], { JARVIS_TEST_UPDATE_MS: '15000' });
+  const s = await launch(state);
   const hud = await windowByUrl(s.app, /hud\/index\.html/, 20000);
   if (!hud) { check('HUD opens', false); await s.app.close(); return; }
   check('brain is Ollama', await s.waitLog(/brain: provider ollama/, 10000));

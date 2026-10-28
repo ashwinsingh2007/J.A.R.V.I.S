@@ -22,7 +22,6 @@ const SWITCH_TO = /^(?:(?:please |can you |could you )?(?:switch|change|swap)(?:
 const STOP_WORDS = ['wait', 'stop', 'hold on', 'cancel', 'never mind', 'nevermind', 'quiet', 'shut up', "that's all", 'thats all', 'enough', 'okay stop', 'ok stop'];
 const FILLERS = ['On it.', 'One moment.', 'Right away.', 'Let me see.'];
 const ACK_MS = 1800;             // say a filler if the brain hasn't spoken by then
-const UPDATE_EVERY = { normal: 35000, chatty: 20000 };
 const CHECKIN_EVERY = { sometimes: 3 * 3600000, often: 90 * 60000 };
 const CHECKIN_AFTER_IDLE = 20 * 60000;
 const PROACTIVE_FILE = path.join(C.STATE_DIR, 'proactive.json');
@@ -94,7 +93,7 @@ class Orchestrator extends EventEmitter {
     this.toolCalls = 0;
     this.sessionsActive = 0;
     this.history = [];
-    this.progress = new Map();   // running background jobs: task id -> { description, started, status, step, fresh, lastSpokenAt, source }
+    this.progress = new Map();   // running background jobs: task id -> { description, started, status, step }
     this.lastHeard = 0;          // last time the user was mid-sentence
     this.lastSpokeAt = 0;
     this.memory = new Memory();
@@ -255,7 +254,7 @@ class Orchestrator extends EventEmitter {
       this.conv.job(t, this.name);
       setImmediate(() => this.sendConversation());
       if (t.status === 'running') {
-        this.progress.set(t.id, { description: what, started: Date.now(), status: '', step: '', fresh: false, lastSpokenAt: Date.now(), source: this.agentSource || this.source });
+        this.progress.set(t.id, { description: what, started: Date.now(), status: '', step: '' });
         hud.send('notice', { text: `Working: ${what}` });
       } else {
         this.progress.delete(t.id);
@@ -270,7 +269,8 @@ class Orchestrator extends EventEmitter {
       if (!e) return;
       if (p.step) e.step = p.step;
       this.conv.progress(p.id, p.status || p.step);
-      if (p.status && p.status !== e.status) { e.status = p.status; e.fresh = true; hud.send('notice', { text: p.status }); }
+      // Shown, never spoken: the user hears about a job only when it finishes, fails or needs them.
+      if (p.status && p.status !== e.status) { e.status = p.status; hud.send('notice', { text: p.status }); }
       this.sendStats();
     });
     // A background job finished for a brain that isn't Claude Code: the brain retells the report when it's free.
@@ -466,7 +466,6 @@ class Orchestrator extends EventEmitter {
     this.inbox.start();
     this.brain.warmUp();
     this.sendStats();
-    setInterval(() => this.progressTick(), 3000);
     this.memory.watch();
     this.scheduler.start();
     this.hud.sendRaw('memory', this.memory.facts);
@@ -686,40 +685,11 @@ class Orchestrator extends EventEmitter {
 
   // ---------- progress of background work ----------
 
-  /** Nobody is talking and nothing is pending, so a short update won't get in the way. */
-  canChat(gap = 8000) {
-    const now = Date.now();
-    return !this.disabled && !this.muted && this.awake && !this.brain.isBusy && !this.speaker.isSpeaking && !this.pendingApproval
-      && (this._state === 'idle') && now - this.lastHeard > 2500 && now - this.lastSpokeAt > gap;
-  }
-
-  /** Every few seconds: speak one new status line, or a "still on it" if a job has been quiet a long time. */
-  progressTick() {
-    const every = UPDATE_EVERY[this.cfg.progressUpdates] && (Number(process.env.JARVIS_TEST_UPDATE_MS) || UPDATE_EVERY[this.cfg.progressUpdates]);
-    if (!every || !this.progress.size || !this.canChat(Math.min(8000, every))) return;
-    const now = Date.now();
-    const many = this.progress.size > 1;
-    for (const e of this.progress.values()) {
-      if (e.source && e.source.kind === 'telegram') continue;
-      let line = null;
-      if (e.fresh && now - e.lastSpokenAt >= every) line = many ? `${cap(e.description)}: ${e.status}` : e.status;
-      else if (now - e.lastSpokenAt >= every * 2) line = /^\w+ing\b/i.test(e.description) ? `Still ${e.description}, ${this.cfg.honorific}.` : `Still working on it, ${this.cfg.honorific}.`;
-      if (!line) continue;
-      e.fresh = false;
-      e.lastSpokenAt = now;
-      log(`progress: '${line}'`);
-      this.hud.send('notice', { text: line });
-      this.speaker.speak(line);
-      return;
-    }
-  }
-
   /** Spoken answer to "what's the status?". */
   statusLine() {
     const now = Date.now();
     const jobs = [...this.progress.values()];
     const ago = (e) => { const m = Math.round((now - e.started) / 60000); return m < 1 ? 'under a minute' : m === 1 ? 'a minute' : `${m} minutes`; };
-    for (const e of jobs) { e.fresh = false; e.lastSpokenAt = now; }
     const say = (e) => e.status || (e.step ? `Right now: ${e.step.replace(/\.$/, '')}.` : 'Still working on it.');
     if (jobs.length === 1) return `${cap(jobs[0].description)}, for ${ago(jobs[0])} now. ${say(jobs[0])}`;
     return `${jobs.length} jobs are running. ` + jobs.map((e) => `${cap(e.description)}: ${say(e)}`).join(' ');

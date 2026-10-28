@@ -237,7 +237,7 @@ ipcMain.handle('setup:save', (e, patch) => (fromSetup(e) ? setupSave(patch) : fa
 // Settings the HUD can change live. Keys, Telegram and the brain provider stay in Setup.
 const HUD_KEYS = ['ttsEngine', 'kokoroVoice', 'kokoroSpeed', 'edgeVoice', 'nativeVoice', 'elevenLabsModel',
   'sttEngine', 'appleSpeech', 'speechLocale', 'commandSilenceSeconds', 'requireEndWord',
-  'model', 'effort', 'agentModel', 'progressUpdates', 'screenControl', 'morningBriefing', 'checkIns', 'honorific', 'announceSessions', 'autoHide', 'worker', 'greetOnStart'];
+  'model', 'effort', 'agentModel', 'screenControl', 'morningBriefing', 'checkIns', 'honorific', 'announceSessions', 'autoHide', 'worker', 'greetOnStart'];
 
 /** The assistants for the HUD: who is in use, and what each one is, with the user's changes. */
 function sendAssistants(extra = {}) {

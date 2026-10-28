@@ -242,6 +242,37 @@ test('an assistant whose brain is not set up says what it needs, and falls back 
   assert.equal(unavailable({ ...C.DEFAULTS, brainProvider: 'auto' }, found), '');
 });
 
+test('a running job shows its progress on the HUD but is never announced until it ends', (t) => {
+  const { Orchestrator } = require('../../src/main/orchestrator');
+  const EventEmitter = require('node:events');
+  t.mock.timers.enable({ apis: ['setInterval', 'setTimeout', 'setImmediate', 'Date'] });
+  const said = [], notices = [];
+  const stub = { start() {}, watch() {}, warmUp() {}, scan() {}, loadDirectory() {} };
+  const brain = Object.assign(new EventEmitter(), { warmUp() {}, isBusy: false });
+  const o = Object.assign(Object.create(Orchestrator.prototype), {
+    // Awake, idle and quiet: everything a spoken update would have waited for.
+    cfg: { ...C.DEFAULTS, checkIns: 'off' }, brain, progress: new Map(), wake: { conversationMode: true }, _state: 'idle', lastHeard: 0, lastSpokeAt: 0,
+    source: { kind: 'voice' }, conv: { job() {}, progress() {} },
+    speaker: { speak: (s) => said.push(s), isSpeaking: false }, radar: stub, monitor: stub, inbox: stub, memory: stub, scheduler: stub, music: stub, ears: stub,
+    hud: { send: (k, v) => { if (k === 'notice') notices.push(v.text); }, sendRaw() {} },
+    sendStats() {}, sendConversation() {}, sendMusicStations() {},
+  });
+  o.wireBrain(brain);
+  o.start();
+  brain.emit('task', { id: 'j1', description: 'checking your Gmail', status: 'running' });
+  for (const [i, line] of ['Your inbox is open.', 'Reading today\'s emails now.', 'Found three that need a reply.'].entries()) {
+    t.mock.timers.tick(20000 * (i + 1));
+    brain.emit('progress', { id: 'j1', status: line });
+  }
+  t.mock.timers.tick(10 * 60000);
+  assert.deepEqual(said, []);
+  assert.ok(notices.includes('Found three that need a reply.'));
+  assert.match(o.statusLine(), /^Checking your Gmail, for \d+ minutes now\. Found three that need a reply\.$/);
+  brain.emit('task', { id: 'j1', description: 'checking your Gmail', status: 'completed' });
+  assert.equal(o.progress.size, 0);
+  assert.equal(notices.at(-1), 'Finished: checking your Gmail');
+});
+
 test('findClaude() finds claude in its install locations when PATH lacks it', (t) => {
   if (['/opt/homebrew/bin/claude', '/usr/local/bin/claude'].some((p) => fs.existsSync(p))) return t.skip('claude is installed system-wide here');
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'jarvis-home-'));

@@ -1883,7 +1883,7 @@
     ] });
     ev({ type: 'settings', brain: 'claude code · sonnet', hands: { ax: true, screen: true }, available: { kokoro: true, edge: true, elevenlabs: false },
       values: { ttsEngine: 'kokoro', kokoroVoice: 'bm_george', kokoroSpeed: 1.05, sttEngine: 'apple', appleSpeech: 'instant', speechLocale: 'en-GB', commandSilenceSeconds: 2, requireEndWord: false,
-        model: 'sonnet', effort: 'low', agentModel: 'opus', progressUpdates: 'normal', morningBriefing: true, checkIns: 'sometimes', screenControl: true, honorific: 'sir', announceSessions: true, autoHide: true } });
+        model: 'sonnet', effort: 'low', agentModel: 'opus', morningBriefing: true, checkIns: 'sometimes', screenControl: true, honorific: 'sir', announceSessions: true, autoHide: true } });
     const fake = [
       { name: 'JARVIS brain', kind: 'jarvis', cwd: '~', status: 'working', ago: '2s ago', last: 'using Bash', modified: 11 },
       { name: 'web-app', kind: 'claude', cwd: '~/Projects/web-app', status: 'working', ago: '12s ago', last: 'Running the test suite for the meeting importer; two suites remaining.', modified: 9, terminal: { tty: 'ttys010' } },
