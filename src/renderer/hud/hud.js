@@ -1008,15 +1008,43 @@
   // The web's endless animations (signals, pulses, sparks) run only while JARVIS listens, thinks or
   // speaks, or an assistant is in the spotlight. Idle, on another tab or hidden, the web is a still
   // picture: SVG animations can't be composited, so each one repaints at the display's full rate
-  // whatever the frame cap above says. The sparks also rest, out of sight, in the normal view where
-  // they're hidden anyway (a paused spark that hasn't set off yet would sit on the reactor).
+  // whatever the frame cap above says. The sparks travelling to the nodes keep going whenever the full
+  // web is on screen: SVG moves them while JARVIS is active, and at rest the frame loop moves them at
+  // its own 10 frames a second (moveSparks), with SVG's timeline paused at 0, before any spark sets
+  // off. In the normal view they're hidden and rest (a paused spark that hasn't set off yet would sit
+  // on the reactor).
   const LIVE_STATES = new Set(['listening', 'thinking', 'speaking']);
-  let crewLive = null, sparksLive = null;
+  let crewLive = null, sparkMode = null;   // sparkMode: 'smil' | 'manual' | 'off'
   function crewMotion() {
     const live = !document.hidden && body.dataset.view === 'cc' && (LIVE_STATES.has(state) || !!spotted);
-    const sparks = live && (body.classList.contains('focus') || body.classList.contains('spot'));
+    const shown = !document.hidden && body.dataset.view === 'cc' && (body.classList.contains('focus') || body.classList.contains('spot'));
+    const mode = !shown ? 'off' : live ? 'smil' : 'manual';
     if (live !== crewLive) { crewLive = live; crew.classList.toggle('still', !live); }
-    if (sparks !== sparksLive) { sparksLive = sparks; crew.classList.toggle('nosparks', !sparks); if (sparks) crew.unpauseAnimations(); else crew.pauseAnimations(); }
+    if (mode !== sparkMode) {
+      sparkMode = mode;
+      crew.classList.toggle('nosparks', mode === 'off');
+      if (mode === 'smil') { sparkList().forEach((sp) => sp.c.removeAttribute('transform')); crew.unpauseAnimations(); }
+      else { crew.pauseAnimations(); if (mode === 'manual') crew.setCurrentTime(0); }
+    }
+  }
+  // Each spark with the path it follows, read again whenever the web is rebuilt.
+  let sparkRoot = null, sparkCache = [];
+  function sparkList() {
+    if (sparkRoot !== crew.firstElementChild) {
+      sparkRoot = crew.firstElementChild;
+      sparkCache = [...crew.querySelectorAll('.spark')].map((c) => {
+        const m = c.querySelector('animateMotion'), p = c.parentNode.querySelector('.fire');
+        return { c, p, len: p ? p.getTotalLength() : 0, dur: parseFloat(m.getAttribute('dur')) || 3, begin: parseFloat(m.getAttribute('begin')) || 0 };
+      }).filter((sp) => sp.len);
+    }
+    return sparkCache;
+  }
+  function moveSparks(t) {
+    for (const sp of sparkList()) {
+      const u = ((((t - sp.begin) / sp.dur) % 1) + 1) % 1;
+      const pt = sp.p.getPointAtLength(u * sp.len);
+      sp.c.setAttribute('transform', `translate(${pt.x.toFixed(2)} ${pt.y.toFixed(2)})`);
+    }
   }
   function frame(now) {
     requestAnimationFrame(frame);
@@ -1094,6 +1122,7 @@
 
     const lvl = state === 'speaking' ? voiceLevel : state === 'listening' ? micLevel : state === 'thinking' ? 0.25 + Math.sin(tAcc * 6) * 0.15 : 0.05;
     drawWave(bars, lvl, 22, tAcc);
+    if (sparkMode === 'manual') moveSparks(now / 1000);
 
     if (body.dataset.view === 'cc') renderer.render(scene, camera);
   }
