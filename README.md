@@ -127,6 +127,12 @@ The worker runs on Opus by default and reports back while you keep talking. Ask 
 
 JARVIS keeps the latest dozen turns word for word and folds older ones into a running summary: what you asked, what's waiting for your answer, what the background jobs found, and facts you told him. When the conversation gets long, or a new day starts, the brain starts a fresh session that carries the summary and those recent turns, so it stays quick and doesn't trip over stale details. This only happens while nothing is running. The summary sits in `~/.jarvis/` and "New conversation" clears it.
 
+## Your other computers
+
+If you run JARVIS on more than one computer, pair them in Settings › Devices. One shows an 8-character code and you type it on the other. That's all the setup there is: no accounts, no router settings, no SSH. Then you can say "do this on the other laptop", "what's my home Mac doing?" or "post this from the home Mac", where you're already signed in. When one is busy with heavy jobs, JARVIS can offer to hand work to the other.
+
+The devices find each other through Hyperswarm, a peer-to-peer network, and connect directly, encrypted end to end. On the same Wi-Fi they talk over the local network. From a café to home they connect through both routers. If a network blocks that, messages go through the free ntfy.sh relay, encrypted first so the relay can't read them. ntfy.sh allows 250 messages a day per device, which is enough for dozens of tasks, and you can point JARVIS at your own ntfy server instead. A task you hand over runs on the other computer as a background job and its result comes back to you. Anything that sends, posts, deletes or pays still waits for your yes on the computer you asked from. Pairing works between any mix of Macs and Windows PCs, though JARVIS itself doesn't run on Windows yet (#16).
+
 ## How it listens and speaks
 
 Speech to text is Apple's on-device recogniser by default, which is private and works offline. You can switch to ElevenLabs Scribe for realtime cloud transcription; audio is then streamed only while JARVIS is awake, and wake-word detection still happens on your Mac.

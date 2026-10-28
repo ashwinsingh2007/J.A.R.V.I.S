@@ -7,7 +7,7 @@ const C = require('../config');
 const { run, paths } = require('../util');
 
 // Same reach as the Claude Code brain: everything in scripts/ except opening terminals.
-const SCRIPTS = ['sessions.sh', 'terminals.sh', 'read.sh', 'send.sh', 'keys.sh', 'mac.sh', 'memory.py', 'remind.py'];
+const SCRIPTS = ['sessions.sh', 'terminals.sh', 'read.sh', 'send.sh', 'keys.sh', 'mac.sh', 'memory.py', 'remind.py', 'devices.py'];
 
 const SPECS = [
   {

@@ -64,7 +64,7 @@ function startJarvis(brains) {
   orch.on('state', updateTrayTitle);
   orch.on('disabled', buildTray);
   orch.on('open-setup', (section) => openSettings(section));
-  hud.on('action', (name, msg) => { if (name.startsWith('cfg:')) hudSettingsAction(name, msg); else if (name.startsWith('ext:')) extensionsAction(name, msg); });
+  hud.on('action', (name, msg) => { if (name.startsWith('cfg:')) hudSettingsAction(name, msg); else if (name.startsWith('ext:')) extensionsAction(name, msg); else if (name.startsWith('dev:')) devicesAction(name, msg); });
   orch.on('set-theme', (t) => saveTheme(t));
   orch.on('settings', (patch) => saveHudSettings(patch));
   orch.on('hands-permit', permitHands);
@@ -87,6 +87,7 @@ function startJarvis(brains) {
   }
   orch.start(!flags.has('--no-voice'));
   watchRestart();
+  startDevices();
 }
 
 /** Theme for new windows; "system" resolved now (the page keeps following macOS). */
@@ -142,6 +143,7 @@ app.on('window-all-closed', () => { if (!hud) app.quit(); });
 app.on('before-quit', () => {
   if (orch) orch.shutdown();
   if (telegram) telegram.stop();
+  if (devices) devices.stop();
   if (hud) hud.destroy();
 });
 
@@ -373,6 +375,102 @@ function watchRestart() {
     orch.speaker.speak(`Restarting for an update, ${cfg.honorific}. Back in a moment.`);
     setTimeout(() => { app.relaunch(); app.quit(); }, 4000);
   }, 3000);
+}
+
+// ---------- JARVIS on the user's other devices (devices.js) ----------
+
+let devices = null, peerWorker = null;
+const peerJobs = new Map();   // worker job id -> { peer, req }
+
+function sendDevices(extra = {}) {
+  if (!hud || !devices) return;
+  hud.send('devices', { name: devices.data.name, list: devices.list(), relay: devices.data.relay, pairing: devices.pairing ? { role: devices.pairing.role } : null, ...extra });
+}
+
+function startDevices() {
+  const { Devices } = require('./devices');
+  devices = new Devices();
+  // What this device is doing, for another device asking "what's it up to?".
+  devices.extraStatus = () => ({ assistant: orch ? orch.name : '', busy: orch ? !orch.isIdle : false, jobs: orch ? [...orch.progress.values()].map((j) => j.description) : [], peerJobs: [...peerJobs.values()].map((j) => j.description) });
+  devices.on('change', () => sendDevices());
+  devices.on('pair', (e) => { sendDevices({ pair: e }); if (e.state === 'paired') { hud.send('notice', { text: `Paired with ${e.name}.` }); orch.speaker.speak(`Paired with ${e.name}, ${cfg.honorific}.`); } });
+  devices.on('task', runPeerTask);
+  devices.start().catch((e) => log(`devices: couldn't start: ${e.message}`));
+  serveInbox();
+}
+
+/**
+ * A task from another of the user's devices runs here as a background job, with the assistant in use.
+ * Its progress and result go back to that device.
+ */
+function runPeerTask(p, f) {
+  const fail = (text) => devices.reply(p, f.id, { t: 'result', ok: false, text });
+  if (!found || !found.claude || !found.claude.path || !found.claude.loggedIn) return fail(`${devices.data.name} can't run tasks: Claude Code isn't set up there.`);
+  if (!f.task) return fail('The task was empty.');
+  if (!peerWorker) {
+    const { Worker } = require('./brain/worker');
+    peerWorker = new Worker(cfg, found.claude.path);
+    peerWorker.on('progress', (e) => { const j = peerJobs.get(e.id); if (j && e.status) devices.reply(j.peer, j.req, { t: 'progress', text: e.status }); });
+    peerWorker.on('result', (r) => {
+      const j = peerJobs.get(r.id);
+      if (!j) return;
+      peerJobs.delete(r.id);
+      devices.reply(j.peer, j.req, { t: 'result', ok: r.ok, text: String(r.text || '').slice(0, 12000) });
+      hud && hud.send('notice', { text: `Finished for ${j.peer.name}: ${j.description}` });
+    });
+  }
+  const task = `[A TASK FROM THE USER'S OTHER DEVICE, "${p.name}"] The user asked for this on their other device, which handed it to you, on ${devices.data.name}. Do all of it here. If it says the user confirmed sending, posting, deleting or paying, they did, on that device. Otherwise stop before any such step and say in your result exactly what needs their yes.\n\n${f.task}`;
+  const id = peerWorker.start(f.description, task);
+  if (/^Error/.test(id)) return fail(id.replace(/^Error:\s*/, ''));
+  peerJobs.set(id, { peer: p, req: f.id, description: f.description });
+  log(`devices: running '${f.description}' for ${p.name}`);
+  hud && hud.send('notice', { text: `Working for ${p.name}: ${f.description}` });
+}
+
+/**
+ * A private socket (~/.jarvis/jarvis.sock, owner only) for scripts/devices.py, which the brain runs to
+ * reach the other devices. One JSON request per connection, one JSON answer.
+ */
+function serveInbox() {
+  const net = require('net');
+  const sock = path.join(C.STATE_DIR, 'jarvis.sock');
+  try { fs.unlinkSync(sock); } catch {}
+  const server = net.createServer((c) => {
+    let buf = '';
+    c.on('error', () => {});
+    c.on('data', async (d) => {
+      buf += d;
+      if (buf.length > 64000) return c.destroy();
+      if (!buf.includes('\n')) return;
+      let q = {};
+      try { q = JSON.parse(buf.slice(0, buf.indexOf('\n'))); } catch {}
+      let out;
+      if (q.op === 'list') out = { ok: true, me: devices.data.name, devices: devices.list() };
+      else if (q.op === 'status') out = await devices.status(String(q.device || ''));
+      else if (q.op === 'ask') out = await devices.ask(String(q.device || ''), q.description, q.task);
+      else out = { ok: false, text: 'Unknown request.' };
+      try { c.end(JSON.stringify(out) + '\n'); } catch {}
+    });
+  });
+  server.on('error', (e) => log(`inbox: ${e.message}`));
+  server.listen(sock, () => { try { fs.chmodSync(sock, 0o600); } catch {} });
+}
+
+/** Settings › Devices: pairing, names, the relay. */
+async function devicesAction(name, msg = {}) {
+  if (!devices) return;
+  const err = (text) => sendDevices({ error: text });
+  if (name === 'dev:list') return sendDevices();
+  if (name === 'dev:name') { const e = devices.setName(msg.value); return e ? err(e) : sendDevices({ done: 'Saved.' }); }
+  if (name === 'dev:relay') { const e = devices.setRelay({ on: msg.on, url: msg.url }); return e ? err(e) : sendDevices({ done: 'Saved.' }); }
+  if (name === 'dev:remove') { const e = devices.remove(String(msg.id || '')); return e ? err(e) : sendDevices({ done: 'Removed.' }); }
+  if (name === 'dev:cancel') { devices.cancelPair(); return sendDevices(); }
+  if (name === 'dev:host' || name === 'dev:join') {
+    try {
+      const r = await devices.pair(name === 'dev:host' ? 'host' : 'join', msg.code);
+      if (r.error) err(r.error);
+    } catch (e) { log(`devices: pairing failed: ${e.message}`); err(`Couldn't start pairing: ${e.message}`); }
+  }
 }
 
 const BLANK_PERSONA = 'A capable, friendly assistant: clear, direct and to the point.';

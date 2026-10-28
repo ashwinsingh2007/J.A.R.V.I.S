@@ -74,11 +74,19 @@ function agentBlock(cfg) {
   return out;
 }
 
+/** The user's other devices running JARVIS, paired in Settings › Devices ('' when there are none). */
+function devicesBlock(cfg) {
+  let peers = [];
+  try { peers = JSON.parse(fs.readFileSync(path.join(C.STATE_DIR, 'devices.json'), 'utf8')).peers || []; } catch {}
+  const names = peers.map((p) => `${String(p.name).slice(0, 40)}${p.os ? ` (${String(p.os).slice(0, 20)})` : ''}`);
+  return names.length ? '\n\n' + fill(read('devices.md', ''), cfg).replaceAll('{{DEVICES}}', names.join(', ')) : '';
+}
+
 /** Instructions for the background worker, with what the assistant knows about the user. */
 function workerPrompt(cfg) {
   let text = fill(read('worker.md', 'Do the task fully, then end with one short paragraph starting with RESULT:.'), cfg);
   if (cfg.userName) text += `\n\nThe user's name is ${cfg.userName}.`;
-  text += agentBlock(cfg);
+  text += agentBlock(cfg) + devicesBlock(cfg);
   text += require('../memory').promptFor(cfg, 'use it in your work, never recite it');
   return text;
 }
@@ -93,7 +101,7 @@ function systemPrompt(cfg, extra = '', { file = 'system.md', worker = false } = 
   try { text = fs.readFileSync(path.join(paths.prompts, file), 'utf8'); } catch { text = 'You are {{NAME}}, a concise spoken assistant.'; }
   text = fill(text, cfg).replace(/<!--worker-->([\s\S]*?)<!--\/worker-->\n?/g, (_, inner) => (worker ? inner : ''));
   if (cfg.userName) text += `\n\nThe user's name is ${cfg.userName}.`;
-  text += agentBlock(cfg);
+  text += agentBlock(cfg) + devicesBlock(cfg);
   if (extra) text += '\n\n' + extra;
   text += require('../memory').promptFor(cfg);
   return text;

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>J.A.R.V.I.S</title>
-<link rel="stylesheet" href="hud.css?v=29">
+<link rel="stylesheet" href="hud.css?v=30">
 <link rel="stylesheet" href="../themes.css">
 <script src="../themes.js"></script>
 <script>(function(){var q=new URLSearchParams(location.search);jarvisTheme.apply(q.get('theme')||undefined,q.get('mode')||undefined);})();</script>
@@ -363,6 +363,7 @@
         <button class="navitem" data-section="brain">Brains &amp; keys<small id="sc-brain">—</small></button>
         <button class="navitem" data-section="skills">Skills<small id="sc-skills">From your Claude Code</small></button>
         <button class="navitem" data-section="extensions">MCP servers<small id="sc-ext">From your Claude Code</small></button>
+        <button class="navitem" data-section="devices">Devices<small id="sc-devices">Your other computers</small></button>
         <button class="navitem" data-section="access">Access<small id="sc-access">—</small></button>
         <button class="navitem" data-section="ears">Listening<small id="sc-ears">—</small></button>
         <button class="navitem" data-section="voice">Voice<small id="sc-voice">—</small></button>
@@ -447,6 +448,34 @@
           <div class="pickbar"><select id="x-market"></select><input class="key" id="x-find" placeholder="Search plugins" autocomplete="off"></div>
           <ul class="picks" id="x-plugins"></ul>
           <div class="pickbar"><input class="key" id="x-market-src" placeholder="Add a marketplace: anthropics/skills" autocomplete="off"><button class="btn" id="x-market-add">Add</button></div>
+        </div>
+        <div class="sp" data-page="devices">
+          <p class="lead">JARVIS on your other computers, Mac or Windows. Pair them once and they can hand tasks to each other: "do this on the other laptop", "post it from my home Mac". They connect directly, over your Wi-Fi or across the internet, encrypted end to end.</p>
+          <p class="note" id="d-note"></p>
+          <h3>This device</h3>
+          <div class="group"><ul class="rows form"><li><b>Its name<small>What your other devices call it</small></b><span class="unit"><input class="key" id="d-name" maxlength="40" autocomplete="off"><button class="btn small" id="d-name-save">Save</button></span></li></ul></div>
+          <h3>Paired devices <span class="cnt" id="d-count"></span></h3>
+          <ul class="picks" id="d-list"></ul>
+          <h3>Pair a device</h3>
+          <div class="group plain">
+            <div class="pairbox" id="d-pairing" hidden>
+              <p class="note" id="d-pair-msg"></p>
+              <div class="paircode" id="d-code"></div>
+              <button class="btn small" id="d-cancel">Cancel</button>
+            </div>
+            <div id="d-pair-start">
+              <p class="note">On one device, show a code. On the other, type it here. Both need JARVIS open and internet.</p>
+              <div class="pickbar"><button class="btn primary" id="d-host">Show a pairing code</button></div>
+              <div class="pickbar"><input class="key" id="d-join-code" maxlength="9" placeholder="Or type a code from another device: K7M2-9QXA" autocomplete="off" spellcheck="false"><button class="btn" id="d-join">Pair</button></div>
+            </div>
+          </div>
+          <h3>Relay</h3>
+          <div class="group">
+            <ul class="rows form">
+              <li><b>Use a relay when a direct connection isn't possible<small>Some networks block direct connections. Then messages go through ntfy, encrypted with your devices' own key first, so it can't read them. The free ntfy.sh allows 250 messages a day per device.</small></b><label class="tog"><input type="checkbox" id="d-relay"><span></span></label></li>
+              <li><b>Relay address<small>ntfy.sh, or your own ntfy server</small></b><span class="unit"><input class="key" id="d-relay-url" autocomplete="off" spellcheck="false"><button class="btn small" id="d-relay-save">Save</button></span></li>
+            </ul>
+          </div>
         </div>
         <div class="sp" data-page="extensions">
           <p class="lead">The MCP servers your agents can use. They come from your Claude Code, so what you add here works there too. Each agent picks its own in Agents. A server can do anything JARVIS can, so only add ones you trust.</p>
@@ -546,7 +575,7 @@
 </main>
 
 <script src="three.min.js"></script>
-<script src="hud.js?v=29"></script>
-<script src="settings.js?v=3"></script>
+<script src="hud.js?v=30"></script>
+<script src="settings.js?v=4"></script>
 </body>
 </html>

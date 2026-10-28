@@ -274,5 +274,5 @@ module.exports = {
   BRAIN_SESSIONS_FILE: path.join(STATE_DIR, 'brain-sessions.txt'),
   MEMORY_FILE: path.join(STATE_DIR, 'memory.md'),
   EVENTS_FILE: path.join(STATE_DIR, 'events.jsonl'),
-  attachSafeStorage, load, save, saveSettings, resetAssistant, saveProfile, saveCustom, sanitize, findProjectRoot,
+  attachSafeStorage, encrypt, decrypt, load, save, saveSettings, resetAssistant, saveProfile, saveCustom, sanitize, findProjectRoot,
 };

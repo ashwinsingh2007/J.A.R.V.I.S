@@ -725,6 +725,11 @@ input.key:focus { outline: none; border-color: var(--cyan); }
 .tryout { white-space: pre-wrap; padding: 16px 18px; border-radius: var(--r); border: 1px solid var(--hair); background: rgba(var(--rgb), 0.05); font: 15px/1.6 var(--font-ui); color: var(--bright); margin-bottom: 20px; }
 .tryout.bad { color: var(--red); }
 .tryout[hidden] { display: none; }
+/* Settings › Devices */
+.pairbox { display: grid; gap: 12px; justify-items: start; }
+.pairbox[hidden], #d-pair-start[hidden], .paircode[hidden] { display: none !important; }
+.paircode { font: 600 34px var(--mono); letter-spacing: 0.18em; color: var(--cyan); padding: 10px 18px; border: 1px solid var(--line2); border-radius: var(--r2); background: rgba(var(--rgb), 0.06); }
+#d-list .chip { margin-left: auto; }
 /* Settings › Skills */
 .kcost { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 6px; }
 .kc { display: grid; padding: 8px 12px; border-radius: var(--r2); border: 1px solid var(--hair); border-left: 3px solid var(--cyan); background: rgba(var(--rgb), 0.04); }
