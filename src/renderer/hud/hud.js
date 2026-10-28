@@ -1552,7 +1552,9 @@
   // ---------- other devices: their tabs and their HUD ----------
   // Events that make up a device's HUD. This device's are kept while another device's tab is open, and
   // shown again when it closes; another device's arrive as 'remote' and are kept per device.
-  const MIRRORED = ['info', 'stats', 'system', 'state', 'ext', 'assistants', 'assistant', 'sessions', 'conversation', 'assistant-error', 'assistant-try',
+  // Not 'state': the mic is always this computer's (what is said is heard here and sent there), so the
+  // listening state, the mic button and standby stay this computer's in another one's view.
+  const MIRRORED = ['info', 'stats', 'system', 'ext', 'assistants', 'assistant', 'sessions', 'conversation', 'assistant-error', 'assistant-try',
     'reply', 'tool', 'notice', 'history', 'memory', 'schedule', 'context'];
   // Passing lines: shown as they come, not replayed when a device's view is opened again.
   const PASSING = /^(assistant-error|assistant-try|tool|notice)$/;
