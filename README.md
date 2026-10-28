@@ -188,7 +188,7 @@ open JARVIS.app
 
 The first launch opens Setup, where you give your name and choose the brain, how it listens, the voice and a few extras. macOS then asks for microphone and speech recognition access.
 
-`./build.sh` signs the app ad hoc, which means macOS may ask for microphone access again after every rebuild. Signing with your own certificate avoids that: `JARVIS_SIGN_ID="Apple Development: Your Name (TEAMID)" ./build.sh`.
+Without a signing identity, `./build.sh` signs the app ad hoc, which gives every build a new signature. macOS then asks for microphone access again after every rebuild. It also asks to let JARVIS read its own key from the Keychain ("JARVIS wants to use your confidential information"), and JARVIS can't finish starting until you answer that prompt. To stop this, run `scripts/make-signing-cert.sh` once. It makes a local signing certificate, which needs your login password once, and `./build.sh` uses it from then on. Then click **Always Allow** the next time macOS asks. You can also sign with your own certificate: `JARVIS_SIGN_ID="Apple Development: Your Name (TEAMID)" ./build.sh`.
 
 ## Using it
 

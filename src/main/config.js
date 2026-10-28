@@ -75,13 +75,29 @@ const DEFAULTS = {
 let safeStorage = null;
 function attachSafeStorage(s) { safeStorage = s; }
 
+// The first use of safeStorage reads JARVIS's key from the Keychain. When macOS doesn't recognise the
+// app (a build signed ad hoc gets a new signature each time), it asks the user first, and the whole
+// main process waits, frozen, until they answer. Say so beforehand, so a frozen start isn't a mystery.
+let keychainAsked = false;
+function keychain() {
+  if (keychainAsked || !safeStorage) return;
+  keychainAsked = true;
+  try { fs.appendFileSync(path.join(STATE_DIR, 'jarvis.log'), `[${new Date().toTimeString().slice(0, 8)}] keychain: reading JARVIS's key. If macOS asks "JARVIS wants to use your confidential information", click Always Allow; JARVIS waits until then.\n`); } catch {}
+  if (onKeychain) try { onKeychain(); } catch {}
+}
+let onKeychain = null;
+const onFirstKeychain = (fn) => { onKeychain = fn; };
+
 function decrypt(v) {
   if (typeof v !== 'string' || !v.startsWith('enc:')) return v;
+  keychain();
   try { return safeStorage ? safeStorage.decryptString(Buffer.from(v.slice(4), 'base64')) : ''; } catch { return ''; }
 }
 
 function encrypt(v) {
-  if (!v || !safeStorage || !safeStorage.isEncryptionAvailable()) return v;
+  if (!v || !safeStorage) return v;
+  keychain();
+  if (!safeStorage.isEncryptionAvailable()) return v;
   return 'enc:' + safeStorage.encryptString(v).toString('base64');
 }
 
@@ -274,5 +290,5 @@ module.exports = {
   BRAIN_SESSIONS_FILE: path.join(STATE_DIR, 'brain-sessions.txt'),
   MEMORY_FILE: path.join(STATE_DIR, 'memory.md'),
   EVENTS_FILE: path.join(STATE_DIR, 'events.jsonl'),
-  attachSafeStorage, encrypt, decrypt, load, save, saveSettings, resetAssistant, saveProfile, saveCustom, sanitize, findProjectRoot,
+  attachSafeStorage, onFirstKeychain, encrypt, decrypt, load, save, saveSettings, resetAssistant, saveProfile, saveCustom, sanitize, findProjectRoot,
 };
