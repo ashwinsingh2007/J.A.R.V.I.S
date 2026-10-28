@@ -8,6 +8,7 @@
   devices.py pair-host                              show a pairing code (prints it; type it on the other device)
   devices.py pair-wait                              wait for the pairing started with pair-host to finish
   devices.py pair-join <code>                       pair with the device showing that code, and wait
+  devices.py unpair <device>                        forget a paired device (unpair it on that device too)
   devices.py diag                                   what the peer-to-peer side sees (NAT, links), as JSON
 """
 import json
@@ -38,7 +39,7 @@ def call(req, timeout):
 
 
 def main(argv):
-    if not argv or argv[0] not in ('list', 'status', 'ask', 'pair-host', 'pair-wait', 'pair-join', 'diag'):
+    if not argv or argv[0] not in ('list', 'status', 'ask', 'pair-host', 'pair-wait', 'pair-join', 'diag', 'unpair'):
         print(__doc__.strip())
         return 0 if not argv else 2
     cmd = argv[0]
@@ -50,6 +51,10 @@ def main(argv):
         if not r.get('devices'):
             print('No other devices paired. The user pairs them in Settings > Devices.')
         return 0
+    if cmd == 'unpair':
+        r = call({'op': 'unpair', 'device': argv[1] if len(argv) > 1 else ''}, 10)
+        print(r.get('text', 'No answer.'))
+        return 0 if r.get('ok') else 1
     if cmd == 'diag':
         print(json.dumps(call({'op': 'diag'}, 10), indent=1))
         return 0
