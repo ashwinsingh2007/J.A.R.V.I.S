@@ -268,7 +268,7 @@ class Devices extends EventEmitter {
     const ready = role === 'host' ? pg.discovery.flushed() : this.swarm.flush();
     const ok = await Promise.race([ready.then(() => true, () => false), new Promise((r) => setTimeout(() => r(false), 15000))]);
     // Ended while getting ready: paired already (the other device was quick), or cancelled.
-    if (this.pairing !== pg) return this.data.peers.some((p) => p.pairedAt && Date.now() - Date.parse(p.pairedAt) < 120000) ? {} : { error: 'Cancelled.' };
+    if (this.pairing !== pg) return this.lastPairedAt && Date.now() - this.lastPairedAt < 120000 ? {} : { error: 'Cancelled.' };
     if (!ok) log('devices: the peer-to-peer network is not answering from here (UDP may be blocked); pairing through the relay');
     log(`devices: pairing (${role})`);
     // Still nothing after 45 seconds: say so, rather than wait in silence.
@@ -383,6 +383,7 @@ class Devices extends EventEmitter {
     this.pairing = null;
     this.joinPeer(this.peer(id));
     this.subscribeRelay();
+    this.lastPairedAt = Date.now();
     log(`devices: paired with ${name}`);
     this.emit('pair', { state: 'paired', name });
     // Paired through the relay: the peer-to-peer connection, if any, comes when the two find each other.
@@ -484,6 +485,20 @@ class Devices extends EventEmitter {
   fetchView(idOrName) { return this.request(idOrName, { t: 'get' }, { timeout: 30000 }); }
   sayTo(idOrName, text) { const p = this.peer(idOrName); return p ? this.deliver(p, { t: 'say', text: String(text).slice(0, 4000) }) : Promise.resolve('No such device.'); }
   actOn(idOrName, action) { const p = this.peer(idOrName); return p ? this.deliver(p, { t: 'act', action }) : Promise.resolve('No such device.'); }
+
+  /** What the peer-to-peer side sees: its public address and NAT, and each pair's discovery and link. */
+  diag() {
+    const dht = this.swarm && this.swarm.dht;
+    return {
+      dht: dht ? { host: dht.host, port: dht.port, firewalled: dht.firewalled, randomized: dht.randomized, ephemeral: dht.ephemeral } : null,
+      relay: this.data.relay,
+      peers: this.data.peers.map((p) => {
+        const c = this.conns.get(p.id);
+        const seen = this.swarm ? [...this.swarm.peers.values()].filter((x) => x.publicKey && hex(x.publicKey) === p.id) : [];
+        return { name: p.name, direct: !!c, remote: c && c.rawStream ? `${c.rawStream.remoteHost}:${c.rawStream.remotePort}` : '', discovered: seen.length > 0, attempts: seen.map((x) => x.attempts || 0), banned: seen.some((x) => x.banned) };
+      }),
+    };
+  }
 
   /** Set by main.js: what this device is doing, for another device's "status". */
   statusOf() {

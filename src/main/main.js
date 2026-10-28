@@ -85,9 +85,10 @@ function startJarvis(brains) {
     telegram.on('status', (s) => { orch.telegramStatus = s; hud.send('notice', { text: `Telegram: ${s}` }); buildTray(); });
     telegram.start();
   }
+  // Other devices first: the rest of the start (music, radio lists) can take a while on a slow Mac.
+  startDevices();
   orch.start(!flags.has('--no-voice'));
   watchRestart();
-  startDevices();
 }
 
 /** Theme for new windows; "system" resolved now (the page keeps following macOS). */
@@ -506,6 +507,7 @@ function serveInbox() {
         else if (q.op === 'pair-host' && !q.wait) out = { ok: true, code: r.code };
         else { const e = await Promise.race([done, new Promise((res) => setTimeout(() => res({ state: 'timeout' }), 180000))]); out = e.state === 'paired' ? { ok: true, text: `Paired with ${e.name}.` } : { ok: false, text: e.state === 'expired' ? 'The code ran out.' : 'No sign of the other device in 3 minutes.' }; }
       }
+      else if (q.op === 'diag') out = { ok: true, ...devices.diag() };
       else if (q.op === 'pair-wait') {
         const e = await new Promise((resolve) => { const on = (x) => { if (x.state === 'paired' || x.state === 'expired') { devices.off('pair', on); resolve(x); } }; devices.on('pair', on); setTimeout(() => resolve({ state: 'timeout' }), 180000); });
         out = e.state === 'paired' ? { ok: true, text: `Paired with ${e.name}.` } : { ok: false, text: e.state === 'expired' ? 'The code ran out.' : 'Nothing paired in 3 minutes.' };
