@@ -448,6 +448,10 @@ body.focus[data-view="cc"] #crew .mate { opacity: 1; transform: none; transition
 /* at rest the web is a still picture (crewMotion in hud.js) */
 #crew.still .fire, #crew.still .syn, #crew.still .nrn, #crew.still .halo, #crew.still .core, #crew.still .tether, #crew.still .aura { animation-play-state: paused !important; }
 #crew.nosparks .spark { opacity: 0 !important; }
+/* except the node cores, which keep pulsing, and the lines to them, which keep flowing. Stepped at
+   about 10 updates a second: SVG animations repaint on every change, and a smooth one changes every frame */
+#crew.still .core { animation-play-state: running !important; animation-timing-function: steps(32); }
+#crew.still .tether { animation-play-state: running !important; animation-timing-function: steps(26); }
 body[data-view="cc"]:not(.focus):not(.spot) #crew { opacity: 1; }
 body[data-view="cc"]:not(.focus):not(.spot) #crew .tethers { opacity: 1; }
 body[data-view="cc"]:not(.focus):not(.spot) #crew .mate { opacity: 1; pointer-events: auto; cursor: pointer; transform: translate(calc((var(--nx) - var(--hx)) * 1px), calc((var(--ny) - var(--hy)) * 1px)); transition: opacity .5s ease, transform .8s cubic-bezier(.2,.7,.2,1); }
