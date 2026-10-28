@@ -45,6 +45,7 @@ async function launch(state, args = [], extraEnv = {}) {
       JARVIS_FAKE_SPEECH: speech,
       JARVIS_FAKE_EARS_LOG: earsLog,
       JARVIS_TEST_AUTOHIDE_MS: '600000',   // keep panels up while Playwright drives the HUD
+      JARVIS_TEST_AWAKE: '1',              // the test window is often in the background: keep the HUD drawing
       ...extraEnv,
     },
     timeout: 30000,

@@ -2,7 +2,7 @@
 // window.hud.event(...); the page posts messages back through the
 // webkit.messageHandlers.jarvis shim in preload/hud.js.
 //
-// events: 'text' (typed command), 'action' (name, body), 'visible' (on)
+// events: 'text' (typed command), 'action' (name, body), 'visible' (on: shown, not minimised and focused)
 const fs = require('fs');
 const path = require('path');
 const EventEmitter = require('events');
@@ -45,8 +45,17 @@ class HudWindow extends EventEmitter {
     this.win.on('moved', saveBounds);
     // Closing the window keeps JARVIS running in the menu bar.
     this.win.on('close', (e) => { if (!this.quitting) { e.preventDefault(); this.win.hide(); } });
-    // Whether anyone can see the HUD, so what only feeds it can slow down while nobody does.
-    for (const ev of ['show', 'hide', 'minimize', 'restore']) this.win.on(ev, () => setImmediate(() => this.emit('visible', this.visible)));
+    // Whether the user is looking at the HUD, so what only feeds it can slow down while they aren't,
+    // and the page itself stops drawing (in the background a window often still shows, partly covered).
+    let was = null;
+    const changed = () => setImmediate(() => {
+      const on = this.visible;
+      if (on === was) return;
+      was = on;
+      this.send('window', { awake: on });
+      this.emit('visible', on);
+    });
+    for (const ev of ['show', 'hide', 'minimize', 'restore', 'focus', 'blur']) this.win.on(ev, changed);
 
     ipcMain.on('hud', (e, msg) => {
       if (e.sender !== this.win.webContents || !msg || typeof msg.type !== 'string') return;
@@ -54,6 +63,7 @@ class HudWindow extends EventEmitter {
         this.ready = true;
         for (const js of this.backlog) this.exec(js);
         this.backlog = [];
+        this.send('window', { awake: this.visible });
       } else if (msg.type === 'text' && msg.text) {
         this.emit('text', String(msg.text));
       } else if (msg.type === 'action' && msg.name) {
@@ -72,8 +82,11 @@ class HudWindow extends EventEmitter {
   send(type, payload = {}) { this.push(`window.hud && window.hud.event(${JSON.stringify({ ...payload, type })});`); }
   sendRaw(type, data) { this.push(`window.hud && window.hud.event(${JSON.stringify({ type, data })});`); }
 
-  /** Whether anyone can see the HUD: shown and not minimised. */
-  get visible() { return !this.win.isDestroyed() && this.win.isVisible() && !this.win.isMinimized(); }
+  /** Whether the user is looking at the HUD: shown, not minimised, and the focused window.
+   *  JARVIS_TEST_AWAKE ignores focus, for tests driving a window in the background. */
+  get visible() {
+    return !this.win.isDestroyed() && this.win.isVisible() && !this.win.isMinimized() && (this.win.isFocused() || !!process.env.JARVIS_TEST_AWAKE);
+  }
 
   show() { if (this.win.isMinimized()) this.win.restore(); this.win.show(); this.win.focus(); }
   toggleFullScreen() { this.show(); this.win.setFullScreen(!this.win.isFullScreen()); }
