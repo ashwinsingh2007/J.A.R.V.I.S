@@ -385,7 +385,7 @@
     crew.innerHTML = buildCrew();
     crew.classList.toggle('busy', (stats.agents || []).length > 0);
     document.querySelector('#brand .word').textContent = me.name.split('').join('.');
-    document.querySelector('.corelabel .jv').textContent = me.name;
+    coreLabel();
     document.title = me.name.split('').join('.');
     $('ask-input').placeholder = `Type to ${me.name}…`;
     $('power').querySelector('b').textContent = `${body.classList.contains('disabled') ? 'ENABLE' : 'DISABLE'} ${me.name}`;
@@ -914,6 +914,14 @@
     $('spot').hidden = true;
     armFocus();
   }
+  /** The name in the core: the agent in use, or the group that is open (MESH, FORGE, a computer). */
+  function coreLabel() {
+    const me = assistants.find((a) => a.id === current) || assistants[0];
+    const dm = /^(device|dcustom):(.+)$/.exec(crewGroup);
+    const name = crewGroup === 'devices' ? 'MESH' : crewGroup === 'custom' || (dm && dm[1] === 'dcustom') ? 'FORGE' : dm ? machineName(dm[2]).toUpperCase() : me ? me.name : 'JARVIS';
+    document.querySelector('.corelabel .jv').textContent = name;
+    body.classList.toggle('grouped', crewGroup !== 'main');
+  }
   /** Open a group node: its members burst out of the core. */
   function openGroup(group) {
     if (group === 'pair') { spotPair(); return; }
@@ -927,6 +935,7 @@
     HUBS = hubsFor();
     crew.innerHTML = buildCrew();
     popping = false;
+    coreLabel();
   }
   crew.addEventListener('click', (ev) => {
     const m = ev.target.closest('.mate');
@@ -936,7 +945,7 @@
     if (!h) return;
     if (h.group) { openGroup(h.group); return; }
     // Another device's agent: open its tab, with that agent in the spotlight.
-    if (h.device) { const dev = h.device, a = h.agent; showMachine(dev); const ag = assistants.find((x) => x.id === a); crewGroup = ag && ag.custom ? 'custom' : 'main'; HUBS = hubsFor(); crew.innerHTML = buildCrew(); spot(a); return; }
+    if (h.device) { const dev = h.device, a = h.agent; showMachine(dev); const ag = assistants.find((x) => x.id === a); crewGroup = ag && ag.custom ? 'custom' : 'main'; HUBS = hubsFor(); crew.innerHTML = buildCrew(); coreLabel(); spot(a); return; }
     if (m.dataset.id === spotted) return;
     spot(m.dataset.id);
   });
