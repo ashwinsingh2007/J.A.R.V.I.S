@@ -152,3 +152,25 @@ test("another device's agent voice is kept only when it looks like a voice name"
   assert.equal(voiceOf('bf_emma'), null);
   assert.equal(voiceOf(null), null);
 });
+
+test('a device reached only through the relay is offline until heard from, and gone again after "bye"', async () => {
+  const posted = [];
+  const a = device('A', posted), b = device('B', posted);
+  const secret = crypto.randomBytes(32).toString('hex');
+  a.data.peers.push({ id: b.id, name: 'B', os: 'macOS', secret });
+  b.data.peers.push({ id: a.id, name: 'A', os: 'macOS', secret });
+  assert.equal(b.list()[0].via, 'offline', 'the relay being on says nothing about A');
+  const deliver = async (from, to) => { const topic = posted[0].url.split('/').pop(); const all = posted.splice(0); for (const p of all) to.onRelay(topic, p.body); };
+  a.sayHere();
+  await new Promise((r) => setImmediate(r));
+  await deliver(a, b);
+  assert.equal(b.list()[0].via, 'relay', 'heard from A');
+  await new Promise((r) => setImmediate(r));
+  assert.equal(posted.length, 1, 'B answers once, so A knows about it without waiting');
+  await deliver(b, a);
+  assert.equal(a.list()[0].via, 'relay');
+  assert.equal(posted.length, 0, 'and A does not answer back again');
+  await a.relaySend(a.data.peers[0], { t: 'bye' });
+  await deliver(a, b);
+  assert.equal(b.list()[0].via, 'offline', 'A said bye');
+});

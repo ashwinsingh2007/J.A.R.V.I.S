@@ -818,9 +818,9 @@ async function testHud() {
   await hud.waitForFunction(() => /^[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(document.getElementById('spot-code').textContent), null, { timeout: 30000 }).catch(() => {});
   check('and shows a code there', /^[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(await text(hud, '#spot-code')), await text(hud, '#spot-hint'));
   await shot(hud, 'hud-pair');
-  check('MESH lists this computer too', await hud.evaluate(() => !!document.getElementById('crew-g-self')));
+  check('MESH lists this computer too, and no SYSTEM node', await hud.evaluate(() => !!document.getElementById('crew-g-self') && !document.getElementById('crew-g-main')));
   await hud.click('#spot-back');
-  await hud.evaluate(() => document.getElementById('crew-g-main').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  await hud.evaluate(() => document.getElementById('crew-g-self').dispatchEvent(new MouseEvent('click', { bubbles: true })));
   await sleep(900);
   // FORGE: custom agents, dim with none yet; + CREATE makes one right on the HUD
   check('FORGE is there, dim with no custom agents', await hud.evaluate(() => { const m = document.getElementById('crew-g-custom'); return !!m && m.classList.contains('dim') && /MAKE YOUR OWN/.test(m.textContent); }));
@@ -1197,12 +1197,14 @@ async function testDevices() {
   check('it opens into the paired device', !!devNode, devNode);
   if (devNode) await ha.evaluate((id) => document.getElementById('crew-' + id).dispatchEvent(new MouseEvent('click', { bubbles: true })), devNode);
   await sleep(900);
-  const remoteAgents = await ha.evaluate(() => [...document.querySelectorAll('#crew .mate')].map((m) => m.dataset.id).filter((id) => id.startsWith('r-')));
+  // Clicking the computer switches to it, as the picker does: its HUD, its agents, and voice goes there.
+  check('clicking the computer switches to it', await ha.evaluate(() => document.body.classList.contains('remote')) && /Home Mac/.test(await text(ha, '#machine-pick')));
+  const remoteAgents = await ha.evaluate(() => [...document.querySelectorAll('#crew .mate')].map((m) => m.dataset.id).filter((id) => !id.startsWith('g-')));
   check('its agent in use in the core, with the computer named under it', await ha.evaluate(() => document.querySelector('.corelabel .jv').textContent === 'FRIDAY' && /HOME MAC/.test(document.getElementById('jv-sub').textContent)));
-  check('and that device into its agents (not FRIDAY, who is in use there)', remoteAgents.length >= 3 && !remoteAgents.some((id) => id.endsWith('-friday')), remoteAgents.join(','));
+  check('and that device into its agents (not FRIDAY, who is in use there)', remoteAgents.length >= 3 && !remoteAgents.includes('friday'), remoteAgents.join(','));
   await shot(ha, 'devices-nodes');
   // Clicking one of its agents opens its tab, with that agent in the spotlight.
-  const karen = remoteAgents.find((id) => id.endsWith('-karen'));
+  const karen = remoteAgents.find((id) => id === 'karen');
   if (karen) await ha.evaluate((id) => document.getElementById('crew-' + id).dispatchEvent(new MouseEvent('click', { bubbles: true })), karen);
   await sleep(900);
   check('its agent opens that device\'s tab, in the spotlight', await ha.evaluate(() => document.body.classList.contains('remote') && document.getElementById('spot-name').textContent === 'KAREN' && /FRIDAY/.test(document.querySelector('.corelabel .jv').textContent)));
@@ -1247,7 +1249,19 @@ async function testDevices() {
   await ha.click('#machines .mtab[data-device=""]');
   await sleep(600);
   check('back on this device, its own HUD is back', await ha.evaluate(() => !document.body.classList.contains('remote') && /JARVIS/.test(document.querySelector('.corelabel .jv').textContent)));
-  await a.app.close(); await b.app.close();
+  check('MESH has no SYSTEM node', await ha.evaluate(() => { document.getElementById('crew-g-devices').dispatchEvent(new MouseEvent('click', { bubbles: true })); return new Promise((r) => setTimeout(() => r(!document.getElementById('crew-g-main') && !!document.getElementById('crew-g-self')), 900)); }));
+  // On the other computer, MESH's node for this one switches back.
+  await ha.click('#machine-pick'); await ha.click('#machines .mtab[data-device]:not([data-device=""])');
+  await sleep(600);
+  const click = (id) => ha.evaluate((x) => document.getElementById('crew-' + x).dispatchEvent(new MouseEvent('click', { bubbles: true })), id);
+  await click('g-devices'); await sleep(900); await click('g-self'); await sleep(900);
+  check('MESH on the other computer, "this computer" switches back', await ha.evaluate(() => !document.body.classList.contains('remote')));
+  // The other computer goes away: it vanishes from MESH and the picker (it stays paired in Settings).
+  await b.app.close();
+  await ha.waitForFunction(() => document.getElementById('machines').hidden, null, { timeout: 20000 }).catch(() => {});
+  check('a computer that disconnects vanishes from the picker and MESH', await ha.evaluate(() => document.getElementById('machines').hidden && ![...document.querySelectorAll('#crew .mate')].some((m) => m.dataset.id.startsWith('g-device_'))));
+  check('and stays paired in Settings', /Home Mac/.test(await text(ha, '#d-list')));
+  await a.app.close();
 }
 
 const which = process.argv[2] || 'all';
