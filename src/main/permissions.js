@@ -12,10 +12,15 @@ const PANES = {
   iterm: 'Privacy_Automation',
 };
 
-/** "allowed" | "not-asked" | "denied" | "unknown" for each, plus "absent" for iTerm when it isn't installed. */
+/**
+ * "allowed" | "not-asked" | "denied" | "unknown" for each, plus "absent" for iTerm when it isn't installed,
+ * and "no-helper" for the microphone and speech when the speech helper isn't built (it needs macOS 14).
+ */
 async function state(earsBin) {
   const out = { mic: 'unknown', speech: 'unknown', ax: 'unknown', screen: 'unknown', iterm: 'absent' };
-  if (earsBin && fs.existsSync(earsBin)) {
+  if (!earsBin || !fs.existsSync(earsBin)) {
+    out.mic = out.speech = 'no-helper';
+  } else {
     const r = await run(earsBin, ['--permissions'], { timeout: 10000 });
     try { Object.assign(out, JSON.parse(r.out.trim().split('\n').pop())); } catch {}
   }
@@ -44,7 +49,9 @@ async function itermState(ask) {
  */
 async function ask(which, { earsBin, openPane, notify }) {
   if (which === 'mic' || which === 'speech') {
+    // Only the speech helper can ask macOS for these, so without it there is nothing to show.
     const before = await state(earsBin);
+    if (before[which] === 'no-helper') return before;
     if (before[which] === 'denied') { openPane(PANES[which]); return state(earsBin); }
     await run(earsBin, ['--permissions', '--prompt'], { timeout: 120000 });
   } else if (which === 'ax' || which === 'screen') {
