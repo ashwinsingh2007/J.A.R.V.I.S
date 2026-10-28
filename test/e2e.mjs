@@ -1234,6 +1234,13 @@ async function testDevices() {
   check('typing in its tab reaches the other device', await b.waitLog(/devices: Work Mac typed 'what time is it there\?'/, 10000, m));
   await ha.waitForFunction(() => !!document.getElementById('reply').textContent.trim(), null, { timeout: 60000 }).catch(() => {});
   check('its agent\'s reply shows here', !!(await text(ha, '#reply')).trim(), (await text(ha, '#reply')).slice(0, 80));
+  // The mic is this computer's: the other one in standby doesn't make it look off here.
+  await hb.evaluate(() => document.getElementById('mic').click());
+  await b.waitLog(/standby on/, 5000);
+  await sleep(1200);
+  check('the mic shows this computer\'s state, not the other one\'s', await ha.evaluate(() => document.body.dataset.state !== 'muted' && !/STANDBY/.test(document.getElementById('st-state').textContent)), await text(ha, '#st-state'));
+  check('DISABLE is not offered under the other computer\'s agent', await ha.evaluate(() => getComputedStyle(document.getElementById('power')).display === 'none'));
+  await hb.evaluate(() => document.getElementById('mic').click());
   // Said out loud here with its tab open: it goes there, is answered there silently, and spoken here.
   await a.say('jarvis wake up');
   await a.waitLog(/conversation mode on/, 10000);

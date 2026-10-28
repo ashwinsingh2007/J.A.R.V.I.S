@@ -786,6 +786,8 @@ input.key:focus { outline: none; border-color: var(--cyan); }
 #remote-note { margin-top: 6px; font: var(--lab) var(--mono); letter-spacing: 0.12em; color: var(--amber); }
 #remote-note:empty { display: none; }
 body.remote #nav a[data-view="settings"], body.remote #nav a[data-view="music"] { display: none; }
+/* DISABLE acts on this computer, so it isn't offered under another one's agent */
+body.remote #power { display: none; }
 /* another device's memory, schedule and conversation are read-only here */
 body.remote #mem-add, body.remote #v-memory button { display: none; }
 /* Another device's agents: editable, but its training, files and code switch stay on that device. */

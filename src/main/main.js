@@ -429,7 +429,7 @@ function startDevices() {
 // The HUD events another of the user's devices needs to show this one in full: system and services,
 // the core and its state, the agents, sessions and jobs, the conversation, what the agent says and the
 // tools it uses, history, and memory with its schedule. Never settings or music, which stay here.
-const MIRROR = new Set(['state', 'system', 'stats', 'info', 'sessions', 'assistants', 'assistant', 'assistant-error', 'assistant-try', 'conversation', 'ext',
+const MIRROR = new Set(['system', 'stats', 'info', 'sessions', 'assistants', 'assistant', 'assistant-error', 'assistant-try', 'conversation', 'ext',
   'reply', 'tool', 'notice', 'history', 'memory', 'schedule', 'context']);
 /** The voice of the agent in use here, so an answer spoken on another device sounds like it. */
 const voiceHere = () => { const c = (orch && orch.cfg) || cfg; return { kokoroVoice: c.kokoroVoice, kokoroSpeed: c.kokoroSpeed, edgeVoice: c.edgeVoice, nativeVoice: c.nativeVoice }; };
