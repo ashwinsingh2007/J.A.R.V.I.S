@@ -108,7 +108,7 @@ JARVIS is Claude Code first. That's what it's built and tested against, and it's
 
 | Brain | What you get | Cost |
 |---|---|---|
-| Claude Code | The full agent. It reads files, searches the web, steers your other Claude Code sessions in iTerm, and hands long tasks to background agents (Claude Code subagents). A fast voice model answers right away while a stronger work model does the job, and JARVIS gives spoken progress updates in between. | Your Claude subscription |
+| Claude Code | The full agent. It reads files, searches the web, steers your other Claude Code sessions in iTerm, and hands long tasks to background agents (Claude Code subagents). A fast voice model answers right away while a stronger work model does the job. Progress shows on the HUD, and JARVIS only speaks up when the job finishes, fails or needs you. | Your Claude subscription |
 | Anthropic API | The same voice and personality with a smaller, sandboxed set of tools: the helper scripts, opening apps and pages, fetching a page, reading a file, memory and reminders. | Pay per use |
 | Gemini | The API brain's voice, personality and tools, running on Google's Gemini models with your own key. | Free tier, then pay per use |
 | Ollama | Local and free. It gets the API brain's tools if the model supports tool calls, and a shorter prompt suited to small models. Setup can install Ollama and download a model for you. | Free |
