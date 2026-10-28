@@ -95,3 +95,51 @@ test('paired devices are kept with their secrets, and a name is unique', () => {
   assert.equal(again.data.seed, d.data.seed, 'the same identity after a restart');
   assert.equal(again.uniqueName('Home Mac'), 'Home Mac 2');
 });
+
+/** An ntfy stand-in: posts go to a topic, and subscribers get what's there and what comes next. */
+function fakeRelay() {
+  const topics = new Map(), subs = new Set();
+  return async (url, opt = {}) => {
+    const u = new URL(url);
+    const parts = u.pathname.split('/').filter(Boolean);
+    if (opt.method === 'POST') {
+      const topic = parts[0], m = { event: 'message', topic, message: opt.body };
+      (topics.get(topic) || topics.set(topic, []).get(topic)).push(m);
+      for (const s of subs) if (s.topics.includes(topic)) s.push(m);
+      return { ok: true, status: 200 };
+    }
+    const want = parts[0].split(',');
+    let wake = null;
+    const queue = want.flatMap((t) => topics.get(t) || []);
+    const sub = { topics: want, push: (m) => { queue.push(m); if (wake) wake(); } };
+    subs.add(sub);
+    opt.signal && opt.signal.addEventListener('abort', () => { subs.delete(sub); if (wake) wake(); });
+    return { ok: true, body: { getReader: () => ({ read: async () => {
+      while (!queue.length) { if (opt.signal && opt.signal.aborted) return { done: true }; await new Promise((r) => { wake = r; }); wake = null; }
+      return { value: Buffer.from(JSON.stringify(queue.shift()) + '\n'), done: false };
+    } }) } };
+  };
+}
+
+test('pairing works through the relay when the peer-to-peer network is blocked', async () => {
+  const relay = fakeRelay();
+  const blocked = (name) => {
+    const d = new D.Devices({ dir: fs.mkdtempSync(path.join(os.tmpdir(), 'dev-')), relayFetch: relay });
+    d.data.name = name;
+    const never = new Promise(() => {});
+    d.swarm = { keyPair: { publicKey: crypto.randomBytes(32) }, join: () => ({ flushed: () => never, refresh: async () => {} }), flush: () => never, leave: async () => {} };
+    return d;
+  };
+  const a = blocked('Work Mac'), b = blocked('Home Mac');
+  const paired = (d) => new Promise((r) => d.on('pair', (e) => e.state === 'paired' && r(e.name)));
+  const pa = paired(a), pb = paired(b);
+  const { code } = await a.pair('host');
+  assert.match(code, /^[A-Z2-9]{4}-[A-Z2-9]{4}$/, 'the code shows even though the network never answered');
+  await b.pair('join', code);
+  assert.deepEqual([await pa, await pb], ['Home Mac', 'Work Mac']);
+  assert.equal(a.data.peers[0].secret, b.data.peers[0].secret, 'both hold the same pair secret');
+  assert.equal(a.data.peers[0].id, b.id);
+  // A third device with a wrong code learns nothing and pairs with no one.
+  a.cancelPair({ keep: true }); b.cancelPair({ keep: true });
+  for (const d of [a, b]) { clearInterval(d.refresher); if (d.relayAbort) d.relayAbort.abort(); }
+});

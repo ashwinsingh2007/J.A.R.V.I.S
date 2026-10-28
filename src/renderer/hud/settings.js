@@ -253,6 +253,7 @@
     }) : [Object.assign(document.createElement('li'), { className: 'empty', textContent: 'No other devices yet' })]));
     // Pairing: a code being shown, waiting for the other side, or done.
     const p = e.pair || null;
+    if (p && p.state === 'slow') { $('d-pair-msg').textContent = p.role === 'host' ? 'No sign of the other device yet. Type this code in JARVIS on it, under Settings › Devices.' : "Can't find the other device yet. Check the code is still showing on it, and that it has the latest JARVIS."; return; }
     if (p && p.state === 'waiting') {
       $('d-pairing').hidden = false; $('d-pair-start').hidden = true;
       $('d-code').textContent = p.code || '';

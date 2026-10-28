@@ -891,6 +891,7 @@
     if (!p) return;
     if (p.state === 'waiting' && p.code) { $('spot-code').textContent = p.code; $('spot-code').hidden = false; $('sp-host').hidden = true; pairHint(`TYPE IT ON THE OTHER COMPUTER · GOOD FOR ${p.minutes} MINUTES`); }
     else if (p.state === 'waiting') pairHint('LOOKING FOR THE OTHER COMPUTER…');
+    else if (p.state === 'slow') pairHint(p.role === 'host' ? 'NO SIGN OF IT YET · TYPE THE CODE ON THE OTHER COMPUTER, IN JARVIS' : 'CAN\'T FIND IT YET · CHECK THE CODE IS STILL SHOWING ON THE OTHER COMPUTER', true);
     else if (p.state === 'expired') { pairHint('THE CODE RAN OUT · SHOW A NEW ONE', true); $('spot-code').hidden = true; $('sp-host').hidden = false; }
     else if (p.state === 'paired') {
       pairHint(`PAIRED WITH ${String(p.name).toUpperCase()}`);

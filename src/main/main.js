@@ -495,6 +495,21 @@ function serveInbox() {
       if (q.op === 'list') out = { ok: true, me: devices.data.name, devices: devices.list() };
       else if (q.op === 'status') out = await devices.status(String(q.device || ''));
       else if (q.op === 'ask') out = await devices.ask(String(q.device || ''), q.description, q.task);
+      // Pairing from a script: show a code, or use one, and wait for the outcome.
+      else if (q.op === 'pair-host' || q.op === 'pair-join') {
+        const done = new Promise((resolve) => {
+          const on = (e) => { if (e.state === 'paired' || e.state === 'expired') { devices.off('pair', on); resolve(e); } };
+          devices.on('pair', on);
+        });
+        const r = await devices.pair(q.op === 'pair-host' ? 'host' : 'join', q.code);
+        if (r.error) out = { ok: false, text: r.error };
+        else if (q.op === 'pair-host' && !q.wait) out = { ok: true, code: r.code };
+        else { const e = await Promise.race([done, new Promise((res) => setTimeout(() => res({ state: 'timeout' }), 180000))]); out = e.state === 'paired' ? { ok: true, text: `Paired with ${e.name}.` } : { ok: false, text: e.state === 'expired' ? 'The code ran out.' : 'No sign of the other device in 3 minutes.' }; }
+      }
+      else if (q.op === 'pair-wait') {
+        const e = await new Promise((resolve) => { const on = (x) => { if (x.state === 'paired' || x.state === 'expired') { devices.off('pair', on); resolve(x); } }; devices.on('pair', on); setTimeout(() => resolve({ state: 'timeout' }), 180000); });
+        out = e.state === 'paired' ? { ok: true, text: `Paired with ${e.name}.` } : { ok: false, text: e.state === 'expired' ? 'The code ran out.' : 'Nothing paired in 3 minutes.' };
+      }
       else out = { ok: false, text: 'Unknown request.' };
       try { c.end(JSON.stringify(out) + '\n'); } catch {}
     });
