@@ -21,7 +21,9 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 #brand { position: fixed; left: var(--mx); top: var(--my); z-index: 10; }
 #brand .word { font-size: clamp(15px, 1.15vw, 20px); letter-spacing: 0.3em; color: var(--bright); text-shadow: 0 0 14px rgba(var(--rgb), calc(0.5 * var(--glow))); }
 #brand .word2 { margin-top: 4px; font-size: var(--lab); letter-spacing: 0.22em; color: var(--faint); }
-#nav { display: flex; gap: 8px; margin-top: 12px; }
+/* the view chips, then a tab for each paired computer on the same row */
+.navrow { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; margin-top: 12px; }
+#nav { display: flex; gap: 8px; }
 #nav a { font-size: var(--lab); letter-spacing: 0.18em; color: var(--faint); border: 1px solid var(--hair); padding: 4px 10px; cursor: pointer; white-space: nowrap; }
 #nav a em { font-style: normal; color: var(--faint); margin-left: 6px; }
 #nav a:hover { color: var(--muted); border-color: var(--line); }
@@ -698,8 +700,9 @@ input.key:focus { outline: none; border-color: var(--cyan); }
 
 /* the agent editor: tabs, role, commands, training, guardrails, try it */
 .ag-tabs { position: sticky; top: 0; z-index: 2; display: flex; gap: 4px; flex-wrap: wrap; margin: 14px -40px 18px; padding: 10px 40px 0; border-bottom: 1px solid var(--hair); background: var(--pop-bg); }
-/* covers the page's top padding, so nothing scrolls into view above the sticky tabs */
-.ag-tabs::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 64px; background: var(--pop-bg); }
+/* No top padding in the agent editor, so nothing scrolls into view above its sticky tabs. */
+.ui.agents .main { padding-top: 0; }
+.ui.agents .ag-top { padding-top: 30px; }
 .ag-tabs button { height: 40px; padding: 0 14px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted); font: 500 14.5px var(--font-ui); cursor: pointer; }
 .ag-tabs button:hover { color: var(--bright); }
 .ag-tabs button.on { color: var(--bright); border-bottom-color: var(--cyan); }
@@ -754,5 +757,24 @@ input.key:focus { outline: none; border-color: var(--cyan); }
   .cmds li { flex-wrap: wrap; }
   .ui .rows.form select { width: 200px; }
 }
+/* other devices: a tab for each, and their HUD shown here */
+#machines { display: flex; gap: 6px; flex-wrap: wrap; padding-left: 18px; border-left: 1px solid var(--line); }
+#machines[hidden] { display: none; }
+.mtab { display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; border: 1px solid var(--line); background: rgba(var(--rgb), 0.03); color: var(--muted); font: var(--lab) var(--mono); letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer; }
+.mtab i { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
+.mtab.relay i { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+.mtab.off i { background: var(--faint); box-shadow: none; }
+.mtab.on { color: var(--bright); border-color: var(--cyan); background: rgba(var(--rgb), 0.14); }
+#remote-note { margin-top: 6px; font: var(--lab) var(--mono); letter-spacing: 0.12em; color: var(--amber); }
+#remote-note:empty { display: none; }
+body.remote #nav a[data-view="history"], body.remote #nav a[data-view="memory"], body.remote #nav a[data-view="settings"], body.remote #nav a[data-view="music"] { display: none; }
+/* Another device's agents: editable, but its training, files and code switch stay on that device. */
+body.remote #a-tabs [data-at="training"], body.remote #a-export, body.remote #a-import, body.remote #a-maint { display: none; }
+body.remote #a-edit li:has(#a-maint) { display: none; }
+#crew .mate.group .ring { stroke-dasharray: 0.9 0.6; }
+#crew .mate.group .core { opacity: 0.35; }
+body.focus[data-view="cc"] #crew .mate.pop { animation: crewpop .55s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--i) * .06s); }
+@keyframes crewpop { from { opacity: 0; transform: scale(.25); } to { opacity: 1; transform: none; } }
+
 /* A hidden window keeps nothing moving. */
 body.asleep *, body.asleep *::before, body.asleep *::after { animation-play-state: paused !important; }

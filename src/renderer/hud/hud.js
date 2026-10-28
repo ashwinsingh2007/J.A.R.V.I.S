@@ -9,8 +9,21 @@
   const T0 = performance.now();
 
   // ---------- native bridge ----------
-  function post(msg) {
+  function postLocal(msg) {
     try { window.webkit.messageHandlers.jarvis.postMessage(msg); } catch (e) { /* not in WKWebView */ }
+  }
+  // While another device's tab is open, what is typed and what is changed in its agents goes to it.
+  const REMOTE_ACTS = new Set(['assistant', 'assistant-update', 'assistant-create', 'assistant-delete', 'assistant-reset', 'assistant-try']);
+  let machine = '';   // '' is this device; otherwise the id of the device whose tab is open
+  const views = { '': {} };        // device id ('' = this one) -> { event type: latest event }
+  let devList = [], devName = '';  // paired devices, and this device's name
+  let popping = false;             // the crew being rebuilt because a group node opened
+  function post(msg) {
+    if (machine && msg && msg.type === 'action') {
+      if (msg.name === 'type') return postLocal({ type: 'action', name: 'dev:say', device: machine, text: msg.text });
+      if (REMOTE_ACTS.has(msg.name)) return postLocal({ type: 'action', name: 'dev:act', device: machine, action: msg });
+    }
+    postLocal(msg);
   }
 
   // ---------- palette / states ----------
@@ -222,7 +235,38 @@
     { id: 'vision', name: 'VISION', tier: 'NO CLAUDE NEEDED', about: "Runs on Google's Gemini, with a free tier.", needs: 'A Gemini API key' },
   ];
   let current = 'jarvis';
-  const hubsFor = () => assistants.filter((a) => a.id !== current).slice(0, SLOTS.length).map((a, i) => ({ nx: SLOTS[i].x, ny: SLOTS[i].y, ...SLOTS[i], id: a.id, name: a.name, role: a.tier, about: a.about, needs: a.needs, color: a.color }));
+  // The nodes around the core. 'main': the built-in agents, a Custom node when there are custom agents,
+  // and a Devices node when other computers are paired. A group node opens (explodes) into its members
+  // and a node back: custom agents with a System node; one node per device; a device's built-in agents
+  // with one node for its custom agents. Another device's agent opens that device's tab.
+  let crewGroup = 'main';
+  const groupNode = (group, name, role, about = '') => ({ id: 'g-' + group.replace(/[^\w-]/g, '_'), group, name, role, about });
+  const agentNode = (a, dev) => ({ id: dev ? `r-${dev}-${a.id}` : a.id, agent: a.id, device: dev || '', name: a.name, role: a.tier, about: a.about, needs: a.needs, color: a.color });
+  // Only the first four slots show in the normal view: group and back nodes take those first, so they
+  // can always be clicked; the agents that don't fit there show in full mode.
+  const place = (agents, groups) => { const k = Math.max(0, 4 - groups.length); return [...agents.slice(0, k), ...groups, ...agents.slice(k)]; };
+  function crewItems() {
+    const others = assistants.filter((a) => a.id !== current);
+    const builtIn = others.filter((a) => !a.custom), custom = others.filter((a) => a.custom);
+    const devs = machine ? [] : remoteDevices();
+    const sys = groupNode('main', 'SYSTEM', 'BUILT-IN AGENTS');
+    if (crewGroup === 'custom') return place(custom.map((a) => agentNode(a)), [sys]);
+    if (crewGroup === 'devices') return place(devs.map((d) => groupNode('device:' + d.id, d.name.toUpperCase(), (d.os || 'DEVICE').toUpperCase(), d.via)), [sys]);
+    const dm = /^(device|dcustom):(.+)$/.exec(crewGroup);
+    if (dm) {
+      const d = devs.find((x) => x.id === dm[2]);
+      if (!d) { crewGroup = 'main'; return crewItems(); }
+      const rest = d.list.filter((a) => a.id !== d.current);
+      if (dm[1] === 'dcustom') return place(rest.filter((a) => a.custom).map((a) => agentNode(a, d.id)), [groupNode('device:' + d.id, d.name.toUpperCase(), 'BACK')]);
+      return place(rest.filter((a) => !a.custom).map((a) => agentNode(a, d.id)), [
+        ...(rest.some((a) => a.custom) ? [groupNode('dcustom:' + d.id, 'CUSTOM', `${d.name.toUpperCase()} · ${rest.filter((a) => a.custom).length} AGENTS`)] : []),
+        groupNode('devices', 'DEVICES', 'BACK')]);
+    }
+    return place(builtIn.map((a) => agentNode(a)), [
+      ...(custom.length ? [groupNode('custom', 'CUSTOM', `${custom.length} AGENT${custom.length > 1 ? 'S' : ''}`)] : []),
+      ...(devs.length ? [groupNode('devices', 'DEVICES', `${devs.length} CONNECTED`)] : [])]);
+  }
+  const hubsFor = () => crewItems().slice(0, SLOTS.length).map((a, i) => ({ nx: SLOTS[i].x, ny: SLOTS[i].y, ...SLOTS[i], ...a }));
   let HUBS = hubsFor();
   const crew = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   crew.id = 'crew';
@@ -305,7 +349,7 @@
       const d = pts.length > 1 ? curve(pts) : '';
       const sparks = d ? [0, 1].map((k) => `<circle class="spark" r="0.6"><animateMotion dur="${f(2.4 + pts.length * 0.35)}s" begin="${f(k * 1.3 + rnd())}s" repeatCount="indefinite" path="${d}"/></circle>`).join('') : '';
       const right = h.x >= 0, lx = h.x + (right ? 5.5 : -5.5), anchor = right ? 'start' : 'end';
-      return `<g class="mate${h.extra ? ' extra' : ''}" id="crew-${h.id}" data-id="${h.id}" style="--i:${n};--hx:${h.x};--hy:${h.y};--nx:${h.nx};--ny:${h.ny}${/^#[0-9a-f]{6}$/i.test(h.color || '') ? `;--cyan:${h.color}` : ''}">`
+      return `<g class="mate${h.extra ? ' extra' : ''}${h.group ? ' group' : ''}${popping ? ' pop' : ''}" id="crew-${h.id}" data-id="${h.id}" style="--i:${n};--hx:${h.x};--hy:${h.y};--nx:${h.nx};--ny:${h.ny}${/^#[0-9a-f]{6}$/i.test(h.color || '') ? `;--cyan:${h.color}` : ''}">`
         + (d ? `<path class="fire" d="${d}" style="--d:${f(rnd())}s"/>` : '') + sparks
         + `<circle class="hit" cx="${f(h.x)}" cy="${f(h.y)}" r="7"/><circle class="aura" cx="${f(h.x)}" cy="${f(h.y)}" r="5.6"/><circle class="halo" cx="${f(h.x)}" cy="${f(h.y)}" r="3.4"/><circle class="ring" cx="${f(h.x)}" cy="${f(h.y)}" r="2.1"/><circle class="core" cx="${f(h.x)}" cy="${f(h.y)}" r="1.05"/>`
         + `<text class="nm" text-anchor="${anchor}" x="${f(lx)}" y="${f(h.y - 0.3)}">${h.name}</text>`
@@ -770,7 +814,8 @@
     // Say so up front when its brain isn't set up here (main checks again when SWITCH is pressed).
     const st = ((assistants.find((x) => x.id === id) || {}).settings) || {};
     const notHere = st.brainProvider && st.brainProvider !== 'auto' && env.ready && env.ready[st.brainProvider] === false;
-    $('spot-hint').textContent = notHere ? `NEEDS ${String(h.needs).toUpperCase()}, NOT SET UP ON THIS MAC · SETTINGS › BRAINS & KEYS` : `NEEDS ${String(h.needs).toUpperCase()} · SAME MEMORY AND CONVERSATION`;
+    const where = machine ? ` ON ${machineName(machine).toUpperCase()}` : ' ON THIS MAC';
+    $('spot-hint').textContent = notHere ? `NEEDS ${String(h.needs).toUpperCase()}, NOT SET UP${where} · SETTINGS › BRAINS & KEYS` : `NEEDS ${String(h.needs).toUpperCase()} · SAME MEMORY AND CONVERSATION`;
     $('spot-hint').classList.toggle('bad', !!notHere);
     $('spot-go').textContent = `SWITCH TO ${h.name}`;
     $('spot-go').disabled = false;
@@ -784,10 +829,24 @@
     $('spot').hidden = true;
     armFocus();
   }
+  /** Open a group node: its members burst out of the core. */
+  function openGroup(group) {
+    if (spotted) unspot();
+    crewGroup = group;
+    popping = true;
+    HUBS = hubsFor();
+    crew.innerHTML = buildCrew();
+    popping = false;
+  }
   crew.addEventListener('click', (ev) => {
     const m = ev.target.closest('.mate');
     if (!m) return;
     ev.stopPropagation();
+    const h = HUBS.find((x) => x.id === m.dataset.id);
+    if (!h) return;
+    if (h.group) { openGroup(h.group); return; }
+    // Another device's agent: open its tab, with that agent in the spotlight.
+    if (h.device) { const dev = h.device, a = h.agent; showMachine(dev); const ag = assistants.find((x) => x.id === a); crewGroup = ag && ag.custom ? 'custom' : 'main'; HUBS = hubsFor(); crew.innerHTML = buildCrew(); spot(a); return; }
     if (m.dataset.id === spotted) return;
     spot(m.dataset.id);
   });
@@ -904,7 +963,7 @@
     document.querySelectorAll('#nav a').forEach((a) => a.classList.toggle('active', a.dataset.view === v));
     if (v === 'cc') resize();
     if (v === 'history') { const c = $('chat'); c.scrollTop = c.scrollHeight; }
-    if (v === 'agents' || v === 'settings') post({ type: 'action', name: 'ext:list' });   // the skills and servers to tick
+    if ((v === 'agents' && !machine) || v === 'settings') post({ type: 'action', name: 'ext:list' });   // the skills and servers to tick
   }
   document.querySelectorAll('#nav a').forEach((a) => a.addEventListener('click', () => showView(a.dataset.view)));
   if (location.hash.length > 1 && document.getElementById('v-' + location.hash.slice(1))) setTimeout(() => showView(location.hash.slice(1)), 4500);
@@ -1283,9 +1342,78 @@
   }
 
   // ---------- events from native ----------
+  // ---------- other devices: their tabs and their HUD ----------
+  // Events that make up a device's HUD. This device's are kept while another device's tab is open, and
+  // shown again when it closes; another device's arrive as 'remote' and are kept per device.
+  const MIRRORED = ['info', 'stats', 'system', 'state', 'ext', 'assistants', 'assistant', 'sessions', 'conversation', 'assistant-error', 'assistant-try'];
+  const machineName = (id) => (devList.find((d) => d.id === id) || {}).name || 'Other device';
+  /** Paired devices whose HUD we have, with their agents, for the Devices node. */
+  function remoteDevices() {
+    return devList.map((d) => {
+      const a = (views[d.id] || {}).assistants || {};
+      return { id: d.id, name: d.name, os: d.os, via: d.via, list: Array.isArray(a.list) ? a.list : [], current: a.id || '' };
+    }).filter((d) => d.list.length);
+  }
+  function renderMachines() {
+    const bar = $('machines');
+    bar.hidden = !devList.length;
+    const tab = (id, name, sub, cls) => {
+      const b = document.createElement('button');
+      b.className = 'mtab' + (id === machine ? ' on' : '') + (cls ? ' ' + cls : '');
+      b.dataset.device = id;
+      b.innerHTML = '<i></i>';
+      b.append(document.createTextNode(name));
+      b.title = sub;
+      b.addEventListener('click', () => showMachine(id));
+      return b;
+    };
+    bar.replaceChildren(tab('', devName ? `${devName} (this)` : 'This device', 'This device'),
+      ...devList.map((d) => tab(d.id, d.name, `${d.os || ''} · ${{ 'local network': 'on your Wi-Fi', direct: 'connected directly', relay: 'through the relay', offline: 'not reachable' }[d.via] || d.via}`, d.via === 'relay' ? 'relay' : d.via === 'offline' ? 'off' : 'live')));
+  }
+  /** Show a device's HUD: this one ('') or a paired one. */
+  function showMachine(id) {
+    if (id && !devList.some((d) => d.id === id)) id = '';
+    if (spotted) unspot();
+    machine = id;
+    crewGroup = 'main';
+    body.classList.toggle('remote', !!id);
+    if (id && ['history', 'memory', 'settings', 'music'].includes(body.dataset.view)) showView('cc');
+    const v = views[id] || {};
+    for (const t of MIRRORED) if (v[t] && !/^assistant-(error|try)$/.test(t)) dispatch(v[t]);
+    if (id) {
+      const d = devList.find((x) => x.id === id);
+      // Over the relay there is no live stream: load the view once, and again with the tab.
+      if (!d || d.via !== 'local network' && d.via !== 'direct') postLocal({ type: 'action', name: 'dev:view', device: id });
+      $('remote-note').textContent = !v.assistants ? `Loading ${machineName(id)}…` : d && (d.via === 'local network' || d.via === 'direct') ? '' : `${machineName(id)} isn't connected directly, so this is its latest state. Open the tab again to refresh.`;
+    } else $('remote-note').textContent = '';
+    renderMachines();
+  }
+  function onRemote(e) {
+    const v = views[e.device] || (views[e.device] = {});
+    const evs = e.snap ? Object.values(e.snap) : e.e ? [e.e] : [];
+    for (const x of evs) if (x && x.type && MIRRORED.includes(x.type)) { v[x.type] = x; if (machine === e.device) dispatch(x); }
+    if (machine === e.device) $('remote-note').textContent = '';
+    // Its agents feed the Devices node on this device's HUD.
+    if (!machine && evs.some((x) => x && x.type === 'assistants') && crewGroup !== 'main') { HUBS = hubsFor(); crew.innerHTML = buildCrew(); }
+    else if (!machine && evs.some((x) => x && x.type === 'assistants') && !HUBS.some((h) => h.group === 'devices') && remoteDevices().length) { HUBS = hubsFor(); crew.innerHTML = buildCrew(); }
+  }
+
   window.hud = {
     event(e) {
       if (!e || !e.type) return;
+      if (e.type === 'remote') { onRemote(e); return; }
+      if (e.type === 'devices') {
+        devList = e.list || []; devName = e.name || '';
+        if (machine && !devList.some((d) => d.id === machine)) showMachine('');
+        renderMachines();
+        if (!machine) { HUBS = hubsFor(); crew.innerHTML = buildCrew(); }
+      }
+      if (MIRRORED.includes(e.type)) { views[''][e.type] = e; if (machine) return; }
+      dispatch(e);
+    },
+  };
+  function dispatch(e) {
+    {
       switch (e.type) {
         case 'state': setState(e.state); break;
         case 'mode': setMode(e); break;
@@ -1337,8 +1465,8 @@
           renderHistory(); break;
         }
       }
-    },
-  };
+    }
+  }
 
   // ---------- background music (Home block + MUSIC tab) ----------
   let musicOn = false, musicId = '', musicSrc = 'radio', stations = [], musicCredit = '', ytPresets = [];

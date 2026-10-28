@@ -402,8 +402,48 @@ function startDevices() {
   devices.on('change', () => sendDevices());
   devices.on('pair', (e) => { sendDevices({ pair: e }); if (e.state === 'paired') { hud.send('notice', { text: `Paired with ${e.name}.` }); orch.speaker.speak(`Paired with ${e.name}, ${cfg.honorific}.`); } });
   devices.on('task', runPeerTask);
+  mirrorHud();
+  // Another device's HUD, shown here in its tab.
+  devices.on('remote', (p, d) => hud && hud.send('remote', { device: p.id, ...d }));
+  // Typed in this device's tab on another of the user's devices: a turn here, read there.
+  devices.on('say', (p, text) => { log(`devices: ${p.name} typed '${text.slice(0, 60)}'`); orch.action('peer-type', { text, from: p.name }); });
+  devices.on('act', (p, a) => remoteAct(p, a));
   devices.start().catch((e) => log(`devices: couldn't start: ${e.message}`));
   serveInbox();
+}
+
+// The HUD events another device needs to show this one: system and services, the core and its state,
+// the agents, sessions, and the conversation on the right. Never memory, history, settings or music.
+const MIRROR = new Set(['state', 'system', 'stats', 'info', 'sessions', 'assistants', 'assistant', 'assistant-error', 'assistant-try', 'conversation', 'ext']);
+function mirrorHud() {
+  const send = hud.send.bind(hud), raw = hud.sendRaw.bind(hud);
+  const tap = (e) => {
+    if (!MIRROR.has(e.type) || !devices) return;
+    // An agent's training is its own memory, so it stays here.
+    if (e.type === 'assistants' && Array.isArray(e.list)) e = { ...e, list: e.list.map(({ memory: _m, ...a }) => a), edit: undefined };
+    devices.mirror(e);
+  };
+  hud.send = (type, payload = {}) => { send(type, payload); tap({ ...payload, type }); };
+  hud.sendRaw = (type, data) => { raw(type, data); tap({ type, data }); };
+  sendAssistants();
+  orch.sendConversation();
+  orch.sendStats();
+  // The skills and servers here, for editing this device's agents from another one.
+  try { hud.send('ext', { skills: require('./skills').catalog().map(({ path: _p, ...x }) => x), mcp: require('./mcp').list(), markets: [] }); } catch {}
+  sendDevices();
+}
+
+/**
+ * What another device's tab may change here: switch the agent, and change, add, delete, reset or try
+ * agents. Never whether an agent may change JARVIS's code: that is only set on the machine itself.
+ */
+const REMOTE_ACTS = new Set(['assistant', 'assistant-update', 'assistant-create', 'assistant-delete', 'assistant-reset', 'assistant-try']);
+function remoteAct(p, a) {
+  const name = String(a.name || '');
+  if (!REMOTE_ACTS.has(name)) { log(`devices: ${p.name} asked for '${name.slice(0, 40)}', which isn't allowed from another device`); return; }
+  const { maintainer: _m, type: _t, name: _n, ...body } = a;
+  log(`devices: ${p.name}: ${name}`);
+  orch.action(name, body);
 }
 
 /**
@@ -468,6 +508,10 @@ async function devicesAction(name, msg = {}) {
   if (!devices) return;
   const err = (text) => sendDevices({ error: text });
   if (name === 'dev:list') return sendDevices();
+  // This HUD showing another device: type to it, change its agents, or load its view through the relay.
+  if (name === 'dev:say') { const e = await devices.sayTo(msg.device, msg.text); return e ? err(e) : null; }
+  if (name === 'dev:act') { const e = await devices.actOn(msg.device, msg.action || {}); return e ? err(e) : null; }
+  if (name === 'dev:view') { const r = await devices.fetchView(msg.device); if (!r.ok) err(r.text); return; }
   if (name === 'dev:name') { const e = devices.setName(msg.value); return e ? err(e) : sendDevices({ done: 'Saved.' }); }
   if (name === 'dev:relay') { const e = devices.setRelay({ on: msg.on, url: msg.url }); return e ? err(e) : sendDevices({ done: 'Saved.' }); }
   if (name === 'dev:remove') { const e = devices.remove(String(msg.id || '')); return e ? err(e) : sendDevices({ done: 'Removed.' }); }

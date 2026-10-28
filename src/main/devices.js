@@ -14,7 +14,13 @@
 // Messages are JSON frames: hello, status?, status, task, progress, result. A task from another device
 // runs here as a background job (main.js), and its result goes back the way it came.
 //
-// events: 'change' (the list or a connection changed), 'task' (peer, frame), 'pair' ({ state, ... })
+// Another device's HUD can show this one's: over a direct connection it 'watch'es and gets a snapshot
+// ('snap') of the HUD events listed in MIRROR, then each new one ('ev'). Over the relay, which has a
+// daily limit, it asks for a snapshot ('get') instead. It can also type to this JARVIS ('say') and
+// change its agents ('act'); main.js decides what it may do.
+//
+// events: 'change' (the list or a connection changed), 'task' (peer, frame), 'pair' ({ state, ... }),
+//         'remote' (peer, { snap } | { e }), 'say' (peer, text), 'act' (peer, action)
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -25,7 +31,7 @@ const { log } = require('./util');
 
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const PAIR_MINUTES = 3;
-const MAX_FRAME = 256 * 1024;
+const MAX_FRAME = 4 * 1024 * 1024;  // a whole HUD snapshot (conversation included) fits
 const RELAY_PART = 3000;            // characters of ciphertext per relay message (ntfy's limit is 4 KB)
 const RELAY_MAX_AGE = 15 * 60000;   // older relay messages are replays or stale
 // Node tries each address for only 250 ms before the next; a relay half the world away takes longer
@@ -115,6 +121,9 @@ class Devices extends EventEmitter {
     this.relayAbort = null;
     this.topics = new Map();     // peer id -> its swarm discovery
     this.refresher = null;
+    this.mirrorCache = {};       // HUD event type -> its latest payload, for another device's view
+    this.watchers = new Set();   // peer ids watching this device's HUD
+    this.mirrorTimers = new Map();
   }
 
   // ---------- state ----------
@@ -227,9 +236,10 @@ class Devices extends EventEmitter {
     const old = this.conns.get(p.id);
     if (old && old !== conn) old.destroy();
     this.conns.set(p.id, conn);
-    conn.on('close', () => { if (this.conns.get(p.id) === conn) { this.conns.delete(p.id); this.emit('change'); } });
+    conn.on('close', () => { if (this.conns.get(p.id) === conn) { this.conns.delete(p.id); this.watchers.delete(p.id); this.emit('change'); } });
     frames(conn, (f) => this.onFrame(p, f));
     send(conn, this.hello());
+    send(conn, { t: 'watch', on: true });
     p.lastSeen = new Date().toISOString().slice(0, 16);
     log(`devices: connected to ${p.name}`);
     this.emit('change');
@@ -306,9 +316,10 @@ class Devices extends EventEmitter {
     this.emit('pair', { state: 'paired', name });
     // The pairing connection carries on as the pair's connection.
     this.conns.set(id, conn);
-    conn.on('close', () => { if (this.conns.get(id) === conn) { this.conns.delete(id); this.emit('change'); } });
+    conn.on('close', () => { if (this.conns.get(id) === conn) { this.conns.delete(id); this.watchers.delete(id); this.emit('change'); } });
     frames(conn, (f) => { const p = this.peer(id); if (p) this.onFrame(p, f); });
     send(conn, this.hello());
+    send(conn, { t: 'watch', on: true });
     this.emit('change');
   }
 
@@ -358,11 +369,48 @@ class Devices extends EventEmitter {
     } else if (f.t === 'status' || f.t === 'result') {
       const w = this.pending.get(f.id);
       if (w && w.peer === p.id) { clearTimeout(w.timer); this.pending.delete(f.id); w.resolve(f); }
+    } else if (f.t === 'watch') {
+      // Live updates only over a direct connection; the relay would run out of messages.
+      if (f.on && this.conns.get(p.id)) { this.watchers.add(p.id); this.deliver(p, { t: 'snap', events: this.snapshot() }); } else this.watchers.delete(p.id);
+    } else if (f.t === 'get') {
+      this.deliver(p, { t: 'snap', id: f.id, events: this.snapshot({ small: !this.conns.get(p.id) }) });
+    } else if (f.t === 'snap' || f.t === 'ev') {
+      if (f.t === 'snap' && f.id && this.pending.has(f.id)) { const w = this.pending.get(f.id); clearTimeout(w.timer); this.pending.delete(f.id); w.resolve(f); }
+      this.emit('remote', p, f.t === 'snap' ? { snap: f.events || {} } : { e: f.e });
+    } else if (f.t === 'say') {
+      this.emit('say', p, String(f.text || '').slice(0, 4000));
+    } else if (f.t === 'act') {
+      if (f.action && typeof f.action === 'object') this.emit('act', p, f.action);
     } else if (f.t === 'progress') {
       const w = this.pending.get(f.id);
       if (w && w.onProgress) w.onProgress(String(f.text || '').slice(0, 200));
     }
   }
+
+  // ---------- this device's HUD, for the others ----------
+
+  /** A HUD event this device just showed: kept for snapshots and passed to watchers, at most every 400 ms per type. */
+  mirror(e) {
+    this.mirrorCache[e.type] = e;
+    if (!this.watchers.size || this.mirrorTimers.has(e.type)) return;
+    this.mirrorTimers.set(e.type, setTimeout(() => {
+      this.mirrorTimers.delete(e.type);
+      const last = this.mirrorCache[e.type];
+      for (const id of this.watchers) { const c = this.conns.get(id); if (c) send(c, { t: 'ev', e: last }); else this.watchers.delete(id); }
+    }, 400));
+  }
+
+  /** The latest of each mirrored event. small: for the relay, with only the end of the conversation. */
+  snapshot({ small = false } = {}) {
+    const out = { ...this.mirrorCache };
+    if (small && out.conversation && Array.isArray(out.conversation.entries)) out.conversation = { ...out.conversation, entries: out.conversation.entries.slice(-8) };
+    return out;
+  }
+
+  /** Another device's HUD, once (for when it's only reachable through the relay). */
+  fetchView(idOrName) { return this.request(idOrName, { t: 'get' }, { timeout: 30000 }); }
+  sayTo(idOrName, text) { const p = this.peer(idOrName); return p ? this.deliver(p, { t: 'say', text: String(text).slice(0, 4000) }) : Promise.resolve('No such device.'); }
+  actOn(idOrName, action) { const p = this.peer(idOrName); return p ? this.deliver(p, { t: 'act', action }) : Promise.resolve('No such device.'); }
 
   /** Set by main.js: what this device is doing, for another device's "status". */
   statusOf() {
