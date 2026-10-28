@@ -924,8 +924,18 @@
   function coreLabel() {
     const me = assistants.find((a) => a.id === current) || assistants[0];
     const dm = /^(device|dcustom):(.+)$/.exec(crewGroup);
-    const name = crewGroup === 'devices' ? 'MESH' : crewGroup === 'custom' || (dm && dm[1] === 'dcustom') ? 'FORGE' : dm ? machineName(dm[2]).toUpperCase() : me ? me.name : 'JARVIS';
+    // A computer opened from MESH: its agent in use in the core, with the computer's name under it.
+    let name = me ? me.name : 'JARVIS', sub = '';
+    if (crewGroup === 'devices') name = 'MESH';
+    else if (crewGroup === 'custom') name = 'FORGE';
+    else if (dm) {
+      const d = remoteDevices().find((x) => x.id === dm[2]);
+      const cur = d && d.list.find((a) => a.id === d.current);
+      name = dm[1] === 'dcustom' ? 'FORGE' : cur ? cur.name : 'JARVIS';
+      sub = machineName(dm[2]).toUpperCase();
+    }
     document.querySelector('.corelabel .jv').textContent = name;
+    $('jv-sub').textContent = sub;
     body.classList.toggle('grouped', crewGroup !== 'main');
   }
   let openedFrom = null;   // set by a click: where the burst starts (the core, once the node got there)

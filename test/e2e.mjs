@@ -1194,6 +1194,7 @@ async function testDevices() {
   if (devNode) await ha.evaluate((id) => document.getElementById('crew-' + id).dispatchEvent(new MouseEvent('click', { bubbles: true })), devNode);
   await sleep(900);
   const remoteAgents = await ha.evaluate(() => [...document.querySelectorAll('#crew .mate')].map((m) => m.dataset.id).filter((id) => id.startsWith('r-')));
+  check('its agent in use in the core, with the computer named under it', await ha.evaluate(() => document.querySelector('.corelabel .jv').textContent === 'FRIDAY' && /HOME MAC/.test(document.getElementById('jv-sub').textContent)));
   check('and that device into its agents (not FRIDAY, who is in use there)', remoteAgents.length >= 3 && !remoteAgents.some((id) => id.endsWith('-friday')), remoteAgents.join(','));
   await shot(ha, 'devices-nodes');
   // Clicking one of its agents opens its tab, with that agent in the spotlight.
