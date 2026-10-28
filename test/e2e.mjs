@@ -911,6 +911,13 @@ async function testHud() {
   await shot(hud, 'hud-skills');
   await hud.click('#setnav [data-section="extensions"]');
   await shot(hud, 'hud-skills-mcp');
+  // Settings › Devices: a pairing code, from the peer-to-peer network inside the packaged app
+  await hud.click('#setnav [data-section="devices"]');
+  await hud.click('#d-host');
+  await hud.waitForFunction(() => /^[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(document.getElementById('d-code').textContent), null, { timeout: 30000 }).catch(() => {});
+  check('Devices shows a pairing code', /^[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(await text(hud, '#d-code')), await text(hud, '#d-note'));
+  await shot(hud, 'hud-devices');
+  await hud.click('#d-cancel');
   await hud.click('#nav a[data-view="agents"]');
   await sleep(400);
   const back = s.mark();

@@ -11,7 +11,7 @@ cd "$(dirname "$0")"
 rm -rf dist JARVIS.app
 npx @electron/packager . JARVIS \
   --platform=darwin --arch="$(uname -m | sed 's/x86_64/x64/')" \
-  --out=dist --overwrite --asar \
+  --out=dist --overwrite --asar --asar.unpack="**/*.node" \
   ${ELECTRON_ZIP_DIR:+--electron-zip-dir="$ELECTRON_ZIP_DIR"} \
   --icon=assets/AppIcon.icns \
   --app-bundle-id=io.github.jarvis-voice \

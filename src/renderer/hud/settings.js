@@ -7,7 +7,7 @@
   const $ = (id) => document.getElementById(id);
   const post = (msg) => { try { window.webkit.messageHandlers.jarvis.postMessage(msg); } catch (e) { /* demo */ } };
   const ask = (name, extra = {}) => post({ type: 'action', name, ...extra });
-  const TITLES = { general: 'General', look: 'Appearance', brain: 'Brains & keys', skills: 'Skills', extensions: 'MCP servers', access: 'Access', ears: 'Listening', voice: 'Voice', extras: 'Telegram & extras', system: 'System' };
+  const TITLES = { general: 'General', look: 'Appearance', brain: 'Brains & keys', skills: 'Skills', extensions: 'MCP servers', devices: 'Devices', access: 'Access', ears: 'Listening', voice: 'Voice', extras: 'Telegram & extras', system: 'System' };
 
   let info = null;           // setupInfo() from main: cfg (secrets as has_*), found, installed, brain, workerAvailable
   let page = '';
@@ -37,6 +37,7 @@
     ask('cfg:info');
     if (section === 'access') ask('cfg:perms', { op: 'state' });
     if (section === 'extensions' || section === 'skills') ask('ext:list');
+    if (section === 'devices') ask('dev:list');
     if (section === 'brain') ask('cfg:ollama', { action: 'state', url: $('b-ol-url').value.trim() || undefined });
     syncRows();
   }
@@ -224,8 +225,51 @@
       }
       case 'cfg-error': msg(page === 'extras' ? 'x-msg' : 'b-msg', e.msg || 'Something went wrong.', 'bad'); break;
       case 'settings': syncRows(); break;
+      case 'devices': renderDevices(e); break;
     }
   }
+
+  // ---------- devices ----------
+
+  function dNote(text, bad) { $('d-note').textContent = text || ''; $('d-note').className = 'note' + (bad ? ' bad' : text ? ' ok' : ''); }
+  function renderDevices(e) {
+    if (e.error) dNote(e.error, true); else if (e.done) dNote(e.done);
+    if (document.activeElement !== $('d-name')) $('d-name').value = e.name || '';
+    $('d-relay').checked = !!(e.relay && e.relay.on);
+    if (document.activeElement !== $('d-relay-url')) $('d-relay-url').value = (e.relay && e.relay.url) || '';
+    const list = e.list || [];
+    $('d-count').textContent = list.length ? String(list.length) : '';
+    $('sc-devices').textContent = list.length ? `${list.length} paired` : 'Your other computers';
+    const VIA = { 'local network': ['Connected on your Wi-Fi', 'ok'], direct: ['Connected directly', 'ok'], relay: ['Through the relay', 'warn'], offline: ['Not reachable', 'bad'] };
+    $('d-list').replaceChildren(...(list.length ? list.map((d) => {
+      const li = document.createElement('li');
+      const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = d.name;
+      const ds = document.createElement('span'); ds.className = 'ds'; ds.textContent = `${d.os || ''}${d.lastSeen ? ` · last seen ${d.lastSeen.replace('T', ' ')}` : ''}`;
+      const st = document.createElement('i'); const [label, cls] = VIA[d.via] || [d.via, '']; chip(st, label, cls);
+      const rm = document.createElement('button'); rm.className = 'btn small'; rm.textContent = 'Remove';
+      rm.addEventListener('click', () => { if (confirm(`Unpair ${d.name}? It won't be able to send tasks here, or get them from here. Unpair it on that device too.`)) ask('dev:remove', { id: d.id }); });
+      li.append(nm, ds, st, rm);
+      return li;
+    }) : [Object.assign(document.createElement('li'), { className: 'empty', textContent: 'No other devices yet' })]));
+    // Pairing: a code being shown, waiting for the other side, or done.
+    const p = e.pair || null;
+    if (p && p.state === 'waiting') {
+      $('d-pairing').hidden = false; $('d-pair-start').hidden = true;
+      $('d-code').textContent = p.code || '';
+      $('d-code').hidden = !p.code;
+      $('d-pair-msg').textContent = p.role === 'host' ? `Type this code in JARVIS on the other device, under Settings › Devices. It works for ${p.minutes} minutes.` : 'Looking for the other device…';
+    } else if (p || !e.pairing) {
+      $('d-pairing').hidden = true; $('d-pair-start').hidden = false;
+      if (p && p.state === 'paired') { dNote(`Paired with ${p.name}.`); $('d-join-code').value = ''; }
+      if (p && p.state === 'expired') dNote('The pairing code ran out. Show a new one.', true);
+    }
+  }
+  $('d-host').addEventListener('click', () => { dNote('Getting a code…'); ask('dev:host'); });
+  $('d-join').addEventListener('click', () => { const code = $('d-join-code').value.trim(); if (!code) return; dNote('Looking for the other device…'); ask('dev:join', { code }); $('d-pairing').hidden = false; $('d-pair-start').hidden = true; $('d-code').hidden = true; $('d-pair-msg').textContent = 'Looking for the other device…'; });
+  $('d-cancel').addEventListener('click', () => { ask('dev:cancel'); dNote(''); });
+  $('d-name-save').addEventListener('click', () => ask('dev:name', { value: $('d-name').value }));
+  $('d-relay').addEventListener('change', () => ask('dev:relay', { on: $('d-relay').checked }));
+  $('d-relay-save').addEventListener('click', () => ask('dev:relay', { url: $('d-relay-url').value }));
 
   function flash(text, ok) {
     const p = document.querySelector(`.sp[data-page="${page}"]`);

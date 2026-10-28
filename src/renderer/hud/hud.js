@@ -1323,6 +1323,7 @@
         case 'theme': jarvisTheme.apply(e.theme, e.mode); break;
         case 'settings': setSettings(e); if (window.jarvisSettings) window.jarvisSettings.event(e); break;
         case 'open-settings': if (e.section === 'assistant') { showView('agents'); break; } showView('settings'); if (window.jarvisSettings) window.jarvisSettings.open(e.section || ''); break;
+        case 'devices': if (window.jarvisSettings) window.jarvisSettings.event(e); break;
         default: if (/^cfg-/.test(e.type) && window.jarvisSettings) window.jarvisSettings.event(e);
         case 'boot': bootSignal(); break;
         case 'panel': addPanel(e.title, e.html); break;
