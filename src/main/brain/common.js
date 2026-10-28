@@ -68,6 +68,7 @@ function agentBlock(cfg) {
   if (focus) out += `\n\nYOUR ROLE: ${focus} This is your focus, not a limit: you still do anything the user asks. Anything that sends, posts or replies to someone still needs the user's yes first.`;
   const cmds = (a.commands || []).filter((c) => c && c.name && c.prompt);
   if (cmds.length) out += `\n\nQUICK COMMANDS the user set up for you. When they say or type one (with or without a slash), do what it says:\n${cmds.map((c) => `- "${c.name}": ${c.prompt}`).join('\n')}`;
+  if (a.maintainer) out += '\n\n' + fill(read('maintain.md', ''), cfg);
   const off = toolsOff(a);
   if (off.length) out += `\n\nSWITCHED OFF FOR YOU (the user can turn them on in the Agents tab): ${off.map((t) => TOOLS[t].label.toLowerCase()).join('; ')}. Don't try them; if a task needs one, say so in one sentence.`;
   return out;
@@ -109,8 +110,14 @@ function claudeSettings(cfg) {
   // Path rules only take effect as Edit(...); they cover Write as well.
   deny.push(`Edit(/${C.HOME}/.claude/**)`, `Edit(/${paths.root}/**)`, `Edit(/${C.STATE_DIR}/config.json)`);
   if (cfg) deny.push(...require('../mcp').denyFor(cfg));
-  // This assistant's tools and guardrails, folders it may not open included.
-  if (cfg && cfg.assistant) { const { assistantOf, denyRules } = require('../assistants'); deny.push(...denyRules(assistantOf(cfg.assistant, cfg))); }
+  // This assistant's tools and guardrails, folders it may not open included. Only a maintainer may
+  // work on JARVIS's code, and even then in a worktree, never in the checkout JARVIS runs from.
+  if (cfg && cfg.assistant) {
+    const { assistantOf, denyRules } = require('../assistants');
+    const a = assistantOf(cfg.assistant, cfg);
+    deny.push(...denyRules(a));
+    if (!a.maintainer) deny.push(`Edit(/${C.STATE_DIR}/maintain/**)`, 'Bash(*maintain.sh*)');
+  }
   const out = { permissions: { deny } };
   if (user.hooks && Array.isArray(user.hooks.PreToolUse)) out.hooks = { PreToolUse: user.hooks.PreToolUse };
   return JSON.stringify(out);
@@ -130,7 +137,9 @@ function claudeExtras(cfg) {
 function claudeDisallowed(cfg, { brain = false } = {}) {
   const { assistantOf, denyRules } = require('../assistants');
   // Path rules only hold as settings deny rules (claudeSettings), so they are left out here.
-  const off = cfg.assistant ? denyRules(assistantOf(cfg.assistant, cfg)).filter((r) => !/^(Read|Edit)\(\//.test(r)) : [];
+  const a = cfg.assistant ? assistantOf(cfg.assistant, cfg) : null;
+  const off = a ? denyRules(a).filter((r) => !/^(Read|Edit)\(\//.test(r)) : [];
+  if (a && !a.maintainer) off.push('Bash(*maintain.sh*)');
   return [`Bash(${paths.scripts}/open-session.sh*)`, 'Bash(*open-session.sh*)', ...(cfg.screenControl ? [] : ['Bash(*hands.sh*)', 'Bash(*jarvis-hands*)']),
     ...(brain ? ['WebSearch', 'WebFetch'] : []), ...off].filter((x, i, all) => all.indexOf(x) === i).join(',');
 }

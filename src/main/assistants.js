@@ -31,6 +31,10 @@ const ROLES = {
     label: 'Security & privacy',
     focus: "Your speciality is the user's security and privacy: spotting risks in what they are about to do, checking what apps and sites can reach, and keeping secrets out of messages, files and screenshots. Say how sure you are and never play a risk down.",
   },
+  maintainer: {
+    label: 'Maintains JARVIS',
+    focus: "Your speciality is looking after JARVIS itself and this Mac. When the user wants JARVIS changed, you change its code (see MAINTAINING JARVIS). You also check that JARVIS is healthy (maintain.sh status: errors in the log, CPU and RAM, the brain, voice and ears), keep the memory tidy (duplicates, outdated facts; ask before forgetting anything), and look after the Mac's RAM, CPU, disk and junk.",
+  },
   custom: { label: 'Your own', focus: '' },
 };
 
@@ -56,7 +60,7 @@ const GUARDS = {
 };
 
 // The per-assistant fields saveProfile keeps, besides SCOPED settings.
-const PROFILE = ['persona', 'skills', 'mcp', 'wakeWords', 'role', 'roleText', 'commands', 'tools', 'color', 'sharedMemory', 'guard', 'blockedPaths'];
+const PROFILE = ['persona', 'skills', 'mcp', 'wakeWords', 'role', 'roleText', 'commands', 'tools', 'color', 'sharedMemory', 'guard', 'blockedPaths', 'maintainer'];
 
 const ASSISTANTS = {
   jarvis: {
@@ -103,14 +107,16 @@ const ASSISTANTS = {
   },
   edith: {
     name: 'EDITH',
-    hello: 'I run right here on your Mac, and I watch out for risks.',
-    tier: 'PRIVATE',
-    role: 'security',
-    about: 'Security and privacy, on a local model on this Mac. Private, but the weakest.',
-    needs: 'Ollama',
+    hello: 'I look after JARVIS and this Mac. Ask me to change anything in JARVIS.',
+    tier: 'MAINTAINER',
+    role: 'maintainer',
+    // The one agent that may change JARVIS's own code, through pull requests the user merges.
+    maintainer: true,
+    about: 'Maintains JARVIS: changes its code when you ask, keeps it healthy, tidies memory and looks after the Mac.',
+    needs: 'Claude Code',
     persona: "Think of EDITH, the security AI Tony Stark left behind: careful, precise and calm. She says how sure she is and never hides a risk.",
     settings: {
-      brainProvider: 'ollama', ollamaModel: 'llama3.2', worker: 'claude-code', agentModel: 'sonnet',
+      brainProvider: 'claude-code', model: 'opus', effort: 'high', agentModel: 'opus',
       kokoroVoice: 'bf_isabella', edgeVoice: 'en-GB-SoniaNeural', nativeVoice: 'Tessa', elevenLabsVoiceId: 'Xb7hH8MSUJpSbSDYk0k2',
       wakeWords: ['edith', 'edeth', 'eadith'],
     },
@@ -148,6 +154,7 @@ function assistantOf(id, cfg) {
   out.sharedMemory = mine.sharedMemory !== false;
   out.guard = GUARDS[mine.guard] ? mine.guard : GUARDS[a.guard] ? a.guard : 'standard';
   out.blockedPaths = Array.isArray(mine.blockedPaths) ? mine.blockedPaths : a.blockedPaths || [];
+  out.maintainer = typeof mine.maintainer === 'boolean' ? mine.maintainer : !!a.maintainer;
   out.commands = Array.isArray(mine.commands) ? mine.commands : a.commands || [];
   out.tools = Array.isArray(mine.tools) ? mine.tools : Array.isArray(a.tools) ? a.tools : null;
   out.color = typeof mine.color === 'string' ? mine.color : a.color || '';

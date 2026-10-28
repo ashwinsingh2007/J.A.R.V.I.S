@@ -51,10 +51,12 @@ It has a personality, and you pick which one. There are five assistants. Each of
 | JARVIS (the default) | Balanced. Quick replies and strong background work. A calm British butler with a dry sense of humour | All-rounder | Claude Code: Sonnet, with Opus for background jobs |
 | FRIDAY | The smartest. She thinks hardest, so she takes longer to answer | Code and hard problems | Claude Code: Opus on high effort |
 | KAREN | The fastest and lightest | Communications: email, messages, WhatsApp, Telegram, LinkedIn and social media | Claude Code: Haiku, with Sonnet for background jobs |
-| EDITH | Private. Her brain runs on a local model on your Mac, and she is the weakest of the five | Security and privacy | Ollama |
+| EDITH | Careful and precise. She maintains JARVIS itself | Maintaining JARVIS and the Mac | Claude Code: Opus on high effort |
 | VISION | For when you don't have Claude | Research | Google's Gemini, which has a free tier |
 
 KAREN triages your inbox, drafts replies in your tone, keeps track of who's waiting on you and chases follow-ups. The drafting itself goes to her background worker, which runs on Sonnet. She asks before she sends, posts or replies to anyone, like every assistant.
+
+EDITH looks after JARVIS. Ask her to change something in JARVIS and she opens an issue, makes the change on its own branch in a separate git worktree, runs the checks and tests, and opens a pull request for you to review. She never merges it herself. Once you've merged it, tell her: she pulls it, builds JARVIS.app and restarts JARVIS as soon as it's idle. She also checks that JARVIS is healthy, keeps the memory tidy and looks after the Mac's RAM, CPU and disk. Only an agent with "May change JARVIS's own code" switched on in its guardrails can do this, and by default that's only EDITH. Even she can't edit the checkout JARVIS runs from, `~/.claude` or your keys. Builds use the signing identity in `~/.jarvis/build.env` (`JARVIS_SIGN_ID=…`), so macOS keeps JARVIS's permissions.
 
 Pick one in Setup, switch by clicking another one on the HUD's home screen, or say "switch to FRIDAY". Each one answers to its own name and has its own voice. Brain, model and voice changes are saved per assistant in the Agents tab. A switch waits until any running background job has finished.
 
