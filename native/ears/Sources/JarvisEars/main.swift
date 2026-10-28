@@ -114,6 +114,7 @@ enum AudioDevices {
 
 // MARK: SpeechAnalyzer (macOS 26+)
 
+#if compiler(>=6.2)
 @available(macOS 26, *)
 final class ModernTranscriber {
     var onText: ((String, Bool) -> Void)?
@@ -203,6 +204,18 @@ final class ModernTranscriber {
         }
     }
 }
+#else
+// Older SDKs lack SpeechAnalyzer; setup() throws so the legacy recogniser takes over.
+@available(macOS 26, *)
+final class ModernTranscriber {
+    var onText: ((String, Bool) -> Void)?
+    var ready: Bool { false }
+    init(locale: Locale, vocabulary: [String]) {}
+    func setup() async throws { throw NSError(domain: "JarvisEars", code: 1, userInfo: [NSLocalizedDescriptionKey: "built without the macOS 26 SDK"]) }
+    func append(_ b: AVAudioPCMBuffer) {}
+    func reset() {}
+}
+#endif
 
 func convert(_ buffer: AVAudioPCMBuffer, with conv: AVAudioConverter, to target: AVAudioFormat) -> AVAudioPCMBuffer? {
     let ratio = target.sampleRate / buffer.format.sampleRate
