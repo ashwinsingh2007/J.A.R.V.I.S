@@ -67,11 +67,22 @@ class Wake extends EventEmitter {
     ears.on('restarted', () => this.taskRestarted());
   }
 
-  /** The assistant's name, and its mishearings, from cfg.wakeWords. Called again when another assistant takes over. */
+  /** The assistant's name, and its mishearings, from cfg.wakeWords, plus any guest names (setGuests).
+   *  Called again when another assistant takes over. */
   setNames() {
-    const alt = this.cfg.wakeWords.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+    const words = [...this.cfg.wakeWords, ...(this.guests || [])];
+    const alt = words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
     this.wakeRe = new RegExp(`(?:^|[\\s,.!?])(${alt})(?=$|[\\s,.!?'])`, 'g');
     this.nameLastRe = new RegExp(`\\b(wake|make|walk|back) ?up\\W*(\\w+\\W*)?(${alt})\\b`);
+  }
+
+  /** More names that wake it: the agent of another computer in view, whose turn what is said becomes. */
+  setGuests(names) {
+    const next = (names || []).map((n) => String(n).toLowerCase().trim()).filter((n) => n && !this.cfg.wakeWords.includes(n));
+    if (next.join() === (this.guests || []).join()) return;
+    this.guests = next;
+    this.setNames();
+    if (next.length) log(`listener: also wakes to ${next.join(', ')}`);
   }
 
   setConversation(on) {

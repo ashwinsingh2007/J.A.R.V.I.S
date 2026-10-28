@@ -65,12 +65,32 @@ class Speaker extends EventEmitter {
   speak(sentence, voice) {
     const s = clean(sentence);
     if (!s) return;
+    if (this.cfg.voiceMuted) { this.silent(s); return; }
     if (voice) {
       this.voiceFor.set(s, voice);
       log(`tts: in another device's agent's voice (${this.engine} ${voice[{ kokoro: 'kokoroVoice', edge: 'edgeVoice', native: 'nativeVoice' }[this.engine]] || 'its own default'})`);
     }
     this.queue.push(s);
     this.pump();
+  }
+
+  get volume() { const v = Number(this.cfg.voiceVolume); return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 1; }
+
+  /** The voice is muted: nothing is said (the reply shows as text), but a turn still starts and ends
+   *  as if it had been, so everything waiting on the voice carries on. */
+  silent(s) {
+    log(`tts: muted, not saying '${s.slice(0, 50)}'`);
+    if (!this.started) { this.started = true; this.emit('start'); }
+    clearTimeout(this.silentEnd);
+    this.silentEnd = setTimeout(() => {
+      if (this.started && !this.playing && !this.queue.length && !this.inflight.size) { this.started = false; this.emit('level', 0); this.emit('finish'); }
+    }, 250);
+  }
+
+  /** The volume or mute changed: a muted voice stops at once. */
+  applyVolume() {
+    this.audio.setTTSVolume(this.volume);
+    if (this.cfg.voiceMuted && (this.playing || this.queue.length)) this.stop();
   }
 
   /** A voice setting for this sentence: its own voice if it has one, else this device's. */
@@ -100,7 +120,7 @@ class Speaker extends EventEmitter {
     this.voiceFor.delete(next);
     this.playing = true;
     if (!this.started) { this.started = true; this.emit('start'); }
-    this.audio.playTTS(file);
+    this.audio.playTTS(file, this.volume);
   }
 
   async synth(s) {

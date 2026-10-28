@@ -440,6 +440,7 @@ class Orchestrator extends EventEmitter {
     if (has('ttsEngine', 'kokoroVoice', 'kokoroSpeed', 'edgeVoice', 'nativeVoice', 'elevenLabsModel')) this.speaker.reconfigure();
     if (has('speechLocale', 'appleSpeech')) { this.wake.restart(); this.ears.restart(); }
     if (has('echoCancel')) this.updateEcho();
+    if (has('voiceVolume', 'voiceMuted')) this.speaker.applyVolume();
     if (has('sttEngine') && this.awake) { this.ears.setAwake(false); this.ears.setAwake(true); }
     if (has('model', 'effort', 'agentModel', 'honorific', 'screenControl') && this.brain.reconfigure) this.brain.reconfigure();
     log(`settings: applied ${changed.join(', ')}`);

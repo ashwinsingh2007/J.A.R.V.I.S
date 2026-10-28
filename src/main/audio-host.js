@@ -31,13 +31,15 @@ class AudioHost extends EventEmitter {
 
   send(msg) { if (!this.win.isDestroyed()) this.win.webContents.send('audio', msg); }
 
-  playTTS(file) {
+  /** volume: the voice's volume, 0 to 1. */
+  playTTS(file, volume = 1) {
     let data;
     try { data = fs.readFileSync(file); } catch (e) { log(`audio: cannot read ${file}`); setTimeout(() => this.emit('tts-ended'), 0); return; }
     fs.rm(file, () => {});
-    this.send({ type: 'tts-play', data });
+    this.send({ type: 'tts-play', data, volume });
   }
   stopTTS() { this.send({ type: 'tts-stop' }); }
+  setTTSVolume(v) { this.send({ type: 'tts-volume', v }); }
 
   playMusic(url, volume) { this.send({ type: 'music-play', url, volume }); }
   stopMusic() { this.send({ type: 'music-stop' }); }

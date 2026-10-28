@@ -551,6 +551,24 @@ async function testVoice() {
   await sleep(1500);
   check('"stop the music" handled locally (no brain call)', !/brain: asked/.test(s.log().slice(m)));
 
+  // The voice: the speaker button mutes it (replies show as text), its slider sets the volume.
+  await s.quiet(hud);
+  await hud.evaluate(() => document.getElementById('voice-btn').click());
+  await sleep(800);
+  check('the speaker button mutes the voice', s.config().voiceMuted === true && await hud.evaluate(() => document.getElementById('voice-btn').classList.contains('off')));
+  m = s.mark();
+  await s.say('what is the capital of japan over');
+  check('muted, the reply is not spoken', !!(await s.waitLog(/tts: muted, not saying/, 60000, m)) && !/timing: \w+ synth/.test(s.log().slice(m)));
+  await hud.waitForFunction(() => /tokyo/i.test(document.getElementById('reply').textContent), null, { timeout: 30000 }).catch(() => {});
+  check('and shows as text', /tokyo/i.test(await text(hud, '#reply')), (await text(hud, '#reply')).slice(0, 80));
+  await hud.evaluate(() => { const v = document.getElementById('voice-vol'); v.value = 40; v.dispatchEvent(new Event('input', { bubbles: true })); });
+  await sleep(800);
+  check('the volume slider sets the voice volume, and unmutes', s.config().voiceVolume === 0.4 && s.config().voiceMuted === false, JSON.stringify({ v: s.config().voiceVolume, m: s.config().voiceMuted }));
+  await s.quiet(hud);
+  m = s.mark();
+  await s.say('what is the capital of italy over');
+  check('unmuted, the reply is spoken again', !!(await s.waitLog(/timing: \w+ synth/, 60000, m)));
+
   // Sleep
   await s.quiet(hud);
   m = s.mark();
@@ -1242,12 +1260,17 @@ async function testDevices() {
   check('DISABLE is not offered under the other computer\'s agent', await ha.evaluate(() => getComputedStyle(document.getElementById('power')).display === 'none'));
   await hb.evaluate(() => document.getElementById('mic').click());
   // Said out loud here with its tab open: it goes there, is answered there silently, and spoken here.
-  await a.say('jarvis wake up');
-  await a.waitLog(/conversation mode on/, 10000);
+  // Its agent's name (FRIDAY there) wakes this computer too, since what is said goes to it.
+  check('the other computer\'s agent name wakes this one', !!(await a.waitLog(/listener: also wakes to friday/, 5000)));
+  const wm = a.mark();
+  await a.say('friday wake up');
+  check('"friday wake up" works here while its computer is in view', !!(await a.waitLog(/conversation mode on/, 10000, wm)));
+  // Its greeting is spoken first; what is said over it is ignored, so wait for it to start and end.
+  await a.waitLog(/synth/, 15000, wm);
   await a.quiet(ha);
   const va = a.mark(), vb = b.mark();
   await a.say('what is two plus two');
-  check('a spoken command goes to the open tab\'s computer', await b.waitLog(/devices: Work Mac said 'what is two plus two'/, 15000, vb), a.log().slice(va).split('\n').filter((l) => /remote|devices/.test(l)).join(' | ').slice(0, 200));
+  check('a spoken command goes to the open tab\'s computer', await b.waitLog(/devices: Work Mac said 'what is two plus two'/, 15000, vb), a.log().slice(va).split('\n').filter((l) => /remote|devices|listener/.test(l)).join(' | ').slice(0, 300));
   check('its answer is spoken here', await a.waitLog(/synth/, 60000, va) && !(await b.waitLog(/synth/, 1000, vb)));
   // FRIDAY is in use over there (macOS voice Moira); JARVIS here speaks as Daniel.
   const spoke = await a.waitLog(/tts: in another device's agent's voice \((\w+) ([^)]+)\)/, 5000, va);

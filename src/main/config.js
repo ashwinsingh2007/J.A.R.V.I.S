@@ -62,6 +62,8 @@ const DEFAULTS = {
   maxSpokenSentences: 99,
 
   musicVolume: 0.3,
+  voiceVolume: 1,                 // the agents' voice, 0 to 1 (the speaker button next to the mic)
+  voiceMuted: false,              // muted: replies show as text only
   musicStation: 'lofi',
   radioCountry: 'IN',
   radioFavourites: [],
@@ -162,7 +164,7 @@ const ENUMS = {
 };
 const RANGES = {
   commandSilenceSeconds: [0.5, 15], pauseGraceSeconds: [1, 30], kokoroSpeed: [0.5, 2],
-  musicVolume: [0, 1], maxSpokenSentences: [1, 999],
+  musicVolume: [0, 1], voiceVolume: [0, 1], maxSpokenSentences: [1, 999],
 };
 
 /** Hand-edited or junk values fall back to something that works. */
@@ -179,6 +181,7 @@ function sanitize(cfg) {
   }
   if (!/^https?:\/\/[^\s]+$/.test(cfg.ollamaUrl)) cfg.ollamaUrl = DEFAULTS.ollamaUrl;
   cfg.userName = typeof cfg.userName === 'string' ? cfg.userName.trim().slice(0, 40) : '';
+  cfg.voiceMuted = cfg.voiceMuted === true;
   for (const k of ['assistantSettings', 'customAssistants']) if (!cfg[k] || typeof cfg[k] !== 'object' || Array.isArray(cfg[k])) cfg[k] = {};
   for (const k of ['wakeWords', 'endWords']) {
     cfg[k] = Array.isArray(cfg[k]) ? cfg[k].filter((w) => typeof w === 'string' && w.trim()).map((w) => w.toLowerCase()) : DEFAULTS[k];
