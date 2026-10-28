@@ -43,7 +43,7 @@ function show(i) {
 
 let perms = {};
 let notified = false;
-const PERM_TEXT = { allowed: ['✓ allowed', 'ok'], 'not-asked': ['not yet', 'warn'], denied: ['✗ not allowed', 'bad'], unknown: ['—', ''], absent: ['not installed', ''] };
+const PERM_TEXT = { allowed: ['✓ allowed', 'ok'], 'not-asked': ['not yet', 'warn'], denied: ['✗ not allowed', 'bad'], unknown: ['—', ''], absent: ['not installed', ''], 'no-helper': ['speech helper not built', 'bad'] };
 
 function renderPerms() {
   document.querySelectorAll('#perms li').forEach((li) => {
@@ -52,12 +52,16 @@ function renderPerms() {
     const [label, cls] = k === 'notifications' && notified ? ['✓ test sent', 'ok'] : PERM_TEXT[st] || PERM_TEXT.unknown;
     status(li.querySelector('.chip'), label, cls);
     const btn = li.querySelector('button');
-    btn.hidden = st === 'allowed' || st === 'absent';
+    btn.hidden = st === 'allowed' || st === 'absent' || st === 'no-helper';
     btn.textContent = st === 'denied' ? 'Open Settings' : k === 'notifications' ? 'Send a test' : 'Allow';
     li.classList.toggle('done', st === 'allowed');
   });
   const missing = ['mic', 'speech'].filter((k) => perms[k] && perms[k] !== 'allowed');
-  if (STEPS[step] === 'access') status($('saved'), missing.length ? 'JARVIS cannot hear you until the microphone and speech recognition are allowed.' : '', missing.length ? 'bad' : '');
+  const noHelper = missing.some((k) => perms[k] === 'no-helper');
+  const why = noHelper
+    ? 'JARVIS cannot ask for the microphone or speech recognition yet, because its speech helper is not built. To fix it, update to macOS 14 or later, run xcode-select --install, then run ./setup.sh and ./build.sh again.'
+    : 'JARVIS cannot hear you until the microphone and speech recognition are allowed.';
+  if (STEPS[step] === 'access') status($('saved'), missing.length ? why : '', missing.length ? 'bad' : '');
 }
 
 async function refreshPerms() {

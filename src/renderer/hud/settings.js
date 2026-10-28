@@ -144,7 +144,7 @@
 
   // ---------- access ----------
 
-  const PERM = { allowed: ['Allowed', 'ok'], 'not-asked': ['Not yet', 'warn'], denied: ['Not allowed', 'bad'], unknown: ['—', ''], absent: ['Not installed', ''] };
+  const PERM = { allowed: ['Allowed', 'ok'], 'not-asked': ['Not yet', 'warn'], denied: ['Not allowed', 'bad'], unknown: ['—', ''], absent: ['Not installed', ''], 'no-helper': ['Speech helper not built. Needs macOS 14+, then run ./setup.sh', 'bad'] };
   function renderPerms() {
     document.querySelectorAll('#hud-perms li').forEach((li) => {
       const k = li.dataset.perm;
@@ -152,7 +152,7 @@
       const [label, cls] = k === 'notifications' && notified ? ['Test sent', 'ok'] : PERM[st] || PERM.unknown;
       chip(li.querySelector('.chip'), label, cls);
       const b = li.querySelector('button');
-      b.hidden = st === 'allowed' || st === 'absent';
+      b.hidden = st === 'allowed' || st === 'absent' || st === 'no-helper';
       b.disabled = false;
       b.textContent = st === 'denied' ? 'Open System Settings' : k === 'notifications' ? 'Send a test' : 'Allow';
     });
