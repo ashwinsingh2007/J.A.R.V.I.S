@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>J.A.R.V.I.S</title>
-<link rel="stylesheet" href="hud.css?v=30">
+<link rel="stylesheet" href="hud.css?v=32">
 <link rel="stylesheet" href="../themes.css">
 <script src="../themes.js"></script>
 <script>(function(){var q=new URLSearchParams(location.search);jarvisTheme.apply(q.get('theme')||undefined,q.get('mode')||undefined);})();</script>
@@ -17,6 +17,7 @@
 <header id="brand">
   <div class="word">J.A.R.V.I.S</div>
   <div class="word2" id="brand2">HOME · BOOTING</div>
+  <div class="navrow">
   <nav id="nav">
     <a data-view="cc" class="active">HOME</a>
     <a data-view="sessions">SESSIONS <em id="n-sessions">0</em></a>
@@ -26,6 +27,9 @@
     <a data-view="settings">SETTINGS</a>
     <a data-view="music" id="nav-music"><span class="eq"><i></i><i></i><i></i><i></i></span>MUSIC <em id="n-music"></em></a>
   </nav>
+  <nav id="machines" hidden></nav>
+  </div>
+  <div id="remote-note"></div>
 </header>
 
 <main id="main">
@@ -575,7 +579,7 @@
 </main>
 
 <script src="three.min.js"></script>
-<script src="hud.js?v=30"></script>
+<script src="hud.js?v=31"></script>
 <script src="settings.js?v=4"></script>
 </body>
 </html>

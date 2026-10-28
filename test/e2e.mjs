@@ -881,7 +881,8 @@ async function testHud() {
   const own = (() => { try { return JSON.parse(fs.readFileSync(path.join(s.state, 'assistants', 'coach', 'memory.json'), 'utf8')).facts; } catch { return []; } })();
   check('training goes into its own memory', own.some((f) => /Sundays/.test(f.text)) && /Sundays/.test(await text(hud, '#a-mem')), JSON.stringify(own));
   await shot(hud, 'hud-assistant-training');
-  check('it shows up around the core', await hud.evaluate(() => !!document.getElementById('crew-coach')));
+  check('it shows up around the core, in the Custom node', await hud.evaluate(() => { const g = document.getElementById('crew-g-custom'); if (!g) return false; g.dispatchEvent(new MouseEvent('click', { bubbles: true })); return !!document.getElementById('crew-coach') && !!document.getElementById('crew-g-main'); }));
+  await hud.evaluate(() => document.getElementById('crew-g-main').dispatchEvent(new MouseEvent('click', { bubbles: true })));
   await shot(hud, 'hud-assistant-edit');
   // Skills and MCP servers for this assistant: all on by default, ticks saved with SAVE
   await hud.click('#a-tabs [data-at="skills"]');
@@ -1108,6 +1109,80 @@ async function testWorker() {
   await s.app.close();
 }
 
+async function testDevices() {
+  console.log('\nTWO DEVICES: PAIR, VIEW AND DRIVE THE OTHER');
+  const dir = (name, cfg) => { const d = makeState({ onboarded: true, brainProvider: 'claude-code', ttsEngine: 'native', ...cfg }); fs.writeFileSync(path.join(d, 'devices.json'), JSON.stringify({ name })); return d; };
+  const a = await launch(dir('Work Mac', {}));
+  const b = await launch(dir('Home Mac', { assistant: 'friday', assistantSettings: { karen: { role: 'research' } } }));
+  const ha = await windowByUrl(a.app, /hud\/index\.html/, 20000), hb = await windowByUrl(b.app, /hud\/index\.html/, 20000);
+  check('both HUDs open', ha && hb);
+  if (!ha || !hb) { await a.app.close(); await b.app.close(); return; }
+  for (const h of [ha, hb]) await h.waitForFunction(() => document.body.dataset.state === 'idle', null, { timeout: 20000 }).catch(() => {});
+  await shot(ha, 'devices-start');
+  check('no device tabs before pairing', await ha.evaluate(() => document.getElementById('machines').hidden));
+  // Pair: Work Mac shows a code, Home Mac types it.
+  for (const h of [ha, hb]) { await h.click('#nav a[data-view="settings"]'); await h.click('#setnav [data-section="devices"]'); }
+  await ha.click('#d-host');
+  await ha.waitForFunction(() => /^[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(document.getElementById('d-code').textContent), null, { timeout: 30000 }).catch(() => {});
+  const code = await text(ha, '#d-code');
+  check('Work Mac shows a code', /^[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(code), code);
+  await hb.fill('#d-join-code', code.toLowerCase());
+  await hb.click('#d-join');
+  const paired = await a.waitLog(/devices: paired with Home Mac/, 45000) && await b.waitLog(/devices: paired with Work Mac/, 15000);
+  check('they pair', paired);
+  await ha.waitForFunction(() => /Home Mac/.test(document.getElementById('d-list').textContent), null, { timeout: 10000 }).catch(() => {});
+  check('each lists the other', /Home Mac/.test(await text(ha, '#d-list')) && /Work Mac/.test(await text(hb, '#d-list')));
+  await shot(ha, 'devices-paired');
+  // A tab for the other device, and its agents on this HUD's Devices node.
+  await ha.click('#nav a[data-view="cc"]');
+  await ha.waitForFunction(() => !document.getElementById('machines').hidden && /Home Mac/.test(document.getElementById('machines').textContent), null, { timeout: 15000 }).catch(() => {});
+  check('a tab for the other device', /Home Mac/.test(await text(ha, '#machines')));
+  await ha.waitForFunction(() => !!document.getElementById('crew-g-devices'), null, { timeout: 15000 }).catch(() => {});
+  check('a Devices node on the HUD, in a slot the normal view shows', await ha.evaluate(() => { const m = document.getElementById('crew-g-devices'); return !!m && !m.classList.contains('extra'); }));
+  await shot(ha, 'devices-home');
+  await ha.evaluate(() => document.getElementById('crew-g-devices').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  await sleep(400);
+  const devNode = await ha.evaluate(() => [...document.querySelectorAll('#crew .mate')].map((m) => m.dataset.id).find((id) => id.startsWith('g-device_')));
+  check('it opens into the paired device', !!devNode, devNode);
+  if (devNode) await ha.evaluate((id) => document.getElementById('crew-' + id).dispatchEvent(new MouseEvent('click', { bubbles: true })), devNode);
+  await sleep(400);
+  const remoteAgents = await ha.evaluate(() => [...document.querySelectorAll('#crew .mate')].map((m) => m.dataset.id).filter((id) => id.startsWith('r-')));
+  check('and that device into its agents (not FRIDAY, who is in use there)', remoteAgents.length >= 3 && !remoteAgents.some((id) => id.endsWith('-friday')), remoteAgents.join(','));
+  await shot(ha, 'devices-nodes');
+  // Clicking one of its agents opens its tab, with that agent in the spotlight.
+  const karen = remoteAgents.find((id) => id.endsWith('-karen'));
+  if (karen) await ha.evaluate((id) => document.getElementById('crew-' + id).dispatchEvent(new MouseEvent('click', { bubbles: true })), karen);
+  await sleep(800);
+  check('its agent opens that device\'s tab, in the spotlight', await ha.evaluate(() => document.body.classList.contains('remote') && document.getElementById('spot-name').textContent === 'KAREN' && /FRIDAY/.test(document.querySelector('.corelabel .jv').textContent)));
+  check('history, memory, settings and music are hidden there', await ha.evaluate(() => ['history', 'memory', 'settings', 'music'].every((v) => getComputedStyle(document.querySelector(`#nav a[data-view="${v}"]`)).display === 'none')));
+  await shot(ha, 'devices-remote-home');
+  // Its agents can be changed from here, and the change is saved there.
+  await ha.click('#spot-back');
+  await ha.click('#nav a[data-view="agents"]');
+  await ha.click('#acards .agcard[data-id="vision"]');
+  await ha.click('#a-tabs [data-at="brain"]');
+  await ha.selectOption('#a-edit [data-s="agentModel"]', 'haiku');
+  await ha.click('#a-save');
+  await sleep(1500);
+  const bcfg = JSON.parse(fs.readFileSync(path.join(b.state, 'config.json'), 'utf8'));
+  check('an agent changed from here is saved on the other device', ((bcfg.assistantSettings || {}).vision || {}).agentModel === 'haiku', JSON.stringify((bcfg.assistantSettings || {}).vision));
+  const acfg = JSON.parse(fs.readFileSync(path.join(a.state, 'config.json'), 'utf8'));
+  check('and not on this one', !((acfg.assistantSettings || {}).vision || {}).agentModel);
+  check('training is not offered for the other device', await ha.evaluate(() => getComputedStyle(document.querySelector('#a-tabs [data-at="training"]')).display === 'none'));
+  await shot(ha, 'devices-remote-agents');
+  // Typed here, a turn there.
+  await ha.click('#nav a[data-view="cc"]');
+  const m = b.mark ? b.mark() : 0;
+  await ha.fill('#ask-input', 'what time is it there?');
+  await ha.press('#ask-input', 'Enter');
+  check('typing in its tab reaches the other device', await b.waitLog(/devices: Work Mac typed 'what time is it there\?'/, 10000, m));
+  // Back to this device.
+  await ha.click('#machines .mtab[data-device=""]');
+  await sleep(600);
+  check('back on this device, its own HUD is back', await ha.evaluate(() => !document.body.classList.contains('remote') && /JARVIS/.test(document.querySelector('.corelabel .jv').textContent)));
+  await a.app.close(); await b.app.close();
+}
+
 const which = process.argv[2] || 'all';
 const t0 = Date.now();
 try {
@@ -1118,6 +1193,7 @@ try {
   if (which === 'voice' || which === 'all') await testVoice();
   if (which === 'proactive' || which === 'all') await testProactive();
   if (which === 'worker' || which === 'all') await testWorker();
+  if (which === 'devices' || which === 'all') await testDevices();
 } catch (e) {
   check('test run crashed', false, e.message.split('\n').slice(0, 6).join(' | '));
 }

@@ -124,7 +124,8 @@ class Orchestrator extends EventEmitter {
   get name() { return assistantOf(this.cfg.assistant, this.cfg).name; }
 
   get isIdle() { return (this._state === 'idle' || this._state === 'muted') && !this.brain.isBusy && !this.speaker.isSpeaking; }
-  get speaksAloud() { return this.source.kind !== 'telegram'; }
+  // Telegram answers by message; a turn typed on another of the user's devices is read there.
+  get speaksAloud() { return this.source.kind !== 'telegram' && this.source.kind !== 'peer'; }
   get awake() { return this.wake.conversationMode; }
 
   // ---------- wiring ----------
@@ -353,6 +354,7 @@ class Orchestrator extends EventEmitter {
       case 'fullscreen': this.hud.toggleFullScreen(); break;
       case 'setup': this.emit('open-setup', body.section || ''); break;
       case 'type': this.handle(String(body.text || '').slice(0, 4000), TYPED); break;
+      case 'peer-type': this.handle(String(body.text || '').slice(0, 4000), { kind: 'peer', from: String(body.from || '') }); break;
       case 'theme': this.emit('set-theme', { theme: body.theme, themeMode: body.mode }); break;
       case 'settings': if (body.patch && typeof body.patch === 'object') this.emit('settings', body.patch); break;
       case 'memory-forget': if (body.id && this.memory.forget(body.id)) this.brain.reconfigure && this.brain.reconfigure(); break;
@@ -808,7 +810,7 @@ class Orchestrator extends EventEmitter {
 
   localIntent(c, source) {
     const t = c.toLowerCase();
-    if (source.kind === 'telegram') return null;
+    if (source.kind === 'telegram' || source.kind === 'peer') return null;
     const done = () => this.finishedTurn();
     const sw = SWITCH_TO.exec(t.trim().replace(/[.!?,]+/g, ''));
     const to = sw && findByName(sw[1].replace(/^the /, ''), this.cfg);

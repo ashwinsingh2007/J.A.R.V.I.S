@@ -133,6 +133,19 @@ If you run JARVIS on more than one computer, pair them in Settings › Devices. 
 
 The devices find each other through Hyperswarm, a peer-to-peer network, and connect directly, encrypted end to end. On the same Wi-Fi they talk over the local network. From a café to home they connect through both routers. If a network blocks that, messages go through the free ntfy.sh relay, encrypted first so the relay can't read them. ntfy.sh allows 250 messages a day per device, which is enough for dozens of tasks, and you can point JARVIS at your own ntfy server instead. A task you hand over runs on the other computer as a background job and its result comes back to you. Anything that sends, posts, deletes or pays still waits for your yes on the computer you asked from. Pairing works between any mix of Macs and Windows PCs, though JARVIS itself doesn't run on Windows yet (#16).
 
+Once paired, each computer gets a tab at the top of the HUD next to the view chips. Open another computer's tab and you see its HUD, live:
+- its system info and services, and its core and agents
+- its Claude Code sessions
+- its chat on the right, plus a chat box. What you type there goes to the agent running on that computer and is answered there, silently.
+- its agents, which you can change from here. Your changes are saved on that computer. Whether an agent may change JARVIS's own code can only be set on the computer itself.
+
+Its memory, history, settings and music stay on that computer. Over the relay, the tab shows the latest state it loaded instead of a live stream, to save the relay's daily messages.
+
+On the home screen, the nodes around the core are grouped:
+- **Custom** opens into your own agents, with a **System** node back to the built-in ones.
+- **Devices** opens into one node per computer. A computer opens into its built-in agents and one node for its custom agents.
+- Clicking another computer's agent opens that computer's tab with the agent in the spotlight.
+
 ## How it listens and speaks
 
 Speech to text is Apple's on-device recogniser by default, which is private and works offline. You can switch to ElevenLabs Scribe for realtime cloud transcription; audio is then streamed only while JARVIS is awake, and wake-word detection still happens on your Mac.
