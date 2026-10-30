@@ -237,10 +237,10 @@
   // Until main sends the list (main/assistants.js).
   let assistants = [
     { id: 'jarvis', name: 'JARVIS', tier: 'BALANCED', about: 'Fast and smart. Quick replies, strong background work.', needs: 'Claude Code (or an API key)' },
-    { id: 'friday', name: 'FRIDAY', tier: 'MAXIMUM', about: 'The smartest. Thinks hardest, so she answers more slowly.', needs: 'Claude Code' },
-    { id: 'karen', name: 'KAREN', tier: 'LIGHT', about: 'The fastest and cheapest. Simpler answers.', needs: 'Claude Code' },
-    { id: 'edith', name: 'EDITH', tier: 'PRIVATE', about: 'Runs on a local model on this Mac. Private, but the weakest.', needs: 'Ollama' },
-    { id: 'vision', name: 'VISION', tier: 'NO CLAUDE NEEDED', about: "Runs on Google's Gemini, with a free tier.", needs: 'A Gemini API key' },
+    { id: 'friday', name: 'FRIDAY', tier: 'MAXIMUM', role: 'coding', about: 'The smartest, for code and hard problems. Thinks hardest, so she answers more slowly.', needs: 'Claude Code' },
+    { id: 'karen', name: 'KAREN', tier: 'LIGHT', role: 'communications', about: 'Your communications: email, messages and social media. The fastest and lightest.', needs: 'Claude Code' },
+    { id: 'edith', name: 'EDITH', tier: 'MAINTAINER', role: 'maintainer', about: 'Maintains JARVIS: changes its code when you ask, keeps it healthy, tidies memory and looks after the Mac.', needs: 'Claude Code' },
+    { id: 'vision', name: 'VISION', tier: 'NO CLAUDE NEEDED', role: 'research', about: "Research, on Google's Gemini with a free tier. For when you don't have Claude.", needs: 'A Gemini API key' },
   ];
   let current = 'jarvis';
   // The nodes around the core. 'main': the built-in agents, FORGE (the custom agents, dim until there is
@@ -2024,6 +2024,19 @@
       { name: 'mobile-app', kind: 'claude', cwd: '~/Projects/mobile-app', status: 'done', ago: '2h ago', last: 'Build complete.', modified: 4 },
     ];
     setTimeout(() => { ev({ type: 'boot', ok: true }); ev({ type: 'sessions', data: fake }); }, 900);
+    // A second computer, paired and on the local network, with FRIDAY in use there.
+    ev({ type: 'devices', name: 'MacBook', list: [{ id: 'home', name: 'Home Mac', os: 'macOS', via: 'local network', lastSeen: '' }] });
+    ev({ type: 'remote', device: 'home', snap: {
+      assistants: { type: 'assistants', id: 'friday', list: assistants },
+      system: { type: 'system', cpu: 14, ram: 51, ramUsedGB: 16.3, ramTotalGB: 32, disk: 42, diskFreeGB: 540, gpu: 6, watts: 21, heat: 'normal', speedLimit: 100, battery: null, uptime: '12d 3h', host: 'home-mac' },
+      stats: { type: 'stats', turns: 6, toolCalls: 9, memories: 38, sessionsActive: 1, brainModel: 'opus', effort: 'high', brainReady: true, tts: 'kokoro bf_emma', stt: 'apple on-device', telegram: 'off', agents: ['refactoring the payments module'] },
+      sessions: { type: 'sessions', data: [{ name: 'payments', kind: 'claude', cwd: '~/Projects/payments', status: 'working', ago: '8s ago', last: 'Moving the refund logic into its own module; tests next.', modified: 3 }] },
+      conversation: { type: 'conversation', key: 'friday', name: 'FRIDAY', status: 'working', ago: '', jobs: 1, entries: [
+        { t: '22:40', who: 'you', name: 'YOU', text: 'Move the refund logic out of the payments controller and keep the tests green.' },
+        { t: '22:40', who: 'jarvis', name: 'FRIDAY', text: 'On it. I will split it into its own module and run the suite after each step.' },
+        { t: '22:52', who: 'jarvis', name: 'FRIDAY', text: 'Halfway there. The refund module is out and 112 of 118 tests pass; fixing the rest now.' },
+      ] },
+    } });
     const tailEntries = [
       { t: '19:56', who: 'you', name: 'YOU', text: 'Check my Gmail and tell me what needs a reply.' },
       { t: '19:56', who: 'jarvis', name: 'JARVIS', text: "Going through your inbox now, sir." },

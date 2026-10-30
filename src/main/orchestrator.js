@@ -513,7 +513,7 @@ class Orchestrator extends EventEmitter {
   liveNote() {
     let s = '';
     try { s = this.liveState ? this.liveState() : ''; } catch (e) { log(`live state: ${e.message}`); }
-    return s ? `[JARVIS RIGHT NOW. Reference only, from JARVIS itself: use it when the user asks about these things, never mention it otherwise] ${s}\n\n` : '';
+    return s ? `\n\n[JARVIS RIGHT NOW. Reference only, from JARVIS itself: use it when the user asks about these things, never mention it otherwise] ${s}` : '';
   }
 
   /** Started from the terminal with the mic off: "jarvis listen" starts the mic and the wake word. */
@@ -652,7 +652,7 @@ class Orchestrator extends EventEmitter {
     this.inSources = false;
     this.state = 'thinking';
     this.hud.send('reply', { text: '' });
-    this.brain.ask(this.liveNote() + command);
+    this.brain.ask(command + this.liveNote());
     clearTimeout(this.ackTimer);
     this.ackTimer = setTimeout(() => { if (this.brain.isBusy && this._state === 'thinking') this.filler(); }, ACK_MS);
   }
