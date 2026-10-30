@@ -28,9 +28,9 @@ JARVIS is built Claude Code first. It works best with Claude Code and your Claud
 
 ## Demo
 
-<a href="https://ashwinsingh2007.github.io/J.A.R.V.I.S/#demo"><img src="docs/demo/poster.jpg" alt="The JARVIS demo video in the Stark theme. Click to watch it on the website." width="900"></a>
+<a href="https://ashwinsingh2007.github.io/J.A.R.V.I.S/#demo"><img src="docs/demo/jarvis-demo.gif" alt="JARVIS in the Stark theme: showing all five agents, switching to FRIDAY, the Agents tab, MESH and another Mac's HUD. Click to watch the full video with sound." width="900"></a>
 
-Under two minutes, with sound, in the Stark theme: a Gmail check in the background, a reminder, "how many agents do you have?", switching to FRIDAY and back, the Agents tab, "which computers are connected?", a look at the Home Mac's HUD with FRIDAY at work, the Gmail result, a birthday saved to memory, and the five themes. The HUD is in demo mode with made-up data. Click the picture to watch it on the website, or download [the video](docs/demo/jarvis-demo.mp4). There's a second video of [JARVIS in the terminal](#from-the-terminal).
+Under two minutes, with sound, in the Stark theme: a Gmail check in the background, a reminder, "how many agents do you have?", switching to FRIDAY and back, the Agents tab, "which computers are connected?", a look at the Home Mac's HUD with FRIDAY at work, the Gmail result, a birthday saved to memory, and the five themes. The HUD is in demo mode with made-up data. The moving preview above is a silent part of it. Click it to watch the whole video with sound on the website, or download [the video](docs/demo/jarvis-demo.mp4). There's a second video of [JARVIS in the terminal](#from-the-terminal).
 
 ## Features
 
@@ -238,7 +238,7 @@ jarvis pair                            # show a pairing code; on the other compu
 jarvis unpair "Home Mac"
 ```
 
-<a href="https://ashwinsingh2007.github.io/J.A.R.V.I.S/#terminal"><img src="docs/demo/terminal-poster.jpg" alt="The jarvis chat in a terminal: a question about the agents, the paired computers, and a background job reporting its steps and result live. Click to watch the video." width="900"></a>
+<a href="https://ashwinsingh2007.github.io/J.A.R.V.I.S/#terminal"><img src="docs/demo/jarvis-terminal.gif" alt="The jarvis chat in a terminal: a question about the agents, the paired computers, and a background job reporting its steps and result live. Click to watch the video." width="900"></a>
 
 `jarvis` on its own opens a chat screen in the terminal. You type in a box at the bottom, and the line under it shows the agent, the brain, the mic, the HUD, the context size and any running jobs. While JARVIS works, a spinner shows how long it has taken; when it's done you see "Worked for 4s". Background jobs report into the chat as they go: when one starts, each step it takes, its progress, when it finishes and what it found. You also see what you said to JARVIS by voice, in the HUD or on Telegram, and reminders as they fire. `/verbose` hides or shows the steps, and `/help` lists the commands. [Watch it](docs/demo/jarvis-terminal.mp4) (43 s, made-up data).
 
