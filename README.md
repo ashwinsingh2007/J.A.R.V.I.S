@@ -221,6 +221,10 @@ jarvis --on "Home Mac" "pull the repo" # hand a task to a paired computer
 jarvis hud                             # open the HUD
 jarvis listen                          # turn the mic and the wake word on
 jarvis mute | stop | new | status | quit
+jarvis agents                          # list the agents; jarvis agent friday switches
+jarvis devices                         # the paired computers; jarvis device "Home Mac" shows what one is doing
+jarvis pair                            # show a pairing code; on the other computer: jarvis pair <code>
+jarvis unpair "Home Mac"
 ```
 
 If JARVIS isn't running, the command starts it in the background with no HUD and the microphone off. Replies are printed, not spoken. It's the same brain, memory and conversation as the voice, so you can start something by voice and carry on by typing. The same rule applies too: JARVIS asks before it sends, posts, deletes or pays, and you answer in the terminal. Ctrl-C stops an answer.

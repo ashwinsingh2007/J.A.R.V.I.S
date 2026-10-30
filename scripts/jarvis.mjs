@@ -8,6 +8,9 @@
 //   jarvis listen | mute         turn the mic and wake word on | standby
 //   jarvis stop | new            stop the current answer | start a new conversation
 //   jarvis status | quit         what JARVIS is doing | quit JARVIS
+//   jarvis agents | agent <name> list the agents | switch to one
+//   jarvis devices | device <n>  the paired computers | what one is doing
+//   jarvis pair [code] | unpair  pair a new computer (show a code, or join with one) | forget one
 //
 // If JARVIS isn't running, it starts in the background with no HUD and the mic off. It talks to
 // JARVIS over the private socket in ~/.jarvis (owner only); nothing goes over the network.
@@ -22,6 +25,7 @@ import { fileURLToPath } from 'url';
 const STATE = process.env.JARVIS_STATE_DIR || path.join(os.homedir(), '.jarvis');
 const SOCK = path.join(STATE, 'jarvis.sock');
 const OPS = ['hud', 'listen', 'mute', 'stop', 'new', 'status', 'quit'];
+const MANAGE = ['agents', 'agent', 'devices', 'device', 'pair', 'unpair'];
 const tty = process.stdout.isTTY;
 const dim = (s) => (tty ? `\x1b[2m${s}\x1b[0m` : s);
 const red = (s) => (tty ? `\x1b[31m${s}\x1b[0m` : s);
@@ -39,6 +43,14 @@ const HELP = `Talk to JARVIS from the terminal.
   jarvis new                   start a new conversation
   jarvis status                what JARVIS is doing
   jarvis quit                  quit JARVIS
+
+  jarvis agents                list the agents
+  jarvis agent friday          switch to an agent
+  jarvis devices               the paired computers, and how each is reached
+  jarvis device "Home Mac"     what a paired computer is doing
+  jarvis pair                  show a pairing code and wait for the other computer
+  jarvis pair <code>           pair with the computer showing that code
+  jarvis unpair "Home Mac"     forget a paired computer
   jarvis -- hud                send the word "hud" itself
 
 If JARVIS isn't running, it starts in the background with no HUD and the mic off.
@@ -148,6 +160,58 @@ async function op(name) {
   return r.ok ? 0 : 1;
 }
 
+/** Agents, devices and pairing: returns the exit code, or null when argv isn't one of these. */
+async function manage([cmd, ...rest]) {
+  const arg = rest.join(' ');
+  const say = (r) => { console.log(r ? r.text || 'No answer.' : 'JARVIS is not running.'); return r && r.ok ? 0 : 1; };
+  switch (cmd) {
+    case 'agents': {
+      if (!(await ensureRunning())) return 1;
+      const r = await call({ op: 'agents' });
+      if (!r || !r.ok) return say(r);
+      for (const a of r.agents) console.log(`${a.id === r.current ? '●' : ' '} ${a.name.padEnd(12)} ${dim(a.role === 'None' ? '' : a.role)}${a.custom ? dim(' (yours)') : ''}`);
+      return 0;
+    }
+    case 'agent':
+      if (!arg) { console.error('jarvis agent <name>. jarvis agents lists them.'); return 2; }
+      if (!(await ensureRunning())) return 1;
+      return say(await call({ op: 'agent', name: arg }, 60000));
+    case 'devices': {
+      if (!(await ensureRunning())) return 1;
+      const r = await call({ op: 'list' });
+      if (!r || !r.ok) return say(r);
+      console.log(`This computer: ${r.me}`);
+      for (const d of r.devices) console.log(`${d.via === 'offline' ? dim('○') : '●'} ${d.name.padEnd(24)} ${d.via}${d.os ? dim(` · ${d.os}`) : ''}${d.lastSeen ? dim(` · last seen ${d.lastSeen}`) : ''}`);
+      if (!r.devices.length) console.log('No other computers paired. Pair one with: jarvis pair');
+      return 0;
+    }
+    case 'device': {
+      if (!arg) { console.error('jarvis device <name>. jarvis devices lists them.'); return 2; }
+      if (!(await ensureRunning())) return 1;
+      const r = await call({ op: 'status', device: arg }, 40000);
+      if (!r || !r.ok) return say(r);
+      const jobs = [...(r.jobs || []), ...(r.peerJobs || [])];
+      console.log(`${r.name} (${r.os}): ${r.assistant || 'JARVIS'} is ${r.busy ? 'busy' : 'free'}. CPU ${r.cpu}%, RAM ${r.ramUsed} of ${r.ramTotal} GB.`);
+      console.log(jobs.length ? `Jobs: ${jobs.join('; ')}` : 'No jobs running.');
+      return 0;
+    }
+    case 'pair': {
+      if (!(await ensureRunning())) return 1;
+      if (arg) { console.error(dim('Pairing. This can take up to 3 minutes…')); return say(await call({ op: 'pair-join', code: arg }, 200000)); }
+      const r = await call({ op: 'pair-host' }, 30000);
+      if (!r || !r.ok) return say(r);
+      console.log(`Pairing code: ${r.code}`);
+      console.log(dim(`On the other computer, run: jarvis pair ${r.code}   (or type it in Settings › Devices). It works for 3 minutes.`));
+      return say(await call({ op: 'pair-wait' }, 200000));
+    }
+    case 'unpair':
+      if (!arg) { console.error('jarvis unpair <name>. jarvis devices lists them.'); return 2; }
+      if (!(await ensureRunning())) return 1;
+      return say(await call({ op: 'unpair', device: arg }));
+  }
+  return null;
+}
+
 async function chat() {
   if (!(await ensureRunning())) return 1;
   const s = await call({ op: 'info' });
@@ -162,8 +226,9 @@ async function chat() {
   for await (const line of rl) {
     const t = line.trim();
     if (t === '/exit' || t === 'exit') break;
-    if (t === '/help') console.log(dim('/hud /listen /mute /stop /new /status /quit (quits JARVIS) /exit (leaves this chat). Ctrl-C stops an answer.'));
+    if (t === '/help') console.log(dim('/hud /listen /mute /stop /new /status /agents /agent <name> /devices /device <name> /pair [code] /unpair <name> /quit (quits JARVIS) /exit (leaves this chat). Ctrl-C stops an answer.'));
     else if (t.startsWith('/') && OPS.includes(t.slice(1))) { await op(t.slice(1)); if (t === '/quit') break; }
+    else if (t.startsWith('/') && MANAGE.includes(t.slice(1).split(' ')[0])) await manage(t.slice(1).match(/"[^"]*"|\S+/g).map((a) => a.replace(/^"(.*)"$/, '$1')));
     else if (t) await say(t, (c) => { busy = c; });
     if (!closed) rl.prompt();    // input piped in may have ended during the answer
   }
@@ -186,6 +251,7 @@ async function main(argv) {
     return r && r.ok ? 0 : 1;
   }
   if (argv.length === 1 && OPS.includes(argv[0])) return op(argv[0]);
+  if (MANAGE.includes(argv[0])) return manage(argv);
   const text = (argv[0] === '--' ? argv.slice(1) : argv).join(' ');
   if (!(await ensureRunning())) return 1;
   return (await say(text)) ? 0 : 1;

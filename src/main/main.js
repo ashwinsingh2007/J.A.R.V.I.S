@@ -536,6 +536,7 @@ function serveInbox() {
         const e = await new Promise((resolve) => { const on = (x) => { if (x.state === 'paired' || x.state === 'expired') { devices.off('pair', on); resolve(x); } }; devices.on('pair', on); setTimeout(() => resolve({ state: 'timeout' }), 180000); });
         out = e.state === 'paired' ? { ok: true, text: `Paired with ${e.name}.` } : { ok: false, text: e.state === 'expired' ? 'The code ran out.' : 'Nothing paired in 3 minutes.' };
       }
+      else if (q.op === 'agent') out = await terminalAgent(String(q.name || ''));
       else if (TERMINAL_OPS[q.op]) out = TERMINAL_OPS[q.op]();
       else out = { ok: false, text: 'Unknown request.' };
       try { c.end(JSON.stringify(out) + '\n'); } catch {}
@@ -556,12 +557,28 @@ const TERMINAL_OPS = {
   stop: () => { orch.interrupt(); return { ok: true, text: 'Stopped.' }; },
   new: () => { orch.brain.reset(); return { ok: true, text: 'Starting a new conversation.' }; },
   quit: () => { setTimeout(() => app.quit(), 200); return { ok: true, text: 'JARVIS is quitting.' }; },
+  agents: () => ({
+    ok: true, current: cfg.assistant,
+    agents: allAssistants(cfg).map((a) => ({ id: a.id, name: a.name, role: (ROLES[a.role] || ROLES.none).label, custom: a.custom })),
+  }),
   // 'status' is taken: devices.py asks for another device's status with it.
   info: () => ({
     ok: true, agent: orch.name, brain: orch.brain.label, state: orch._state, hud: hud.win.isVisible(),
     mic: !orch.voiceOn ? 'off' : orch.muted ? 'standby' : 'on', jobs: [...orch.progress.values()].map((j) => j.description),
   }),
 };
+
+/** jarvis agent <name>: switch to that agent, quietly, as a click on it in the HUD would. */
+async function terminalAgent(name) {
+  const id = findByName(name, cfg);
+  if (!id) return { ok: false, text: `No agent called ${name}. Agents: ${allAssistants(cfg).map((a) => a.name).join(', ')}.` };
+  const to = assistantOf(id, cfg).name;
+  if (id === cfg.assistant) return { ok: true, text: `${to} is already the one in use.` };
+  const wait = orch.canSwitch();
+  if (wait) return { ok: false, text: `${to} can take over once ${wait}.` };
+  await switchAssistant(id, { quiet: true });
+  return cfg.assistant === id ? { ok: true, text: `${to} has taken over.` } : { ok: false, text: `${to} can't take over yet. See the HUD or Settings › Brains & keys.` };
+}
 
 /** A line typed in the terminal: the reply streams back as it comes. Closing early stops the turn. */
 function terminalSay(c, text) {
