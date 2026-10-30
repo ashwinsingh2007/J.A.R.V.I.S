@@ -21,6 +21,8 @@ if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
 
 let cfg, hud, orch, audio, tray, telegram, setupWin = null, found = null, testAudio = null;
 const flags = new Set(process.argv.slice(1));
+// Started by the jarvis command: no HUD and no mic until asked for (jarvis hud, jarvis listen).
+const headless = flags.has('--headless');
 
 function sidecarPath(real = false) {
   if (process.env.JARVIS_EARS_BIN && !real) return process.env.JARVIS_EARS_BIN;
@@ -56,7 +58,7 @@ function startJarvis(brains) {
   const { Orchestrator } = require('./orchestrator');
 
   audio = testAudio || new AudioHost();
-  hud = new HudWindow(themeOf(cfg));
+  hud = new HudWindow(themeOf(cfg), { hidden: headless });
   const brain = brains.create(cfg, found);
   const ears = new Ears(cfg, sidecarPath(), vocabulary(cfg));
   lap('the window, brain and ears');
@@ -95,7 +97,7 @@ function startJarvis(brains) {
   // Other devices first: the rest of the start (music, radio lists) can take a while on a slow Mac.
   startDevices();
   lap('other devices');
-  orch.start(!flags.has('--no-voice'));
+  orch.start(!flags.has('--no-voice') && !headless);
   lap('the orchestrator start');
   watchRestart();
 }
@@ -494,21 +496,25 @@ function runPeerTask(p, f) {
 
 /**
  * A private socket (~/.jarvis/jarvis.sock, owner only) for scripts/devices.py, which the brain runs to
- * reach the other devices. One JSON request per connection, one JSON answer.
+ * reach the other devices, and for the jarvis command (scripts/jarvis.mjs). One JSON request per
+ * connection, one JSON answer; 'say' streams its answer as JSON lines and ends with {t: 'done'}.
  */
 function serveInbox() {
   const net = require('net');
   const sock = path.join(C.STATE_DIR, 'jarvis.sock');
   try { fs.unlinkSync(sock); } catch {}
   const server = net.createServer((c) => {
-    let buf = '';
+    let buf = '', got = false;
     c.on('error', () => {});
     c.on('data', async (d) => {
+      if (got) return;
       buf += d;
       if (buf.length > 64000) return c.destroy();
       if (!buf.includes('\n')) return;
+      got = true;
       let q = {};
       try { q = JSON.parse(buf.slice(0, buf.indexOf('\n'))); } catch {}
+      if (q.op === 'say') return terminalSay(c, String(q.text || ''));
       let out;
       if (q.op === 'list') out = { ok: true, me: devices.data.name, devices: devices.list() };
       else if (q.op === 'status') out = await devices.status(String(q.device || ''));
@@ -530,12 +536,42 @@ function serveInbox() {
         const e = await new Promise((resolve) => { const on = (x) => { if (x.state === 'paired' || x.state === 'expired') { devices.off('pair', on); resolve(x); } }; devices.on('pair', on); setTimeout(() => resolve({ state: 'timeout' }), 180000); });
         out = e.state === 'paired' ? { ok: true, text: `Paired with ${e.name}.` } : { ok: false, text: e.state === 'expired' ? 'The code ran out.' : 'Nothing paired in 3 minutes.' };
       }
+      else if (TERMINAL_OPS[q.op]) out = TERMINAL_OPS[q.op]();
       else out = { ok: false, text: 'Unknown request.' };
       try { c.end(JSON.stringify(out) + '\n'); } catch {}
     });
   });
   server.on('error', (e) => log(`inbox: ${e.message}`));
+  // Owner only from the start: the socket can ask the brain for anything the user could.
+  const mask = process.umask(0o077);
   server.listen(sock, () => { try { fs.chmodSync(sock, 0o600); } catch {} });
+  process.umask(mask);
+}
+
+/** The jarvis command's requests besides 'say'. */
+const TERMINAL_OPS = {
+  hud: () => { hud.show(); return { ok: true, text: 'HUD open.' }; },
+  listen: () => { orch.listen(); return { ok: true, text: 'Listening. Say the wake word when you need me.' }; },
+  mute: () => { orch.setStandby(true); return { ok: true, text: 'Standby: the mic is off.' }; },
+  stop: () => { orch.interrupt(); return { ok: true, text: 'Stopped.' }; },
+  new: () => { orch.brain.reset(); return { ok: true, text: 'Starting a new conversation.' }; },
+  quit: () => { setTimeout(() => app.quit(), 200); return { ok: true, text: 'JARVIS is quitting.' }; },
+  // 'status' is taken: devices.py asks for another device's status with it.
+  info: () => ({
+    ok: true, agent: orch.name, brain: orch.brain.label, state: orch._state, hud: hud.win.isVisible(),
+    mic: !orch.voiceOn ? 'off' : orch.muted ? 'standby' : 'on', jobs: [...orch.progress.values()].map((j) => j.description),
+  }),
+};
+
+/** A line typed in the terminal: the reply streams back as it comes. Closing early stops the turn. */
+function terminalSay(c, text) {
+  let open = true;
+  const source = orch.typed(text, (ev) => {
+    if (!open) return;
+    try { c.write(JSON.stringify(ev) + '\n'); } catch {}
+    if (ev.t === 'done') { open = false; try { c.end(); } catch {} }
+  });
+  c.on('close', () => { if (open && orch.source === source) { open = false; orch.interrupt(); } });
 }
 
 /** Settings › Devices: pairing, names, the relay. */

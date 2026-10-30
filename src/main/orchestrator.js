@@ -143,7 +143,7 @@ class Orchestrator extends EventEmitter {
 
   get isIdle() { return (this._state === 'idle' || this._state === 'muted') && !this.brain.isBusy && !this.speaker.isSpeaking; }
   // Telegram answers by message; a turn typed on another of the user's devices is read there.
-  get speaksAloud() { return this.source.kind !== 'telegram' && this.source.kind !== 'peer'; }
+  get speaksAloud() { return this.source.kind !== 'telegram' && this.source.kind !== 'peer' && this.source.kind !== 'terminal'; }
   get awake() { return this.wake.conversationMode; }
 
   // ---------- wiring ----------
@@ -219,6 +219,7 @@ class Orchestrator extends EventEmitter {
       if (this.inSources) return;
       this.replyText += (this.replyText ? ' ' : '') + s;
       hud.send('reply', { text: this.replyText });
+      if (this.source.out) this.source.out({ t: 'reply', text: s });
       // Reminders, scheduled jobs and the briefing may speak while asleep; never in standby.
       const may = this.source.kind === 'proactive' ? !this.muted && (this.awake || this.source.urgent) : this.awake;
       if (!this.speaksAloud || !may || this.disabled) return;
@@ -227,6 +228,7 @@ class Orchestrator extends EventEmitter {
     });
     brain.on('tool', (t) => {
       hud.send('tool', t);
+      if (this.source.out) this.source.out({ t: 'tool', text: t.summary });
       if (t.name === 'Agent' || t.name === 'Task' || t.name === 'delegate') {
         this.agentSource = this.source;
         // Handed off without a word: say what's happening, in plain words.
@@ -238,6 +240,7 @@ class Orchestrator extends EventEmitter {
     });
     brain.on('done', (text, isError, cancelled) => {
       if (cancelled) {
+        if (this.source.out) this.source.out({ t: 'done', text: '', cancelled: true });
         // Barge-in or an interrupting command; the user has moved on.
         if (this.pendingCommand || this._state === 'thinking') this.finishedTurn();
         return;
@@ -248,6 +251,8 @@ class Orchestrator extends EventEmitter {
         if (this.speaksAloud && this.awake) speaker.speak(clean(text) ? text : `Something went wrong, ${this.cfg.honorific}.`);
       }
       if (this.source.kind === 'telegram') this.emit('telegram-reply', this.source.chat, this.replyText || text);
+      // The sentences went out as they came; the whole text only when none did.
+      if (this.source.out) this.source.out({ t: 'done', text: isError || (!this.replyText && !isSilent(text)) ? text : '', error: !!isError });
       // Said on another computer: its answer goes back there to be spoken.
       if (this.source.kind === 'peer' && this.source.replyTo) this.emit('peer-reply', this.source.replyTo, this.replyText || text);
       const said = isSilent(this.replyText || text) ? '' : (this.replyText || text);
@@ -495,8 +500,24 @@ class Orchestrator extends EventEmitter {
     this.hud.sendRaw('schedule', this.scheduler.items);
     if (this.brain.contextInfo) this.hud.sendRaw('context', this.brain.contextInfo());
     setInterval(() => this.checkInTick(), Number(process.env.JARVIS_TEST_CHECKIN_TICK_MS) || 60000);
+    this.voiceOn = withVoice;
     if (withVoice) this.ears.start();
     else { this.state = 'idle'; this.hud.send('boot', { ok: true }); }
+  }
+
+  /** Started from the terminal with the mic off: "jarvis listen" starts the mic and the wake word. */
+  listen() {
+    if (!this.voiceOn) { this.voiceOn = true; this.ears.start(); }
+    if (this.muted) this.setStandby(false);
+  }
+
+  /** A line typed in the terminal (the jarvis command). out(event) gets the reply as it comes. */
+  typed(text, out) {
+    const source = { kind: 'terminal', out };
+    const command = String(text || '').trim().slice(0, 4000);
+    if (!command) out({ t: 'done', text: '' });
+    else this.handle(command, source);
+    return source;
   }
 
   // ---------- hook events from other Claude Code sessions ----------
@@ -593,6 +614,15 @@ class Orchestrator extends EventEmitter {
     }
 
     const local = this.localIntent(command, source);
+    if (local && source.out) {
+      // Typed in the terminal: what JARVIS would say goes back there as text instead.
+      const said = [];
+      const speak = this.speaker.speak;
+      this.speaker.speak = (s) => { said.push(s); };
+      try { local(); } finally { this.speaker.speak = speak; }
+      source.out({ t: 'done', text: said.join(' ') || 'Done.' });
+      return;
+    }
     if (local) { local(); return; }
 
     if (this.brain.isBusy) {

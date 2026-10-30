@@ -13,7 +13,8 @@ const { log } = require('./util');
 const BOUNDS_FILE = path.join(C.STATE_DIR, 'window.json');
 
 class HudWindow extends EventEmitter {
-  constructor(theme = {}) {
+  /** hidden: started from the terminal; the page loads, but the window waits for show(). */
+  constructor(theme = {}, { hidden = false } = {}) {
     super();
     this.ready = false;
     this.backlog = [];
@@ -36,7 +37,7 @@ class HudWindow extends EventEmitter {
       webPreferences: { preload: path.join(__dirname, '..', 'preload', 'hud.js'), contextIsolation: true, sandbox: true, backgroundThrottling: true },
     });
     this.win.loadFile(path.join(__dirname, '..', 'renderer', 'hud', 'index.html'), { query: { theme: theme.theme || 'jarvis', mode: theme.mode || 'dark' } });
-    this.win.once('ready-to-show', () => this.win.show());
+    if (!hidden) this.win.once('ready-to-show', () => this.win.show());
     this.win.webContents.on('did-start-loading', () => { this.ready = false; });
     // Links in the HUD open in the browser, never inside the app.
     this.win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) require('electron').shell.openExternal(url); return { action: 'deny' }; });

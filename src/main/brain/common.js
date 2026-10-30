@@ -140,6 +140,7 @@ function claudeExtras(cfg) {
 
 /**
  * Tools Claude Code may not use: new terminals only come from the user, and screen control only when allowed.
+ * The jarvis command is the user typing to JARVIS, so JARVIS's own processes may not run it.
  * The brain also has no web search: searching is the worker's job, so JARVIS hands it over instead.
  */
 function claudeDisallowed(cfg, { brain = false } = {}) {
@@ -148,7 +149,7 @@ function claudeDisallowed(cfg, { brain = false } = {}) {
   const a = cfg.assistant ? assistantOf(cfg.assistant, cfg) : null;
   const off = a ? denyRules(a).filter((r) => !/^(Read|Edit)\(\//.test(r)) : [];
   if (a && !a.maintainer) off.push('Bash(*maintain.sh*)');
-  return [`Bash(${paths.scripts}/open-session.sh*)`, 'Bash(*open-session.sh*)', ...(cfg.screenControl ? [] : ['Bash(*hands.sh*)', 'Bash(*jarvis-hands*)']),
+  return [`Bash(${paths.scripts}/open-session.sh*)`, 'Bash(*open-session.sh*)', 'Bash(jarvis *)', 'Bash(jarvis)', 'Bash(*/jarvis *)', 'Bash(*jarvis.mjs*)', 'Bash(*jarvis.sock*)', ...(cfg.screenControl ? [] : ['Bash(*hands.sh*)', 'Bash(*jarvis-hands*)']),
     ...(brain ? ['WebSearch', 'WebFetch'] : []), ...off].filter((x, i, all) => all.indexOf(x) === i).join(',');
 }
 

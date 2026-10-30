@@ -210,6 +210,21 @@ Without a signing identity, `./build.sh` signs the app ad hoc, which gives every
 
 The HUD shows the current state, the live transcript, system stats, your Claude Code sessions and music. The menu bar item (◉) has the same controls, plus microphone selection and Setup.
 
+### From the terminal
+
+Typing is quicker than talking when you're already at the keyboard. Run `sh scripts/install-cli.sh` once to install the `jarvis` command in `~/.local/bin`. It needs Node.js.
+
+```sh
+jarvis "what's on my calendar today"   # ask once and print the reply
+jarvis                                 # chat in the terminal; /help lists the commands
+jarvis --on "Home Mac" "pull the repo" # hand a task to a paired computer
+jarvis hud                             # open the HUD
+jarvis listen                          # turn the mic and the wake word on
+jarvis mute | stop | new | status | quit
+```
+
+If JARVIS isn't running, the command starts it in the background with no HUD and the microphone off. Replies are printed, not spoken. It's the same brain, memory and conversation as the voice, so you can start something by voice and carry on by typing. The same rule applies too: JARVIS asks before it sends, posts, deletes or pays, and you answer in the terminal. Ctrl-C stops an answer.
+
 ## Privacy and safety
 
 Settings live in `~/.jarvis/config.json` (mode 600). API keys and the Telegram token are encrypted with your macOS Keychain.
