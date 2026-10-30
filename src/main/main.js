@@ -69,6 +69,9 @@ function startJarvis(brains) {
 
   buildTray();
   orch.liveState = liveState;
+  // Started from the terminal with the mic off: opening the HUD means the whole JARVIS, so the mic
+  // comes on with it (unless JARVIS was started with --no-voice).
+  hud.on('visible', (on) => { if (on && !flags.has('--no-voice')) orch.startVoice(); });
   orch.on('state', updateTrayTitle);
   orch.on('disabled', buildTray);
   orch.on('open-setup', (section) => openSettings(section));

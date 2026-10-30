@@ -518,8 +518,16 @@ class Orchestrator extends EventEmitter {
 
   /** Started from the terminal with the mic off: "jarvis listen" starts the mic and the wake word. */
   listen() {
-    if (!this.voiceOn) { this.voiceOn = true; this.ears.start(); }
+    this.startVoice();
     if (this.muted) this.setStandby(false);
+  }
+
+  /** The mic and the wake word, if JARVIS started without them. Standby stays as it is. */
+  startVoice() {
+    if (this.voiceOn) return;
+    this.voiceOn = true;
+    log('voice: starting the mic');
+    this.ears.start();
   }
 
   /** A line typed in the terminal (the jarvis command). out(event) gets the reply as it comes. */
