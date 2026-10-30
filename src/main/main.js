@@ -538,6 +538,7 @@ function serveInbox() {
       let q = {};
       try { q = JSON.parse(buf.slice(0, buf.indexOf('\n'))); } catch {}
       if (q.op === 'say') return terminalSay(c, String(q.text || ''));
+      if (q.op === 'watch') return terminalWatch(c);
       let out;
       if (q.op === 'list') out = { ok: true, me: devices.data.name, devices: devices.list() };
       else if (q.op === 'status') out = await devices.status(String(q.device || ''));
@@ -586,7 +587,8 @@ const TERMINAL_OPS = {
   }),
   // 'status' is taken: devices.py asks for another device's status with it.
   info: () => ({
-    ok: true, agent: orch.name, brain: orch.brain.label, state: orch._state, hud: hud.win.isVisible(),
+    ok: true, agent: orch.name, id: cfg.assistant, brain: orch.brain.label, state: orch._state, hud: hud.win.isVisible(),
+    context: orch.brain.contextInfo ? (({ tokens, limit }) => ({ tokens, limit }))(orch.brain.contextInfo()) : null,
     mic: !orch.voiceOn ? 'off' : orch.muted ? 'standby' : 'on', jobs: [...orch.progress.values()].map((j) => j.description),
   }),
 };
@@ -601,6 +603,14 @@ async function terminalAgent(name) {
   if (wait) return { ok: false, text: `${to} can take over once ${wait}.` };
   await switchAssistant(id, { quiet: true });
   return cfg.assistant === id ? { ok: true, text: `${to} has taken over.` } : { ok: false, text: `${to} can't take over yet. See the HUD or Settings › Brains & keys.` };
+}
+
+/** The jarvis chat's second connection: what happens outside its own turns, as JSON lines, until it closes. */
+function terminalWatch(c) {
+  const send = (ev) => { try { c.write(JSON.stringify(ev) + '\n'); } catch {} };
+  orch.on('feed', send);
+  c.on('close', () => orch.removeListener('feed', send));
+  c.on('error', () => orch.removeListener('feed', send));
 }
 
 /** A line typed in the terminal: the reply streams back as it comes. Closing early stops the turn. */
