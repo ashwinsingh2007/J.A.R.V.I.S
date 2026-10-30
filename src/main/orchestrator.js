@@ -505,6 +505,17 @@ class Orchestrator extends EventEmitter {
     else { this.state = 'idle'; this.hud.send('boot', { ok: true }); }
   }
 
+  /**
+   * What JARVIS itself looks like right now (its agents, the paired computers and which are connected,
+   * the mic, the HUD, jobs), sent with each turn so "how many agents do you have?" or "which computers
+   * are connected?" get a true answer however they're put. main.js sets liveState.
+   */
+  liveNote() {
+    let s = '';
+    try { s = this.liveState ? this.liveState() : ''; } catch (e) { log(`live state: ${e.message}`); }
+    return s ? `[JARVIS RIGHT NOW. Reference only, from JARVIS itself: use it when the user asks about these things, never mention it otherwise] ${s}\n\n` : '';
+  }
+
   /** Started from the terminal with the mic off: "jarvis listen" starts the mic and the wake word. */
   listen() {
     if (!this.voiceOn) { this.voiceOn = true; this.ears.start(); }
@@ -641,7 +652,7 @@ class Orchestrator extends EventEmitter {
     this.inSources = false;
     this.state = 'thinking';
     this.hud.send('reply', { text: '' });
-    this.brain.ask(command);
+    this.brain.ask(this.liveNote() + command);
     clearTimeout(this.ackTimer);
     this.ackTimer = setTimeout(() => { if (this.brain.isBusy && this._state === 'thinking') this.filler(); }, ACK_MS);
   }

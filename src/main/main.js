@@ -68,6 +68,7 @@ function startJarvis(brains) {
   if (brain.fallback) hud.send('notice', { text: `${assistantOf(cfg.assistant, cfg).name} needs ${brain.fallback}, so it is thinking with ${brain.label} for now.` });
 
   buildTray();
+  orch.liveState = liveState;
   orch.on('state', updateTrayTitle);
   orch.on('disabled', buildTray);
   orch.on('open-setup', (section) => openSettings(section));
@@ -100,6 +101,25 @@ function startJarvis(brains) {
   orch.start(!flags.has('--no-voice') && !headless);
   lap('the orchestrator start');
   watchRestart();
+}
+
+/** One line on JARVIS's own state for the brain: see Orchestrator.liveNote. Names are data. */
+function liveState() {
+  const q = (s) => JSON.stringify(String(s || '').slice(0, 40));
+  const agents = allAssistants(cfg).map((a) => {
+    const role = (ROLES[a.role] || ROLES.none).label;
+    return `${q(a.name)}${a.id === cfg.assistant ? ' (in use)' : ''}${role !== 'None' ? `, ${role.toLowerCase()}` : ''}${a.custom ? ', made by the user' : ''}`;
+  });
+  const out = [`Agents (${agents.length}): ${agents.join('; ')}.`];
+  if (devices) {
+    const peers = devices.list();
+    const on = peers.filter((p) => p.via !== 'offline');
+    out.push(`This computer: ${q(devices.data.name)}. Paired computers (${peers.length}, ${on.length} connected): ${peers.length ? peers.map((p) => `${q(p.name)} ${p.via === 'offline' ? 'not connected' : `connected (${p.via})`}${p.os ? `, ${p.os}` : ''}`).join('; ') : 'none'}.`);
+  }
+  out.push(`Mic: ${!orch.voiceOn ? 'off (started from the terminal)' : orch.disabled ? 'disabled' : orch.muted ? 'standby' : 'on'}. HUD: ${hud && hud.win.isVisible() ? 'open' : 'closed'}. Telegram: ${orch.telegramStatus}. Voice: ${cfg.voiceMuted ? 'muted' : 'on'}.`);
+  const jobs = [...orch.progress.values()].map((j) => j.description);
+  out.push(`Background jobs: ${jobs.length ? jobs.map(q).join('; ') : 'none'}.`);
+  return out.join(' ');
 }
 
 /** Theme for new windows; "system" resolved now (the page keeps following macOS). */
