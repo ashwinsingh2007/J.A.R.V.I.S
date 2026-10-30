@@ -188,6 +188,10 @@ const mp4 = path.join(OUT, 'jarvis-demo.mp4');
 execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-ss', String(offset), '-i', video, '-i', wav, '-t', String(total / 1000),
   '-c:v', 'libx264', '-crf', '24', '-preset', 'slow', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-c:a', 'aac', '-b:a', '128k', mp4]);
 execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-ss', '25', '-i', mp4, '-frames:v', '1', '-q:v', '3', path.join(OUT, 'poster.jpg')]);
-for (const f of ['jarvis-demo.mp4', 'poster.jpg']) console.log(f, (fs.statSync(path.join(OUT, f)).size / 1e6).toFixed(1), 'MB');
+// A looping, silent preview for the README, which can't play a video from the repo.
+const gif = (src, dst, ss, t, width, colors) => execFileSync('ffmpeg', ['-y', '-loglevel', 'error', ...(ss ? ['-ss', String(ss), '-t', String(t)] : []), '-i', src,
+  '-vf', `fps=${width > 800 ? 8 : 7},scale=${width}:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=${colors}:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle`, dst]);
+gif(mp4, path.join(OUT, 'jarvis-demo.gif'), 19, 34, 720, 80);
+for (const f of ['jarvis-demo.mp4', 'poster.jpg', 'jarvis-demo.gif']) console.log(f, (fs.statSync(path.join(OUT, f)).size / 1e6).toFixed(1), 'MB');
 console.log(`length ${(total / 1000).toFixed(1)} s`);
 fs.rmSync(TMP, { recursive: true, force: true });
