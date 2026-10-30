@@ -238,7 +238,7 @@ jarvis pair                            # show a pairing code; on the other compu
 jarvis unpair "Home Mac"
 ```
 
-If JARVIS isn't running, the command starts it in the background with no HUD and the microphone off. Replies are printed, not spoken. It's the same brain, memory and conversation as the voice, so you can start something by voice and carry on by typing. The same rule applies too: JARVIS asks before it sends, posts, deletes or pays, and you answer in the terminal. Ctrl-C stops an answer.
+If JARVIS isn't running, the command starts it in the background with no HUD and the microphone off. Opening the HUD (`jarvis hud`, or clicking JARVIS) turns the microphone on as well. Replies are printed, not spoken. It's the same brain, memory and conversation as the voice, so you can start something by voice and carry on by typing. The same rule applies too: JARVIS asks before it sends, posts, deletes or pays, and you answer in the terminal. Ctrl-C stops an answer.
 
 ## Privacy and safety
 
