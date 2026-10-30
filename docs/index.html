@@ -204,7 +204,10 @@
   <div class="wrap">
     <div class="lab">From the terminal</div>
     <h2>Type instead of talking</h2>
-    <p class="lead">When you're already at the keyboard, typing is quicker. The <code>jarvis</code> command talks to the same brain, memory and conversation as the voice, so you can start something by voice and finish it by typing. Replies are printed, not spoken.</p>
+    <p class="lead">When you're already at the keyboard, typing is quicker. The <code>jarvis</code> command talks to the same brain, memory and conversation as the voice, so you can start something by voice and finish it by typing. Replies are printed, not spoken, and background jobs report each step into the chat as they go.</p>
+    <div class="video" style="margin:0 auto 34px">
+      <video src="demo/jarvis-terminal.mp4" poster="demo/terminal-poster.jpg" controls playsinline preload="metadata" aria-label="The jarvis chat in a terminal: asking how many agents there are, listing the paired computers, a background job reporting its steps and result live, a reminder, and switching to FRIDAY"></video>
+    </div>
     <div class="two">
       <pre><span class="c"># once: sh scripts/install-cli.sh</span>
 jarvis "what's on my calendar today"
@@ -216,7 +219,8 @@ jarvis devices         <span class="c"># jarvis device "Home Mac"</span>
 jarvis pair            <span class="c"># or: jarvis pair &lt;code&gt;</span>
 jarvis --on "Home Mac" "pull the repo"</pre>
       <ul class="ticks">
-        <li>If JARVIS isn't running, the command starts it in the background with no HUD and the microphone off.</li>
+        <li>A status line under the input box shows the agent, brain, mic, context size and running jobs, and a spinner shows how long each answer takes.</li>
+        <li>If JARVIS isn't running, the command starts it in the background with no HUD and the microphone off. Opening the HUD turns the microphone on.</li>
         <li>It still asks before it sends, posts, deletes or pays, and you answer in the terminal. Ctrl-C stops an answer.</li>
         <li>It goes through a private socket in <code>~/.jarvis</code> that only your user can open. Nothing goes over the network.</li>
         <li>JARVIS's own brain and workers can't run it, so nothing JARVIS reads can type commands to it as you.</li>

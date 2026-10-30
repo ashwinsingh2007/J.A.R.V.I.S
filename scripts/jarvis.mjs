@@ -214,6 +214,11 @@ async function manage([cmd, ...rest]) {
 
 async function chat() {
   if (!(await ensureRunning())) return 1;
+  // In a terminal: the full chat screen. Piped input gets the plain line-by-line chat below.
+  if (process.stdin.isTTY && process.stdout.isTTY && !process.env.JARVIS_PLAIN) {
+    const { runTui } = await import('./jarvis-tui.mjs');
+    return runTui({ SOCK, call, op, manage, OPS, MANAGE });
+  }
   const s = await call({ op: 'info' });
   if (s && s.ok) console.log(dim(`${s.agent} · ${s.brain} · mic ${s.mic}. Type /help for commands, Ctrl-D to leave.`));
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: '› ', historySize: 200 });

@@ -262,6 +262,7 @@ class Orchestrator extends EventEmitter {
         this.turns++;
         this.memory.journal('You', this.currentCommand);
       }
+      if (said && !this.source.out) this.feed({ t: 'said', who: this.name, you: this.source.kind === 'proactive' ? '' : this.currentCommand, via: this.source.kind, text: clean(cutSources(said)) });
       if (said) {
         this.memory.journal(this.name, clean(cutSources(said)));
         this.history.push({ t: hhmm(), you: this.currentCommand, jarvis: said.slice(0, 200) });
@@ -282,11 +283,13 @@ class Orchestrator extends EventEmitter {
       if (t.status === 'running') {
         this.progress.set(t.id, { description: what, started: Date.now(), status: '', step: '' });
         hud.send('notice', { text: `Working: ${what}` });
+        this.feed({ t: 'job', state: 'running', text: what });
       } else {
         this.progress.delete(t.id);
         // A change to the assistant in use waited for the jobs; now it can start again with it.
         if (this.refreshLater && !this.progress.size) { this.refreshLater = false; setTimeout(() => this.emit('refresh-assistant'), 1500); }
         hud.send('notice', { text: `${t.status === 'completed' ? 'Finished' : t.status === 'failed' ? 'Failed' : 'Stopped'}: ${what}` });
+        this.feed({ t: 'job', state: t.status, text: what });
       }
       this.sendStats();
     });
@@ -296,7 +299,8 @@ class Orchestrator extends EventEmitter {
       if (p.step) e.step = p.step;
       this.conv.progress(p.id, p.status || p.step);
       // Shown, never spoken: the user hears about a job only when it finishes, fails or needs them.
-      if (p.status && p.status !== e.status) { e.status = p.status; hud.send('notice', { text: p.status }); }
+      if (p.status && p.status !== e.status) { e.status = p.status; hud.send('notice', { text: p.status }); this.feed({ t: 'progress', job: e.description, text: p.status }); }
+      else if (p.step) this.feed({ t: 'step', job: e.description, text: p.step });
       this.sendStats();
     });
     // A background job finished for a brain that isn't Claude Code: the brain retells the report when it's free.
@@ -316,6 +320,7 @@ class Orchestrator extends EventEmitter {
     brain.on('background', (text) => {
       const spoken = clean(cutSources(text.replace(/^.*?RESULT(?:\s*\(\w+\))?:\s*/s, '')));
       hud.send('notice', { text: spoken.slice(0, 200) });
+      this.feed({ t: 'said', who: this.name, text: spoken });
       this.history.push({ t: hhmm(), you: '(agent)', jarvis: spoken.slice(0, 200) });
       this.conv.turn('', spoken, this.name);
       this.sendConversation();
@@ -515,6 +520,9 @@ class Orchestrator extends EventEmitter {
     try { s = this.liveState ? this.liveState() : ''; } catch (e) { log(`live state: ${e.message}`); }
     return s ? `\n\n[JARVIS RIGHT NOW. Reference only, from JARVIS itself: use it when the user asks about these things, never mention it otherwise] ${s}` : '';
   }
+
+  /** What happens outside the terminal's own turns, for a watching jarvis chat: jobs, their steps, voice. */
+  feed(ev) { this.emit('feed', ev); }
 
   /** Started from the terminal with the mic off: "jarvis listen" starts the mic and the wake word. */
   listen() {

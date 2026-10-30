@@ -30,7 +30,7 @@ JARVIS is built Claude Code first. It works best with Claude Code and your Claud
 
 <a href="https://ashwinsingh2007.github.io/J.A.R.V.I.S/#demo"><img src="docs/demo/poster.jpg" alt="The JARVIS demo video in the Stark theme. Click to watch it on the website." width="900"></a>
 
-Under two minutes, with sound, in the Stark theme: a Gmail check in the background, a reminder, "how many agents do you have?", switching to FRIDAY and back, the Agents tab, "which computers are connected?", a look at the Home Mac's HUD with FRIDAY at work, the Gmail result, a birthday saved to memory, and the five themes. The HUD is in demo mode with made-up data. Click the picture to watch it on the website, or download [the video](docs/demo/jarvis-demo.mp4).
+Under two minutes, with sound, in the Stark theme: a Gmail check in the background, a reminder, "how many agents do you have?", switching to FRIDAY and back, the Agents tab, "which computers are connected?", a look at the Home Mac's HUD with FRIDAY at work, the Gmail result, a birthday saved to memory, and the five themes. The HUD is in demo mode with made-up data. Click the picture to watch it on the website, or download [the video](docs/demo/jarvis-demo.mp4). There's a second video of [JARVIS in the terminal](#from-the-terminal).
 
 ## Features
 
@@ -237,6 +237,10 @@ jarvis devices                         # the paired computers; jarvis device "Ho
 jarvis pair                            # show a pairing code; on the other computer: jarvis pair <code>
 jarvis unpair "Home Mac"
 ```
+
+<a href="https://ashwinsingh2007.github.io/J.A.R.V.I.S/#terminal"><img src="docs/demo/terminal-poster.jpg" alt="The jarvis chat in a terminal: a question about the agents, the paired computers, and a background job reporting its steps and result live. Click to watch the video." width="900"></a>
+
+`jarvis` on its own opens a chat screen in the terminal. You type in a box at the bottom, and the line under it shows the agent, the brain, the mic, the HUD, the context size and any running jobs. While JARVIS works, a spinner shows how long it has taken; when it's done you see "Worked for 4s". Background jobs report into the chat as they go: when one starts, each step it takes, its progress, when it finishes and what it found. You also see what you said to JARVIS by voice, in the HUD or on Telegram, and reminders as they fire. `/verbose` hides or shows the steps, and `/help` lists the commands. [Watch it](docs/demo/jarvis-terminal.mp4) (43 s, made-up data).
 
 If JARVIS isn't running, the command starts it in the background with no HUD and the microphone off. Opening the HUD (`jarvis hud`, or clicking JARVIS) turns the microphone on as well. Replies are printed, not spoken. It's the same brain, memory and conversation as the voice, so you can start something by voice and carry on by typing. The same rule applies too: JARVIS asks before it sends, posts, deletes or pays, and you answer in the terminal. Ctrl-C stops an answer.
 
