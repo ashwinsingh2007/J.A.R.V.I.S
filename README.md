@@ -28,9 +28,9 @@ JARVIS is built Claude Code first. It works best with Claude Code and your Claud
 
 ## Demo
 
-https://github.com/user-attachments/assets/ad2601b5-fe23-417f-ba83-51ab274bdda3
+<a href="https://ashwinsingh2007.github.io/J.A.R.V.I.S/#demo"><img src="docs/demo/poster.jpg" alt="The JARVIS demo video in the Stark theme. Click to watch it on the website." width="900"></a>
 
-One minute, with sound: a Gmail check in the background with spoken progress, a reminder, "what's the status?", the result, a birthday saved to memory, and the five themes. The HUD is in demo mode with made-up data. It's also on the [website](https://ashwinsingh2007.github.io/J.A.R.V.I.S/#demo).
+Under a minute and a half, with sound, in the Stark theme: a Gmail check in the background, a reminder, "how many agents do you have?", "which computers are connected?", a look at the Home Mac's HUD with FRIDAY at work, the Gmail result, a birthday saved to memory, and the five themes. The HUD is in demo mode with made-up data. Click the picture to watch it on the website, or download [the video](docs/demo/jarvis-demo.mp4).
 
 ## Features
 
@@ -93,8 +93,16 @@ Before it sends, posts, deletes or pays for anything, it reads the task back and
 
 <table>
   <tr>
+    <td><img src="docs/screenshots/agents.png" alt="AGENTS tab: the five assistants, each with its own role, persona, brain, voice and guardrails"></td>
+    <td><img src="docs/screenshots/mesh.png" alt="MESH open on the home screen: this computer, a paired Home Mac and + PAIR"></td>
+  </tr>
+  <tr>
+    <td align="center">Agents: each assistant's role, persona, brain, voice, training and guardrails.</td>
+    <td align="center">MESH: your computers. Click one to switch the HUD to it.</td>
+  </tr>
+  <tr>
     <td><img src="docs/screenshots/memory.png" alt="MEMORY tab: facts JARVIS remembers, and reminders and routines"></td>
-    <td><img src="docs/screenshots/settings.png" alt="SETTINGS: voice and work models, progress updates, briefing, check-ins, themes"></td>
+    <td><img src="docs/screenshots/settings.png" alt="SETTINGS: general options, with sections for brains, skills, devices, listening and voice"></td>
   </tr>
   <tr>
     <td align="center">Memory: what it knows about you, plus your reminders and routines. Click × to remove anything.</td>
