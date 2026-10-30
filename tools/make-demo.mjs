@@ -49,6 +49,16 @@ const SCRIPT = [
   { you: 'How many agents do you have?' },
   { jarvis: 'Five, sir. FRIDAY for code, KAREN for your messages, EDITH looks after me, and VISION for research.', do: [{ js: "document.body.classList.add('focus')" }] },
   { pause: 600, do: [{ js: "document.body.classList.remove('focus')" }] },
+  { you: 'Let me talk to FRIDAY.' },
+  { pause: 1400, do: [node('FRIDAY'), { js: "setTimeout(() => window.hud.event({ type: 'assistant', id: 'friday' }), 900)" }] },
+  { jarvis: 'FRIDAY here. Ready when you are.', voice: 'bf_emma' },
+  { you: 'Show me all the agents.' },
+  { jarvis: "Here's everyone, with our roles, brains, voices and guardrails.", voice: 'bf_emma', view: 'agents', do: [{ js: "setTimeout(() => document.querySelector('#acards .agcard[data-id=\"edith\"]').click(), 2200)" }] },
+  { pause: 1800 },
+  { you: 'Back to JARVIS, please.' },
+  { pause: 300, do: [{ js: "document.querySelector('#nav a[data-view=\"cc\"]').click()" }, { js: "setTimeout(() => window.hud.event({ type: 'assistant', id: 'jarvis' }), 700)" }] },
+  { pause: 1200 },
+  { jarvis: 'At your service, sir.' },
   { you: 'Which computers are connected?' },
   { jarvis: 'The Home Mac, sir, on the local network. FRIDAY is working there on the payments module.', do: [node('MESH')] },
   { you: 'Show me the Home Mac.' },
@@ -76,12 +86,12 @@ function kokoro() {
   const readyP = new Promise((r) => { ready = r; });
   rl.on('line', (l) => { const m = JSON.parse(l); if (m.ready) ready(); else waiting.get(m.id)?.(m); });
   return {
-    async say(text, out) {
+    async say(text, out, voice = 'bm_george') {
       await readyP;
       const id = Math.random().toString(36).slice(2);
       return new Promise((resolve, reject) => {
         waiting.set(id, (m) => (m.ok ? resolve() : reject(new Error(m.error))));
-        py.stdin.write(JSON.stringify({ id, text, voice: 'bm_george', speed: 1.05, out }) + '\n');
+        py.stdin.write(JSON.stringify({ id, text, voice, speed: 1.05, out }) + '\n');
       });
     },
     close: () => py.kill(),
@@ -96,7 +106,7 @@ for (const line of SCRIPT) {
   if (!line.you && !line.jarvis) continue;
   line.file = path.join(TMP, `${String(n++).padStart(2, '0')}.${line.you ? 'aiff' : 'wav'}`);
   if (line.you) execFileSync('say', ['-v', USER_VOICE, '-r', '185', '-o', line.file, line.you]);
-  else await tts.say(line.jarvis, line.file);
+  else await tts.say(line.jarvis, line.file, line.voice);
   line.secs = seconds(line.file);
 }
 tts.close();

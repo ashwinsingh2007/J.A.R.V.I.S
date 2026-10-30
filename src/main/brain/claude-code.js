@@ -197,7 +197,8 @@ class ClaudeCodeBrain extends EventEmitter {
     this.context.asked(prompt);
     const msg = { type: 'user', message: { role: 'user', content: [{ type: 'text', text: prompt }] } };
     this.proc.stdin.write(JSON.stringify(msg) + '\n');
-    log(`brain: asked '${prompt.slice(0, 80)}' session=${this._sessionId || 'new'}`);
+    // The first line: what the user said, without the live note that follows it.
+    log(`brain: asked '${prompt.split('\n')[0].slice(0, 80)}' session=${this._sessionId || 'new'}`);
   }
 
   /** The one background worker: every tool, and the whole job from start to finish. */

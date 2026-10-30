@@ -30,7 +30,7 @@ JARVIS is built Claude Code first. It works best with Claude Code and your Claud
 
 <a href="https://ashwinsingh2007.github.io/J.A.R.V.I.S/#demo"><img src="docs/demo/poster.jpg" alt="The JARVIS demo video in the Stark theme. Click to watch it on the website." width="900"></a>
 
-Under a minute and a half, with sound, in the Stark theme: a Gmail check in the background, a reminder, "how many agents do you have?", "which computers are connected?", a look at the Home Mac's HUD with FRIDAY at work, the Gmail result, a birthday saved to memory, and the five themes. The HUD is in demo mode with made-up data. Click the picture to watch it on the website, or download [the video](docs/demo/jarvis-demo.mp4).
+Under two minutes, with sound, in the Stark theme: a Gmail check in the background, a reminder, "how many agents do you have?", switching to FRIDAY and back, the Agents tab, "which computers are connected?", a look at the Home Mac's HUD with FRIDAY at work, the Gmail result, a birthday saved to memory, and the five themes. The HUD is in demo mode with made-up data. Click the picture to watch it on the website, or download [the video](docs/demo/jarvis-demo.mp4).
 
 ## Features
 
