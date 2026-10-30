@@ -67,6 +67,12 @@ test('tools switched off and guardrails become deny rules for the brain and the 
   assert.doesNotMatch(claudeDisallowed(cfgFor('friday')), /send\.sh/);
 });
 
+test('the brain and the worker may not type to JARVIS through the jarvis command', () => {
+  const off = claudeDisallowed(cfgFor('jarvis'));
+  assert.match(off, /Bash\(jarvis \*\)/);
+  assert.match(off, /Bash\(\*jarvis\.sock\*\)/);
+});
+
 test('the API brains refuse tools and folders an agent may not use', async () => {
   C.saveProfile('vision', { tools: ['browser', 'terminals', 'screen', 'files', 'reminders'], blockedPaths: [path.join(HOME, 'Private')] });
   const cfg = cfgFor('vision');
