@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>J.A.R.V.I.S · an open-source voice assistant for your Mac</title>
-<meta name="description" content="J.A.R.V.I.S is a free, open-source AI voice assistant for macOS, inspired by Iron Man's JARVIS. Wake word, local speech, a British butler's voice, memory, reminders and morning briefings, running on Claude Code, the Claude API or local Ollama models.">
+<meta name="description" content="J.A.R.V.I.S is a free, open-source AI voice assistant for macOS, inspired by Iron Man's JARVIS. Wake word, local speech, five assistants, memory, reminders, morning briefings, a terminal command and several computers working together, running on Claude Code, the Claude API, Gemini or local Ollama models.">
 <meta name="theme-color" content="#02050c">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="J.A.R.V.I.S">
@@ -114,6 +114,9 @@
   <div class="wrap">
     <a class="brand" href="#"><img src="icon.png" alt="">J.A.R.V.I.S</a>
     <a class="l" href="#features">Features</a>
+    <a class="l" href="#agents">Agents</a>
+    <a class="l" href="#computers">Computers</a>
+    <a class="l" href="#terminal">Terminal</a>
     <a class="l" href="#inside">Inside</a>
     <a class="l" href="#privacy">Privacy</a>
     <a class="l" href="#contribute">Contribute</a>
@@ -146,14 +149,78 @@
     <p class="lead">Most voice assistants answer questions and run a fixed set of commands. JARVIS runs on Claude Code, so it can work with your files, your browser and your coding sessions, and keep you posted while a long job runs in the background.</p>
     <div class="grid">
       <div class="card"><h3>Hands-free</h3><p>Say the wake word and every sentence after it is a command, until you tell it to sleep. Say its name while it's talking to stop it.</p><span class="say">“Jarvis, wake up.”</span></div>
-      <div class="card"><h3>Quick replies, slow jobs in the background</h3><p>A fast model answers right away and hands anything long to a stronger one. You get short spoken updates while it works, and you can keep talking to it.</p><span class="say">“What's the status?”</span></div>
+      <div class="card"><h3>Quick replies, slow jobs in the background</h3><p>A fast model answers right away and hands anything long to a stronger one. Progress shows on the HUD, and it speaks up when the job finishes, fails or needs you. You can keep talking to it meanwhile.</p><span class="say">“What's the status?”</span></div>
       <div class="card"><h3>Uses your Mac</h3><p>Your signed-in Chrome for Gmail, YouTube or LinkedIn, your files and shell, your Claude Code sessions, and other apps through Accessibility. It asks before taking over the mouse.</p><span class="say">“Check my Gmail and tell me what needs a reply.”</span></div>
       <div class="card"><h3>Remembers you</h3><p>People, preferences, projects and routines get saved as they come up. The MEMORY tab lists every fact, and you can delete any of them.</p><span class="say">“My sister Priya's birthday is on the fourteenth.”</span></div>
       <div class="card"><h3>Speaks up when there's a reason</h3><p>A morning briefing, spoken reminders, routines you set by voice, and the occasional check-in when something is worth mentioning.</p><span class="say">“Every morning at eight, check the AI news.”</span></div>
       <div class="card"><h3>Honest about results</h3><p>Background jobs come back as done, unverified or failed, and it won't call something done that it couldn't check. Text from emails and web pages is never treated as an instruction.</p><span class="say">“I pressed send, but I couldn't confirm it went through.”</span></div>
       <div class="card"><h3>A voice with some character</h3><p>A calm British butler with a dry sense of humour. When it looks something up, it tells you what it found in its own words and skips the list of links.</p><span class="say">“Twenty past nine, sir.”</span></div>
-      <div class="card"><h3>Your choice of brain</h3><p>Claude Code with your Claude subscription, the Anthropic API pay as you go, Gemini with its free tier, or Ollama, which is free and stays on your Mac.</p><span class="say">Claude Code · Claude API · Ollama</span></div>
+      <div class="card"><h3>Your choice of brain</h3><p>Claude Code with your Claude subscription, the Anthropic API pay as you go, Gemini with its free tier, or Ollama, which is free and stays on your Mac.</p><span class="say">Claude Code · Claude API · Gemini · Ollama</span></div>
+      <div class="card"><h3>Mute it, keep the mic</h3><p>The speaker button next to the mic mutes the voice and shows replies as text, while the mic keeps listening. Hover over it to set the volume.</p><span class="say">Speaker button · volume slider</span></div>
+      <div class="card"><h3>Light on your Mac</h3><p>The HUD stops drawing when it is in the background or minimised, and echo cancellation runs only while it talks or music plays. System info shows CPU, RAM, GPU, power draw and heat.</p><span class="say">GPU · POWER · HEAT</span></div>
       <div class="card"><h3>Also on your phone</h3><p>Message it on Telegram, voice notes included. Reminders go there too when JARVIS is asleep.</p><span class="say">Telegram bot, locked to your chat</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="agents">
+  <div class="wrap">
+    <div class="lab">Five assistants</div>
+    <h2>Pick who you talk to</h2>
+    <p class="lead">Every assistant can do everything, with the same tools, memory and conversation. They differ in how they run, how they sound and what they focus on. Switch by clicking one on the HUD, or say "switch to FRIDAY".</p>
+    <div class="tablewrap">
+      <table>
+        <tr><th>Assistant</th><th>What it's like</th><th>Runs on</th></tr>
+        <tr><td>JARVIS</td><td>The default. A calm British butler with a dry sense of humour. Quick replies and strong background work.</td><td>Claude Code: Sonnet, with Opus for background jobs</td></tr>
+        <tr><td>FRIDAY</td><td>The smartest, for code and hard problems. She thinks hardest, so she takes longer.</td><td>Claude Code: Opus on high effort</td></tr>
+        <tr><td>KAREN</td><td>The fastest. Email, messages and social media: she triages, drafts in your tone and chases follow-ups.</td><td>Claude Code: Haiku, with Sonnet for background jobs</td></tr>
+        <tr><td>EDITH</td><td>Maintains JARVIS itself. Changes go through an issue, a branch and a pull request you review and merge.</td><td>Claude Code: Opus on high effort</td></tr>
+        <tr><td>VISION</td><td>Research, for when you don't have Claude.</td><td>Google's Gemini, which has a free tier</td></tr>
+      </table>
+    </div>
+    <div class="grid" style="margin-top:16px">
+      <div class="card"><h3>Make them yours</h3><p>In the Agents tab, give each one a role, a persona, quick commands, its own voice and wake words, and its own memory. Make new assistants, export them and import ones others shared.</p><span class="say">“standup” · “/plan”</span></div>
+      <div class="card"><h3>Guardrails per agent</h3><p>A safety level (Standard, Careful or Read only), tools it may not use and folders it may not open. Guardrails only add limits; the confirmation rule always holds.</p><span class="say">Standard · Careful · Read only</span></div>
+      <div class="card"><h3>Skills and MCP servers</h3><p>Every Claude Code skill on your Mac, with a switch for each assistant. Install plugins from a marketplace, add skills from GitHub, and add MCP servers. It asks before it installs anything.</p><span class="say">Settings › Skills · MCP servers</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="computers">
+  <div class="wrap">
+    <div class="lab">Your other computers</div>
+    <h2>Several Macs, one JARVIS</h2>
+    <p class="lead">Pair your computers with an 8-character code. No accounts, router settings or SSH. Then hand work to the other one, or switch the HUD to it and see everything it's doing.</p>
+    <div class="grid">
+      <div class="card"><h3>Hand work over</h3><p>Ask for something to be done on the other laptop, where you're already signed in. It runs there as a background job and the result comes back to you.</p><span class="say">“Post this from the home Mac.”</span></div>
+      <div class="card"><h3>See it live</h3><p>A picker at the top of the HUD lists every computer that can be reached right now. Pick one to see its system info, sessions, jobs, chat, history and memory.</p><span class="say">MESH · machine picker</span></div>
+      <div class="card"><h3>Talk to its agent</h3><p>While another computer is in view, its agent's name wakes this Mac too. Its answer is spoken here, in its own voice.</p><span class="say">“Friday, wake up.”</span></div>
+      <div class="card"><h3>Private by design</h3><p>The computers find each other peer to peer through Hyperswarm and connect directly, encrypted end to end. If a network blocks that, messages go through an ntfy relay, encrypted first so the relay can't read them.</p><span class="say">encrypted links · encrypted relay</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="terminal">
+  <div class="wrap">
+    <div class="lab">From the terminal</div>
+    <h2>Type instead of talking</h2>
+    <p class="lead">When you're already at the keyboard, typing is quicker. The <code>jarvis</code> command talks to the same brain, memory and conversation as the voice, so you can start something by voice and finish it by typing. Replies are printed, not spoken.</p>
+    <div class="two">
+      <pre><span class="c"># once: sh scripts/install-cli.sh</span>
+jarvis "what's on my calendar today"
+jarvis                 <span class="c"># chat; /help lists commands</span>
+jarvis hud             <span class="c"># open the HUD</span>
+jarvis listen          <span class="c"># mic and wake word on</span>
+jarvis agents          <span class="c"># jarvis agent friday</span>
+jarvis devices         <span class="c"># jarvis device "Home Mac"</span>
+jarvis pair            <span class="c"># or: jarvis pair &lt;code&gt;</span>
+jarvis --on "Home Mac" "pull the repo"</pre>
+      <ul class="ticks">
+        <li>If JARVIS isn't running, the command starts it in the background with no HUD and the microphone off.</li>
+        <li>It still asks before it sends, posts, deletes or pays, and you answer in the terminal. Ctrl-C stops an answer.</li>
+        <li>It goes through a private socket in <code>~/.jarvis</code> that only your user can open. Nothing goes over the network.</li>
+        <li>JARVIS's own brain and workers can't run it, so nothing JARVIS reads can type commands to it as you.</li>
+      </ul>
     </div>
   </div>
 </section>
@@ -209,7 +276,8 @@
           <tr><td>Your requests</td><td>Your chosen brain: Claude, Gemini, or local with Ollama</td></tr>
           <tr><td>Memory, journal, reminders</td><td><code>~/.jarvis</code> on your Mac, mode 600</td></tr>
           <tr><td>API keys, Telegram token</td><td>Encrypted with the macOS Keychain</td></tr>
-          <tr><td>Network</td><td>Nothing listens. The radio proxy is local only</td></tr>
+          <tr><td>Network</td><td>Nothing listens on a fixed port. The radio proxy is local only</td></tr>
+          <tr><td>Paired computers</td><td>Peer to peer, encrypted end to end. The optional relay only sees encrypted messages</td></tr>
         </table>
       </div>
     </div>
@@ -260,7 +328,8 @@ open JARVIS.app</pre>
     <details><summary>Does it always listen to me?</summary><p>It listens for the wake word on the device. After "wake up" it treats what you say as commands until you say "sleep". "Standby" turns the microphone off, and "Disable" in the HUD releases it completely.</p></details>
     <details><summary>Can it send emails or messages on its own?</summary><p>Only after you confirm. It reads the message back and waits for a yes before it sends, posts, deletes or pays for anything.</p></details>
     <details><summary>Does it run on Windows or Linux?</summary><p>Not yet. It relies on macOS for speech recognition, Accessibility and the Keychain.</p></details>
-    <details><summary>Can I change the wake word or the voice?</summary><p>Yes. The voice, the speech recogniser and the models can be changed from the HUD's Settings tab, and the wake words live in <code>~/.jarvis/config.json</code>.</p></details>
+    <details><summary>Can I change the wake word or the voice?</summary><p>Yes. Each assistant has its own voice, wake words, brain and model in the HUD's Agents tab, and the speech recogniser is in Settings.</p></details>
+    <details><summary>Can I use it without talking?</summary><p>Yes. Type in the HUD's input bar, or use the <code>jarvis</code> command in the terminal, which can run JARVIS with no HUD and the microphone off.</p></details>
     <details><summary>Is this related to Marvel or Anthropic?</summary><p>No. It's an independent project inspired by the films. "Claude" and "Claude Code" are trademarks of Anthropic.</p></details>
   </div>
 </section>
