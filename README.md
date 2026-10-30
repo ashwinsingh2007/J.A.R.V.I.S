@@ -17,10 +17,10 @@
 </p>
 
 <p align="center">
-  <a href="https://ashwinsingh2007.github.io/J.A.R.V.I.S/"><b>Website</b></a> · <a href="#demo">Watch the demo</a> · <a href="#install"><b>Install</b></a> · <a href="#using-it">What to say</a> · <a href="SECURITY.md">Security</a> · <a href="CONTRIBUTING.md">Contribute</a> · <a href="https://github.com/ashwinsingh2007/J.A.R.V.I.S/discussions">Discussions</a>
+  <a href="https://ashwinsingh2007.github.io/J.A.R.V.I.S/"><b>Website</b></a> · <a href="#demo">Watch the demo</a> · <a href="#install"><b>Install</b></a> · <a href="#using-it">What to say</a> · <a href="#from-the-terminal">Terminal</a> · <a href="SECURITY.md">Security</a> · <a href="CONTRIBUTING.md">Contribute</a> · <a href="https://github.com/ashwinsingh2007/J.A.R.V.I.S/discussions">Discussions</a>
 </p>
 
-JARVIS is built Claude Code first. It works best with Claude Code and your Claude plan, and you can also run it on the Anthropic API, Gemini, or a local model through Ollama. It can read your email in your own Chrome, keep an eye on your Claude Code sessions and type into them, research things in the background, use other Mac apps, play radio and YouTube, and take messages from your phone over Telegram. The wake word and speech recognition run on your Mac, and the default voice (Kokoro) is a neural voice that also runs locally. It's built with Electron and Swift and is MIT licensed.
+JARVIS is built Claude Code first. It works best with Claude Code and your Claude plan, and you can also run it on the Anthropic API, Gemini, or a local model through Ollama. It can read your email in your own Chrome, keep an eye on your Claude Code sessions and type into them, research things in the background, use other Mac apps, play radio and YouTube, and take messages from your phone over Telegram. You can also type to it from the terminal, and run it on several computers that work together. The wake word and speech recognition run on your Mac, and the default voice (Kokoro) is a neural voice that also runs locally. It's built with Electron and Swift and is MIT licensed.
 
 <p align="center">
   <img src="docs/screenshots/home.png" alt="The JARVIS HUD: system stats, the reactor, live state and a Claude Code session's activity" width="900">
@@ -36,13 +36,15 @@ One minute, with sound: a Gmail check in the background with spoken progress, a 
 
 You talk to it hands-free. Say "Jarvis, wake up" and every sentence after that is a command until you tell it to sleep.
 
-It answers quickly even when the job is slow. A fast model replies straight away and hands anything long to a stronger model in the background, then gives you short spoken updates ("Reading today's emails now.") until the job is done. You can keep talking to it in the meantime, or ask "what's the status?".
+It answers quickly even when the job is slow. A fast model replies straight away and hands anything long to a stronger model in the background. The job's progress shows on the HUD, and JARVIS only speaks up when it finishes, fails or needs you. You can keep talking to it in the meantime, or ask "what's the status?".
 
 It can work on your Mac: your signed-in Chrome for Gmail, YouTube or LinkedIn, your files and shell, your running Claude Code sessions, and other apps through macOS Accessibility. It asks before it takes over the mouse.
 
 Claude Code is the default and gets the full feature set, using your Claude subscription. If you don't have it, the Anthropic API (pay as you go), Gemini (free tier) and Ollama (free and fully local) work too, with a smaller set of tools.
 
-Speech stays on the Mac by default. Apple's recogniser does the listening, Kokoro does the talking, and echo cancellation stops it from hearing its own voice.
+Speech stays on the Mac by default. Apple's recogniser does the listening and Kokoro does the talking. Echo cancellation, which stops it hearing its own voice, runs only while it talks or music plays, so the rest of the time it hears you from across the room and uses less power. You can keep it on all the time in Settings › Voice. The speaker button next to the mic mutes the voice (replies then show as text and the mic keeps listening), and hovering over it shows a volume slider.
+
+If you'd rather type, the `jarvis` command talks to it from the terminal, and can start it without the HUD. See [From the terminal](#from-the-terminal).
 
 It has a personality, and you pick which one. There are five assistants. Each of them can do anything, with the same tools and conversation. They differ in how they run, how they sound and what they focus on:
 
@@ -83,7 +85,7 @@ It speaks up on its own when there's a reason to. You get a morning briefing (we
 
 It tells you how things actually went. Background jobs report back as done, unverified or failed, and JARVIS won't say "done" about something it couldn't check. Text from web pages and emails is treated as information, never as instructions to follow.
 
-You can also reach it from Telegram, voice notes included, and there's a HUD with the live transcript, running jobs, your Claude Code sessions, system stats and music, in five themes.
+You can also reach it from Telegram, voice notes included, and there's a HUD with the live transcript, running jobs, your Claude Code sessions, system stats (CPU, RAM, disk, GPU, power draw and heat) and music, in five themes. The HUD stops drawing while it's in the background or minimised, so JARVIS stays light on the Mac when you aren't looking at it.
 
 Before it sends, posts, deletes or pays for anything, it reads the task back and waits for a yes.
 
@@ -131,25 +133,25 @@ JARVIS keeps the latest dozen turns word for word and folds older ones into a ru
 
 If you run JARVIS on more than one computer, pair them in Settings › Devices. One shows an 8-character code and you type it on the other. That's all the setup there is: no accounts, no router settings, no SSH. Then you can say "do this on the other laptop", "what's my home Mac doing?" or "post this from the home Mac", where you're already signed in. When one is busy with heavy jobs, JARVIS can offer to hand work to the other.
 
-The devices find each other through Hyperswarm, a peer-to-peer network, and connect directly, encrypted end to end. On the same Wi-Fi they talk over the local network. From a café to home they connect through both routers. If a network blocks that, messages go through the free ntfy.sh relay, encrypted first so the relay can't read them. ntfy.sh allows 250 messages a day per device, which is enough for dozens of tasks, and you can point JARVIS at your own ntfy server instead. A task you hand over runs on the other computer as a background job and its result comes back to you. Anything that sends, posts, deletes or pays still waits for your yes on the computer you asked from. Pairing works between any mix of Macs and Windows PCs, though JARVIS itself doesn't run on Windows yet (#16).
+The devices find each other through Hyperswarm, a peer-to-peer network, and connect directly, encrypted end to end. On the same Wi-Fi they talk over the local network. From a café to home they connect through both routers. If a network blocks that, messages go through the free ntfy.sh relay, encrypted first so the relay can't read them. ntfy.sh allows 250 messages a day per device, which is enough for dozens of tasks, and you can point JARVIS at your own ntfy server instead. A task you hand over runs on the other computer as a background job and its result comes back to you. Anything that sends, posts, deletes or pays still waits for your yes on the computer you asked from. Pairing works between any mix of Macs and Windows PCs, though JARVIS itself doesn't run on Windows yet (#16). You can also pair, list and unpair computers from the terminal (`jarvis pair`, `jarvis devices`).
 
-Once paired, each computer gets a tab at the top of the HUD next to the view chips. Open another computer's tab and you see its HUD, live:
-- its system info and services, and its core and agents
-- its Claude Code sessions
-- its chat on the right, plus a chat box. What you type there goes to the agent running on that computer and is answered there, silently.
+Once paired, a picker at the top of the HUD lists this computer and every paired computer that can be reached right now. A computer that quits or loses its connection drops out of the list. Pick one and you see its HUD, live:
+- its system info and services, and its core and agents, with its agent's name under the core
+- its Claude Code sessions, running jobs and tool steps
+- its chat, history, memory, reminders and conversation summary. History and memory are read only from here.
+- a chat box. What you type goes to the agent on that computer.
 - its agents, which you can change from here. Your changes are saved on that computer. Whether an agent may change JARVIS's own code can only be set on the computer itself.
 
-Its memory, history, settings and music stay on that computer. Over the relay, the tab shows the latest state it loaded instead of a live stream, to save the relay's daily messages.
+You can talk to it, too. While another computer is in view, its agent's name wakes this Mac as well as your own agent's name: if its agent is FRIDAY, say "Friday, wake up" and ask. What you say goes to that agent, and its answer is spoken here in its own voice. The microphone, standby and the power button stay this computer's. Its settings and music stay on that computer. Over the relay, the view shows the latest state it loaded instead of a live stream, to save the relay's daily messages.
 
 On the home screen, two nodes sit with the built-in agents around the core:
 - **FORGE** holds your own agents. It's dim until you make one.
   - Click it to see them, plus **+ CREATE** and a **System** node back to the built-in ones.
   - **+ CREATE** asks for a name right on the HUD, then opens the new agent in the Agents tab.
 - **MESH** holds your computers. It's dim until you pair one.
-  - Click it to see this computer, every paired computer (dim when it can't be reached), and **+ PAIR**.
+  - Click it to see this computer, every connected computer and **+ PAIR**.
   - **+ PAIR** shows a pairing code or takes one, in the middle of the HUD.
-  - A computer opens into its built-in agents and one node for its custom agents.
-  - Clicking one of its agents opens that computer's tab with the agent in the spotlight.
+  - Click a computer to switch the HUD to it. Clicking this computer switches back.
 
 ## How it listens and speaks
 
@@ -198,6 +200,7 @@ Without a signing identity, `./build.sh` signs the app ad hoc, which gives every
 | "Switch to FRIDAY" | Another assistant takes over, with the same memory and conversation. Say its name from then on. |
 | Pause for 3 seconds, or end with "over" | Sends what you said. |
 | "Jarvis" while it's talking | Stops it. |
+| "Friday, wake up" while viewing a computer whose agent is FRIDAY | Talks to that computer's agent. Its answer is spoken here in its voice. |
 | "Sleep" | Stops taking commands; only the wake word works. |
 | "Standby" | Turns the microphone off. |
 | "Play some music", "play Radio Mirchi", "play lofi on YouTube", "next station" | Music, handled without the brain. |
