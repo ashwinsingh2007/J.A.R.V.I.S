@@ -44,7 +44,7 @@ const DEFAULTS = {
   sttEngine: 'apple',             // apple (on-device) | elevenlabs (Scribe realtime)
   speechLocale: 'en-US',
   appleSpeech: 'instant',         // instant (classic dictation, word by word) | accurate (SpeechAnalyzer, ~1 s updates)
-  commandSilenceSeconds: 3.0,
+  commandSilenceSeconds: 1.5,
   pauseGraceSeconds: 6.0,
   endWords: ['over', 'over and out'],
   requireEndWord: false,
