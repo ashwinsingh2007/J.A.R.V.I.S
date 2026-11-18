@@ -107,6 +107,7 @@ class Wake extends EventEmitter {
 
   restart() {
     clearTimeout(this.timer);
+    this.timer = null;
     this.resetArming();
     this.lastText = '';
     this.carry = '';
@@ -163,7 +164,8 @@ class Wake extends EventEmitter {
     if (this.muted) return;
     const fresh = text.toLowerCase();
     const lower = this.carry ? (fresh.trim() ? `${this.carry} ${fresh}` : this.carry) : fresh;
-    if (lower !== this.lastText) {
+    const changed = lower !== this.lastText;
+    if (changed) {
       this.lastText = lower;
       this.lastChange = Date.now();
       log(`listener: heard '${lower.slice(-80)}'`);
@@ -200,7 +202,9 @@ class Wake extends EventEmitter {
       this.restart();
       return;
     }
-    this.schedule(quickControl || stripEndWord(command, this.cfg.endWords) !== null);
+    // The recogniser repeats the words it already sent as its final result a second or two after the
+    // user stops; that is not more speech, so the pause keeps counting from the last new word.
+    if (changed || !this.timer) this.schedule(quickControl || stripEndWord(command, this.cfg.endWords) !== null);
   }
 
   commandText(lower) {
@@ -215,6 +219,7 @@ class Wake extends EventEmitter {
   }
 
   silenceElapsed() {
+    this.timer = null;
     if (this.armedAt === null) return;
     const raw = this.commandText(this.lastText);
     const ended = stripEndWord(raw, this.cfg.endWords);

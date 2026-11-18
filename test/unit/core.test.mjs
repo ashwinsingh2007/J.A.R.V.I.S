@@ -195,6 +195,36 @@ test('while awake, the name only counts when the user addresses the assistant wi
   assert.ok(w.lastWake('blah blah friday stop'));
 });
 
+test('the pause before sending counts from the last new word, not from a repeated final result', async () => {
+  const EventEmitter = require('events');
+  const { Wake } = require('../../src/main/wake');
+  const ears = Object.assign(new EventEmitter(), { setAwake() {}, armed() {}, reset() {}, mute() {} });
+  const w = new Wake({ ...C.DEFAULTS, commandSilenceSeconds: 0.3 }, ears);
+  w.setConversation(true);
+  const sent = [];
+  w.on('command', (c) => sent.push([c, Date.now()]));
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const start = Date.now();
+  ears.emit('text', 'what is the weather today', false);
+  await sleep(200);
+  ears.emit('text', 'What is the weather today', true);   // the recogniser's final result: same words
+  await sleep(250);
+  assert.deepEqual(sent.map((s) => s[0]), ['what is the weather today']);
+  assert.ok(sent[0][1] - start < 420, `sent after ${sent[0][1] - start} ms`);
+  // New words still restart the pause.
+  ears.emit('text', 'set a timer', false);
+  await sleep(200);
+  ears.emit('text', 'set a timer for ten minutes', false);
+  await sleep(200);
+  assert.equal(sent.length, 1);
+  await sleep(200);
+  assert.deepEqual(sent.map((s) => s[0]), ['what is the weather today', 'set a timer for ten minutes']);
+});
+
+test('the default pause before sending is short but leaves room to breathe', () => {
+  assert.ok(C.DEFAULTS.commandSilenceSeconds >= 1 && C.DEFAULTS.commandSilenceSeconds <= 2);
+});
+
 test('the user can make their own assistant and rewrite any persona', () => {
   const { allAssistants, findByName, newId, assistantOf } = require('../../src/main/assistants');
   fs.writeFileSync(C.CONFIG_FILE, JSON.stringify({ onboarded: true }));
