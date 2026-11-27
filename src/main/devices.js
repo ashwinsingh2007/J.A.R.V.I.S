@@ -122,7 +122,7 @@ function voiceOf(v) {
     kokoroVoice: ok(v.kokoroVoice, /^[a-z]{2}_[a-z]{1,20}$/),
     kokoroSpeed: speed >= 0.5 && speed <= 2 ? speed : undefined,
     edgeVoice: ok(v.edgeVoice, /^[a-z]{2,3}-[A-Z]{2}-[A-Za-z]{1,30}Neural$/),
-    nativeVoice: ok(v.nativeVoice, /^[A-Za-z][A-Za-z ()]{0,39}$/),
+    nativeVoice: ok(v.nativeVoice, /^\p{L}[\p{L} ()]{0,39}$/u),   // letters, so French "Amélie" too
   };
   return Object.values(out).some((x) => x !== undefined) ? out : null;
 }

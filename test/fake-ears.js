@@ -8,7 +8,7 @@ const speech = process.env.JARVIS_FAKE_SPEECH;
 const cmdLog = process.env.JARVIS_FAKE_EARS_LOG;
 const out = (o) => process.stdout.write(JSON.stringify(o) + '\n');
 
-out({ type: 'log', msg: 'fake ears started' });
+out({ type: 'log', msg: `fake ears started ${process.argv.slice(2, 4).join(' ')}` });   // --locale and its code
 out({ type: 'ready' });
 out({ type: 'devices', list: [{ id: 1, name: 'Fake Mic', default: true }, { id: 2, name: 'Fake Headset', default: false }] });
 

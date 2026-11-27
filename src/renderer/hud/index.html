@@ -304,7 +304,12 @@
             <li data-engine="kokoro"><b>Speed</b><span class="unit"><input data-s="kokoroSpeed" type="number" min="0.5" max="2" step="0.05"><i>×</i></span></li>
             <li data-engine="edge"><b>Voice</b><select data-s="edgeVoice">
               <option>en-GB-RyanNeural</option><option>en-GB-ThomasNeural</option><option>en-GB-SoniaNeural</option><option>en-IE-EmilyNeural</option>
-              <option>en-US-GuyNeural</option><option>en-US-JennyNeural</option><option>en-IN-PrabhatNeural</option><option>en-IN-NeerjaNeural</option></select></li>
+              <option>en-US-GuyNeural</option><option>en-US-JennyNeural</option><option>en-IN-PrabhatNeural</option><option>en-IN-NeerjaNeural</option>
+              <option value="fr-CA-AntoineNeural">Antoine (Quebec French, male)</option><option value="fr-CA-JeanNeural">Jean (Quebec French, male)</option>
+              <option value="fr-CA-ThierryNeural">Thierry (Quebec French, male)</option><option value="fr-CA-SylvieNeural">Sylvie (Quebec French, female)</option>
+              <option value="fr-FR-HenriNeural">Henri (French, male)</option><option value="fr-FR-DeniseNeural">Denise (French, female)</option>
+              <option value="fr-FR-EloiseNeural">Eloise (French, female)</option><option value="fr-FR-RemyMultilingualNeural">Remy (French, male, multilingual)</option>
+              <option value="fr-FR-VivienneMultilingualNeural">Vivienne (French, female, multilingual)</option></select></li>
             <li data-engine="native"><b>Voice</b><select data-s="nativeVoice" id="ag-native"></select></li>
             <li data-engine="elevenlabs"><b>Voice id</b><input class="key" data-s="elevenLabsVoiceId" spellcheck="false"></li>
             <li><b>Wake words<small>Its name, and how it gets misheard</small></b><input class="key" id="a-wake" autocomplete="off"></li>
@@ -533,7 +538,7 @@
               <li><b>Language</b><select data-key="speechLocale">
                 <option value="en-US">English (US)</option><option value="en-GB">English (UK)</option><option value="en-IN">English (India)</option>
                 <option value="en-AU">English (Australia)</option><option value="hi-IN">Hindi</option><option value="de-DE">German</option>
-                <option value="fr-FR">French</option><option value="es-ES">Spanish</option></select></li>
+                <option value="fr-FR">French (France)</option><option value="fr-CA">French (Quebec)</option><option value="es-ES">Spanish</option></select></li>
               <li><b>Pause before sending</b><span class="unit"><input data-key="commandSilenceSeconds" type="number" min="0.5" max="15" step="0.5"><i>s</i></span></li>
               <li><b>Echo cancellation<small>Stops the assistant hearing its own voice</small></b><select data-key="echoCancel"><option value="auto">While talking or music plays</option><option value="always">Always on (uses more power)</option></select></li>
               <li><b>Only send when I say “over”</b><label class="tog"><input data-key="requireEndWord" type="checkbox"><span></span></label></li>

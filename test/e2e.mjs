@@ -586,7 +586,8 @@ async function testVoice() {
 
 async function testHud() {
   console.log('\nHUD CONTROLS');
-  const s = await launch(makeState({ onboarded: true, brainProvider: 'claude-code', ttsEngine: 'native' }));
+  // JARVIS's Edge voice was set by hand to one the Agents tab doesn't list.
+  const s = await launch(makeState({ onboarded: true, brainProvider: 'claude-code', ttsEngine: 'native', assistant: 'jarvis', assistantSettings: { jarvis: { edgeVoice: 'es-ES-AlvaroNeural' } } }));
   const hud = await windowByUrl(s.app, /hud\/index\.html/, 20000);
   check('HUD opens', hud);
   if (!hud) { await s.app.close(); return; }
@@ -726,6 +727,11 @@ async function testHud() {
   const nvv = await hud.evaluate(() => { const e = document.getElementById('ag-native'); return e.value + ' | ' + e.options.length; });
   check('the agent\'s macOS voice list is filled and its voice selected', /^Daniel/.test(nvv), nvv);
   check('only the engine in use shows its voice rows', await hud.evaluate(() => [...document.querySelectorAll('#a-edit [data-engine]')].filter((li) => !li.hidden).every((li) => li.dataset.engine === 'native')));
+  const nfr = await hud.evaluate(() => [...document.getElementById('ag-native').options].map((o) => o.value).filter((v) => /^(Amélie|Thomas|Jacques)$|French/.test(v)));
+  check('the macOS voice list has the French voices too', nfr.length > 0, nfr.join(', '));
+  const efr = await hud.evaluate(() => [...document.querySelector('#a-edit [data-s="edgeVoice"]').options].filter((o) => o.value.startsWith('fr-')).map((o) => o.value + '=' + o.textContent));
+  check('the Edge voice list has the French voices, labelled', efr.length === 9 && efr.includes('fr-CA-AntoineNeural=Antoine (Quebec French, male)'), efr.join(', '));
+  check('a saved Edge voice that isn\'t listed is kept, not reset', await hud.evaluate(() => document.querySelector('#a-edit [data-s="edgeVoice"]').value) === 'es-ES-AlvaroNeural');
   await hud.click('#nav a[data-view="settings"]');
   const setField = (key, value) => hud.evaluate(([k, v]) => { const el = document.querySelector(`[data-key="${k}"]`); if (el.type === 'checkbox') el.checked = v; else el.value = v; el.dispatchEvent(new Event('change')); }, [key, value]);
   m = s.mark();
@@ -747,6 +753,11 @@ async function testHud() {
   await setField('appleSpeech', 'accurate');
   check('recogniser change restarts the speech sidecar', await s.waitLog(/settings: applied appleSpeech[\s\S]*ears: ready/, 8000, m));
   check('recogniser saved', s.config().appleSpeech === 'accurate');
+  m = s.mark();
+  await setField('speechLocale', 'fr-CA');
+  check('Quebec French reaches the recogniser', await s.waitLog(/settings: applied speechLocale[\s\S]*fake ears started --locale fr-CA/, 8000, m) && s.config().speechLocale === 'fr-CA', s.config().speechLocale);
+  check('and is shown as chosen', await hud.evaluate(() => document.querySelector('[data-key="speechLocale"]').value) === 'fr-CA');
+  await setField('speechLocale', 'en-US');
   await setField('ttsEngine', 'edge');
   check('voice engine switches live', await s.waitLog(/settings: applied ttsEngine/, 5000, m) && s.config().ttsEngine === 'edge');
   check('the agent\'s edge voice row shows', await hud.evaluate(() => !document.querySelector('#a-edit [data-engine="edge"]').hidden && document.querySelector('#a-edit [data-engine="native"]').hidden));
@@ -761,6 +772,7 @@ async function testHud() {
   await hud.click('#a-save');
   await sleep(1200);
   check('the agent\'s model is saved', s.config().model === 'haiku', s.config().model);
+  check('and saving it keeps that unlisted Edge voice', s.config().edgeVoice === 'es-ES-AlvaroNeural', s.config().edgeVoice);
   check('its brain starts again with it', await s.waitLog(/assistant: changed JARVIS[^\n]*settings/, 5000, m));
   await hud.click('#nav a[data-view="settings"]');
   await hud.click('#setnav [data-section="general"]');

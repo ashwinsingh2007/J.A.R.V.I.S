@@ -177,6 +177,15 @@ function jsonLines(stream, onObj) {
   });
 }
 
+// The novelty macOS voices, left out of the voice lists.
+const NOVELTY_VOICES = new Set(['Albert', 'Bad News', 'Bahh', 'Bells', 'Boing', 'Bubbles', 'Cellos', 'Good News', 'Jester', 'Organ', 'Superstar', 'Trinoids', 'Whisper', 'Wobble', 'Zarvox', 'Junior', 'Ralph', 'Fred', 'Kathy']);
+/** English and French voices from `say -v '?'`, minus the novelty ones. */
+function sayVoiceNames(out) {
+  // "Daniel (English (UK))  en_GB  # Hello…"
+  return [...new Set(String(out || '').split('\n').map((l) => /^(.+?)\s+([a-z]{2}_[A-Z]{2})\s+#/.exec(l)).filter(Boolean)
+    .filter((m) => /^(en|fr)_/.test(m[2])).map((m) => m[1].trim()).filter((n) => !NOVELTY_VOICES.has(n)))];
+}
+
 /** Strip markdown and other things that sound wrong when read aloud. */
 function clean(text) {
   return String(text || '')
@@ -223,4 +232,4 @@ function initPaths(appDir) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const hhmm = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 
-module.exports = { log, env, which, findClaude, claudeLocations, run, jsonLines, clean, cutSources, SOURCES_START, paths, initPaths, sleep, hhmm };
+module.exports = { log, env, which, findClaude, claudeLocations, run, jsonLines, sayVoiceNames, clean, cutSources, SOURCES_START, paths, initPaths, sleep, hhmm };

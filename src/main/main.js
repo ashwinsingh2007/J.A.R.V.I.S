@@ -5,7 +5,7 @@ const path = require('path');
 const { app, BrowserWindow, Menu, Tray, nativeImage, nativeTheme, ipcMain, shell, safeStorage, Notification, dialog } = require('electron');
 const C = require('./config');
 const { ASSISTANTS, SCOPED, ROLES, TOOLS, GUARDS, PROFILE, assistantOf, allAssistants, findByName, newId, exists } = require('./assistants');
-const { log, initPaths, paths, run, which } = require('./util');
+const { log, initPaths, paths, run, which, sayVoiceNames } = require('./util');
 const { Memory, ownFile } = require('./memory');
 
 app.setName('JARVIS');
@@ -873,13 +873,10 @@ async function permitHands() {
   for (const ms of [4000, 15000, 40000]) setTimeout(() => checkHands().then(sendHudSettings), ms);
 }
 
-/** English macOS voices, minus the novelty ones. */
+/** English and French macOS voices, minus the novelty ones. */
 async function macVoices() {
   const r = await run('/usr/bin/say', ['-v', '?'], { timeout: 5000 });
-  // "Daniel (English (UK))  en_GB  # Hello…"
-  const NOVELTY = new Set(['Albert', 'Bad News', 'Bahh', 'Bells', 'Boing', 'Bubbles', 'Cellos', 'Good News', 'Jester', 'Organ', 'Superstar', 'Trinoids', 'Whisper', 'Wobble', 'Zarvox', 'Junior', 'Ralph', 'Fred', 'Kathy']);
-  return [...new Set(r.out.split('\n').map((l) => /^(.+?)\s+([a-z]{2}_[A-Z]{2})\s+#/.exec(l)).filter(Boolean)
-    .filter((m) => m[2].startsWith('en_')).map((m) => m[1].trim()).filter((n) => !NOVELTY.has(n)))];
+  return sayVoiceNames(r.out);
 }
 
 /** Current values back to the HUD. The macOS voice list is looked up once and sent once. */

@@ -149,6 +149,11 @@ test("another device's agent voice is kept only when it looks like a voice name"
   assert.deepEqual(voiceOf({ kokoroVoice: 'bf_emma', kokoroSpeed: 1.1, edgeVoice: 'en-GB-SoniaNeural', nativeVoice: 'Daniel' }),
     { kokoroVoice: 'bf_emma', kokoroSpeed: 1.1, edgeVoice: 'en-GB-SoniaNeural', nativeVoice: 'Daniel' });
   assert.deepEqual(voiceOf({ kokoroVoice: '../../x', kokoroSpeed: 9, edgeVoice: '--rate=+90%', nativeVoice: '-o /tmp/x' }), null);
+  // French voices, accents included.
+  assert.deepEqual(voiceOf({ edgeVoice: 'fr-CA-AntoineNeural', nativeVoice: 'Amélie' }), { kokoroVoice: undefined, kokoroSpeed: undefined, edgeVoice: 'fr-CA-AntoineNeural', nativeVoice: 'Amélie' });
+  assert.equal(voiceOf({ nativeVoice: 'Eddy (French (Canada))' }).nativeVoice, 'Eddy (French (Canada))');
+  assert.equal(voiceOf({ edgeVoice: 'fr-FR-VivienneMultilingualNeural' }).edgeVoice, 'fr-FR-VivienneMultilingualNeural');
+  assert.equal(voiceOf({ nativeVoice: 'é/../x' }), null);
   assert.equal(voiceOf('bf_emma'), null);
   assert.equal(voiceOf(null), null);
 });
