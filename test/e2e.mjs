@@ -907,6 +907,22 @@ async function testHud() {
   await sleep(800);
   check('VISION\'s worker model is saved while KAREN stays in use', ((s.config().assistantSettings || {}).vision || {}).agentModel === 'sonnet' && s.config().assistant === 'karen', JSON.stringify((s.config().assistantSettings || {}).vision));
   await hud.click('#acards .agcard[data-id="karen"]');
+  // The agent in use lends its colour to the accent and the orb; an agent without one keeps the theme's
+  const accent = () => hud.evaluate(() => { const c = getComputedStyle(document.documentElement); return ['--cyan', '--rgb', '--theme-cyan'].map((k) => c.getPropertyValue(k).trim()); });
+  const themeCyan = (await accent())[2];
+  check('with no colour of her own, the accent is the theme\'s', (await accent())[0] === themeCyan && /^#[0-9a-f]{6}$/i.test(themeCyan), (await accent()).join(' / '));
+  await hud.click('#a-tabs [data-at="profile"]');
+  await hud.evaluate(() => { const i = document.getElementById('a-color'); i.value = '#ff8800'; i.dispatchEvent(new Event('input')); });
+  await hud.click('#a-save');
+  await hud.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue('--cyan').trim() === '#ff8800', null, { timeout: 5000 }).catch(() => {});
+  const kc = await accent();
+  check('saving a colour for the agent in use turns the accent that colour, live', kc[0] === '#ff8800' && kc[1] === '255, 136, 0' && kc[2] === themeCyan, kc.join(' / '));
+  check('an agent without a colour keeps the theme colour on its card', await hud.evaluate(() => getComputedStyle(document.querySelector('#acards .agcard[data-id="vision"] .ag-face')).getPropertyValue('--cyan').trim()) === themeCyan);
+  await hud.click('#nav a[data-view="cc"]');
+  await sleep(1500);
+  await shot(hud, 'hud-agent-accent');
+  await hud.click('#nav a[data-view="agents"]');
+  await sleep(400);
   // Make a new assistant from KAREN, give it a persona, then go back to JARVIS
   await hud.fill('#a-new-name', 'Coach');
   await hud.selectOption('#a-new-from', 'karen');
@@ -992,6 +1008,7 @@ async function testHud() {
   await hud.click('#a-use');
   check('picking JARVIS there and USE switches back', await s.waitLog(/assistant: JARVIS took over/, 20000, back) && s.config().assistant === 'jarvis');
   await sleep(800);
+  check('back on JARVIS, with no colour, the accent is the theme\'s again', await hud.evaluate(() => { const c = getComputedStyle(document.documentElement); return c.getPropertyValue('--cyan').trim() === c.getPropertyValue('--theme-cyan').trim(); }));
   await hud.click('#nav a[data-view="cc"]');
   await sleep(600);
   await hud.click('#live-btn');

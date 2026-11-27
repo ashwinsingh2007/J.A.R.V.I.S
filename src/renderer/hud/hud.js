@@ -243,6 +243,20 @@
     { id: 'vision', name: 'VISION', tier: 'NO CLAUDE NEEDED', role: 'research', about: "Research, on Google's Gemini with a free tier. For when you don't have Claude.", needs: 'A Gemini API key' },
   ];
   let current = 'jarvis';
+  // The accent and the orb take the colour of the agent in use; with none, the theme's. --theme-cyan and
+  // --theme-rgb keep the theme's own, so an agent without a colour still shows it on its badges.
+  const okColor = (c) => /^#[0-9a-f]{6}$/i.test(c || '');
+  const rgbOf = (c) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16)).join(', ');
+  function agentAccent(t) {
+    const root = document.documentElement.style, me = assistants.find((a) => a.id === current) || assistants[0];
+    root.removeProperty('--cyan'); root.removeProperty('--rgb');
+    const css = getComputedStyle(document.documentElement);
+    root.setProperty('--theme-cyan', css.getPropertyValue('--cyan').trim());
+    root.setProperty('--theme-rgb', css.getPropertyValue('--rgb').trim());
+    if (me && okColor(me.color)) { root.setProperty('--cyan', me.color); root.setProperty('--rgb', rgbOf(me.color)); }
+    applyThemeToScene(t || jarvisTheme.current());
+  }
+  agentAccent();
   // The nodes around the core. 'main': the built-in agents, FORGE (the custom agents, dim until there is
   // one) and MESH (this computer and the user's others, dim until one is paired). A group node opens (explodes) into its members
   // and a node back: custom agents with a System node; one node per device; a device's built-in agents
@@ -367,7 +381,7 @@
       // Opened from a group node: each new node starts there and flies out to its place.
       const full = body.classList.contains('focus') || body.classList.contains('spot');
       const burst = popping && burstFrom ? `;--dx:${f(burstFrom.x - (full ? h.x : h.nx))};--dy:${f(burstFrom.y - (full ? h.y : h.ny))}` : '';
-      return `<g class="mate${h.extra ? ' extra' : ''}${h.group ? ' group' : ''}${h.dim ? ' dim' : ''}${burst ? ' pop' : ''}" id="crew-${h.id}" data-id="${h.id}" style="--i:${n};--hx:${h.x};--hy:${h.y};--nx:${h.nx};--ny:${h.ny}${burst}${/^#[0-9a-f]{6}$/i.test(h.color || '') ? `;--cyan:${h.color}` : ''}"><g class="mi">`
+      return `<g class="mate${h.extra ? ' extra' : ''}${h.group ? ' group' : ''}${h.dim ? ' dim' : ''}${burst ? ' pop' : ''}" id="crew-${h.id}" data-id="${h.id}" style="--i:${n};--hx:${h.x};--hy:${h.y};--nx:${h.nx};--ny:${h.ny}${burst}${okColor(h.color) ? `;--cyan:${h.color};--rgb:${rgbOf(h.color)}` : h.agent ? ';--cyan:var(--theme-cyan);--rgb:var(--theme-rgb)' : ''}"><g class="mi">`
         + (d ? `<path class="fire" d="${d}" style="--d:${f(rnd())}s"/>` : '') + sparks
         + `<circle class="hit" cx="${f(h.x)}" cy="${f(h.y)}" r="7"/><circle class="aura" cx="${f(h.x)}" cy="${f(h.y)}" r="5.6"/><circle class="halo" cx="${f(h.x)}" cy="${f(h.y)}" r="3.4"/><circle class="ring" cx="${f(h.x)}" cy="${f(h.y)}" r="2.1"/><circle class="core" cx="${f(h.x)}" cy="${f(h.y)}" r="1.05"/>`
         + `<text class="nm" text-anchor="${anchor}" x="${f(lx)}" y="${f(h.y - 0.3)}">${h.name}</text>`
@@ -404,6 +418,7 @@
     $('power').querySelector('b').textContent = `${body.classList.contains('disabled') ? 'ENABLE' : 'DISABLE'} ${me.name}`;
     renderAssistantCards();
     if (ext.skills.length) renderSkillsPage();
+    agentAccent();
   }
   // ---------- the Agents tab ----------
   // A card for each agent on the left; the open one's whole setup on the right. Save stores it for that
@@ -412,8 +427,7 @@
   let editing = '', filled = '';
   let env = { ready: {}, ollamaModels: [], engine: 'kokoro' };
   let catalog = { roles: {}, tools: {}, guards: {} };   // the roles, tools and safety levels to choose from
-  const okColor = (c) => /^#[0-9a-f]{6}$/i.test(c || '');
-  const paint = (elx, c) => { if (okColor(c)) elx.style.setProperty('--cyan', c); else elx.style.removeProperty('--cyan'); };
+  const paint = (elx, c) => { const own = okColor(c); elx.style.setProperty('--cyan', own ? c : 'var(--theme-cyan)'); elx.style.setProperty('--rgb', own ? rgbOf(c) : 'var(--theme-rgb)'); };
   const BRAINS = { auto: 'Best available', 'claude-code': 'Claude Code', anthropic: 'Anthropic API', gemini: 'Gemini', ollama: 'Ollama' };
   const ENGINES = { kokoro: 'Kokoro', elevenlabs: 'ElevenLabs', edge: 'Edge neural', native: 'macOS voice' };
   const cap = (x) => { x = String(x || '').replace(/\bclaude\b/g, 'Claude'); return x.charAt(0).toUpperCase() + x.slice(1); };
@@ -485,7 +499,7 @@
       cmds = (a.commands || []).map((c) => ({ ...c }));
       renderCmds();
       color = a.color || '';
-      $('a-color').value = okColor(color) ? color : (getComputedStyle(document.body).getPropertyValue('--cyan').trim().match(/^#[0-9a-f]{6}$/i) || ['#3fd0ff'])[0];
+      $('a-color').value = okColor(color) ? color : (getComputedStyle(document.body).getPropertyValue('--theme-cyan').trim().match(/^#[0-9a-f]{6}$/i) || ['#3fd0ff'])[0];
       $('a-shared').checked = a.sharedMemory !== false;
       guard = a.guard || 'standard';
       renderGuard();
@@ -1968,8 +1982,7 @@
     // Soft glow sprites read as grey smudges on light backgrounds.
     halo.visible = halo2.visible = glow.visible = t.mode !== "light";
   }
-  jarvisTheme.onChange(applyThemeToScene);
-  applyThemeToScene(jarvisTheme.current());
+  jarvisTheme.onChange(agentAccent);
 
   requestAnimationFrame(frame);
   post({ type: 'ready' });
