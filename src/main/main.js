@@ -58,7 +58,7 @@ function startJarvis(brains) {
   const { Orchestrator } = require('./orchestrator');
 
   audio = testAudio || new AudioHost();
-  hud = new HudWindow(themeOf(cfg), { hidden: headless });
+  hud = new HudWindow(themeOf(cfg), { hidden: headless, desktop: desktopOf(cfg) });
   const brain = brains.create(cfg, found);
   const ears = new Ears(cfg, sidecarPath(), vocabulary(cfg));
   lap('the window, brain and ears');
@@ -129,6 +129,11 @@ function liveState() {
 function themeOf(c) {
   const light = c.themeMode === 'light' || (c.themeMode === 'system' && !nativeTheme.shouldUseDarkColors);
   return { theme: c.theme, mode: c.themeMode, background: light ? '#f4f5f7' : '#03050d' };
+}
+
+/** Desktop mode's look for the HUD window, or null when it has a normal frame. */
+function desktopOf(c) {
+  return c.desktopMode ? { opacity: c.desktopOpacity, blur: c.desktopBlur, behind: c.desktopBehind } : null;
 }
 
 // ---------- menu bar ----------
@@ -262,7 +267,8 @@ ipcMain.handle('setup:save', (e, patch) => (fromSetup(e) ? setupSave(patch) : fa
 // Settings the HUD can change live. Keys, Telegram and the brain provider stay in Setup.
 const HUD_KEYS = ['ttsEngine', 'kokoroVoice', 'kokoroSpeed', 'edgeVoice', 'nativeVoice', 'elevenLabsModel',
   'sttEngine', 'appleSpeech', 'speechLocale', 'commandSilenceSeconds', 'requireEndWord', 'echoCancel', 'voiceVolume', 'voiceMuted',
-  'model', 'effort', 'agentModel', 'screenControl', 'morningBriefing', 'checkIns', 'honorific', 'announceSessions', 'autoHide', 'worker', 'greetOnStart'];
+  'model', 'effort', 'agentModel', 'screenControl', 'morningBriefing', 'checkIns', 'honorific', 'announceSessions', 'autoHide', 'worker', 'greetOnStart',
+  'desktopMode', 'desktopOpacity', 'desktopBlur', 'desktopBehind'];
 
 /** The assistants for the HUD: who is in use, and what each one is, with the user's changes. */
 function sendAssistants(extra = {}) {
@@ -895,6 +901,7 @@ function sendHudSettings() {
   hud.send('settings', {
     values,
     autoHideMs: Number(process.env.JARVIS_TEST_AUTOHIDE_MS) || 0,
+    desktop: hud.desktop,           // the mode the window was made in: switching it takes a restart
     hands: handsState,
     brain: orch ? orch.brain.label : '',
     workerAvailable: !!(orch && orch.brain.worker),
@@ -918,6 +925,8 @@ function saveHudSettings(patch) {
   C.save(save);
   Object.assign(cfg, save);
   if (changed.length && orch) orch.applySettings(changed);
+  // Desktop mode's frost and level apply at once; turning the mode off drops them until the restart.
+  if (hud && changed.some((k) => ['desktopMode', 'desktopBlur', 'desktopBehind'].includes(k))) hud.setDesktop(desktopOf(cfg) || {});
   sendHudSettings();
 }
 

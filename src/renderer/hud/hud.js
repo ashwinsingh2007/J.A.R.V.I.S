@@ -1806,6 +1806,29 @@
   });
   renderVoice();
 
+  // Desktop mode: the window's frame is fixed when JARVIS starts (?desk=1 in the URL), so switching the
+  // mode takes a restart. The background's opacity applies here at once; main applies the blur and the level.
+  const desk = { built: document.documentElement.classList.contains('desk'), on: false };
+  const FROST_NAMES = ['off', 'light', 'medium', 'heavy', 'full'];
+  function deskLook(opacity) {
+    const pct = Math.max(0, Math.min(100, Math.round(+opacity || 0)));
+    document.documentElement.style.setProperty('--desk-a', String(pct / 100));
+    $('desk-opacity-v').textContent = `${pct}%`;
+  }
+  const frostName = (blur) => FROST_NAMES[Math.round(Math.max(0, Math.min(100, +blur || 0)) / 25)];
+  function setDesk(e) {
+    const v = e.values || {};
+    if ('desktop' in e) desk.built = !!e.desktop;
+    if ('desktopMode' in v) desk.on = !!v.desktopMode;
+    if ('desktopOpacity' in v) deskLook(v.desktopOpacity);
+    if ('desktopBlur' in v) $('desk-blur-v').textContent = frostName(v.desktopBlur);
+    document.querySelectorAll('[data-desk]').forEach((li) => { li.hidden = !desk.on; });
+    $('desk-restart').hidden = desk.on === desk.built;
+  }
+  document.querySelector('[data-key="desktopOpacity"]').addEventListener('input', (ev) => deskLook(ev.target.value));
+  document.querySelector('[data-key="desktopBlur"]').addEventListener('input', (ev) => { $('desk-blur-v').textContent = frostName(ev.target.value); });
+  $('desk-restart-btn').addEventListener('click', () => { $('desk-restart-btn').textContent = 'Restarting…'; post({ type: 'action', name: 'cfg:restart' }); });
+
   function setSettings(e) {
     if (e.values && 'voiceMuted' in e.values) voiceMuted = !!e.values.voiceMuted;
     if (e.values && Number.isFinite(+e.values.voiceVolume) && e.values.voiceVolume !== undefined) voiceVolume = Math.max(0, Math.min(1, +e.values.voiceVolume));
@@ -1843,6 +1866,7 @@
     }
     if (e.values && 'autoHide' in e.values) { focus.on = !!e.values.autoHide; armFocus(); }
     if (e.autoHideMs) { focus.ms = e.autoHideMs; armFocus(); }
+    if ('desktop' in e || (e.values && 'desktopMode' in e.values)) setDesk(e);
     renderSetCards(e);
     showTts();
   }
@@ -1863,7 +1887,7 @@
   }
 
   document.querySelectorAll('[data-key]').forEach((el) => el.addEventListener('change', () => {
-    const v = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
+    const v = el.type === 'checkbox' ? el.checked : el.type === 'number' || el.type === 'range' ? Number(el.value) : el.value;
     if (el.dataset.key === 'ttsEngine') showTts();
     post({ type: 'action', name: 'settings', patch: { [el.dataset.key]: v } });
     $('set-saved').classList.add('on');

@@ -4,14 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>J.A.R.V.I.S</title>
-<link rel="stylesheet" href="hud.css?v=41">
+<link rel="stylesheet" href="hud.css?v=42">
 <link rel="stylesheet" href="../themes.css">
 <script src="../themes.js"></script>
-<script>(function(){var q=new URLSearchParams(location.search);jarvisTheme.apply(q.get('theme')||undefined,q.get('mode')||undefined);})();</script>
+<script>(function(){var q=new URLSearchParams(location.search);jarvisTheme.apply(q.get('theme')||undefined,q.get('mode')||undefined);
+if(q.get('desk')==='1'){var h=document.documentElement;h.classList.add('desk');h.style.setProperty('--desk-a',String(Math.min(100,Math.max(0,+q.get('opacity')||0))/100));}})();</script>
 </head>
 <body data-state="booting" data-view="cc" class="booting">
 
 <div id="boot"><div class="scan"></div><div id="bootlines"></div></div>
+<!-- desktop mode has no title bar: this strip along the top edge moves the window -->
+<div id="dragbar"></div>
 
 <!-- brand + nav chips: shared by every view -->
 <header id="brand">
@@ -428,6 +431,16 @@
           <div class="group">
             <ul class="rows form">
               <li><b>Full mode when idle<small>The HUD fills the screen when you leave it alone</small></b><label class="tog"><input data-key="autoHide" type="checkbox"><span></span></label></li>
+            </ul>
+          </div>
+          <h3>Desktop mode</h3>
+          <div class="group">
+            <ul class="rows form">
+              <li><b>Desktop mode<small>No frame or shadow: the HUD sits on your wallpaper. Move it by its top edge or its name.</small></b><label class="tog"><input data-key="desktopMode" type="checkbox"><span></span></label></li>
+              <li id="desk-restart" hidden><b>Restart to switch<small>The window's frame can only change when JARVIS starts</small></b><button class="btn" id="desk-restart-btn">Restart now</button></li>
+              <li data-desk hidden><b>Background opacity<small>0 is fully clear, 100 is solid</small></b><span class="unit"><input data-key="desktopOpacity" type="range" min="0" max="100" step="1" aria-label="Background opacity"><i id="desk-opacity-v">0%</i></span></li>
+              <li data-desk hidden><b>Background blur<small>macOS frosted glass has one blur strength; each step adds more frost</small></b><span class="unit"><input data-key="desktopBlur" type="range" min="0" max="100" step="25" aria-label="Background blur"><i id="desk-blur-v">off</i></span></li>
+              <li data-desk hidden><b>Stay behind other windows<small>Like a desktop widget: every other window covers it</small></b><label class="tog"><input data-key="desktopBehind" type="checkbox"><span></span></label></li>
             </ul>
           </div>
         </div>

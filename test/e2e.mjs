@@ -1011,12 +1011,82 @@ async function testHud() {
   await sleep(2400);
   check('with it off, HOME stays put', !(await isFocus()));
 
+  // Desktop mode: the frame is set when the window is made, so switching it asks for a restart
+  await hud.click('#nav a[data-view="settings"]');
+  await hud.click('#setnav [data-section="look"]');
+  check('desktop mode is off at first, its sliders hidden', s.config().desktopMode !== true && await hud.evaluate(() => [...document.querySelectorAll('[data-desk]')].every((li) => li.hidden)));
+  await hud.click('label:has([data-key="desktopMode"])');
+  await sleep(600);
+  check('desktop mode can be switched on, and is saved', s.config().desktopMode === true);
+  check('it asks for a restart', await hud.evaluate(() => !document.getElementById('desk-restart').hidden));
+  check('its sliders and the stay-behind switch show', await hud.evaluate(() => [...document.querySelectorAll('[data-desk]')].every((li) => !li.hidden)));
+  await shot(hud, 'desktop-0-settings-normal-window');
+  await hud.click('label:has([data-key="desktopMode"])');
+  await sleep(600);
+  check('switched back off, no restart is needed', s.config().desktopMode === false && await hud.evaluate(() => document.getElementById('desk-restart').hidden));
+
   // Close hides, app keeps running
   await hud.evaluate(() => window.close());
   await sleep(800);
   check('closing the HUD keeps the app running', s.app.windows().length > 0);
 
   await s.app.close();
+}
+
+// ---------------------------------------------------------------------------
+
+async function testDesktopMode() {
+  console.log('\nDESKTOP MODE (no frame, a clear background, behind other windows)');
+  const s = await launch(makeState({ onboarded: true, brainProvider: 'claude-code', ttsEngine: 'native', desktopMode: true, desktopOpacity: 0, desktopBlur: 0, desktopBehind: true }));
+  const hud = await windowByUrl(s.app, /hud\/index\.html/, 20000);
+  check('the HUD opens in desktop mode', hud && /[?&]desk=1/.test(hud.url()));
+  if (!hud) { await s.app.close(); return; }
+  await hud.waitForFunction(() => document.body.dataset.state === 'idle', null, { timeout: 15000 }).catch(() => {});
+  const win = () => s.app.evaluate(({ BrowserWindow }) => {
+    const w = BrowserWindow.getAllWindows().find((x) => /hud\/index\.html/.test(x.webContents.getURL()));
+    return { shadow: w.hasShadow(), bg: w.getBackgroundColor(), top: w.isAlwaysOnTop(), shown: w.isVisible(), focusable: w.isFocusable() };
+  });
+  const w0 = await win();
+  // Electron reports a clear colour without its alpha (#000000): what matters is it isn't the normal window's.
+  check('no window shadow, and not the normal window background', !w0.shadow && /^#0{6}(00)?$/i.test(w0.bg), JSON.stringify(w0));
+  check('it stays behind other windows, shown and focusable', w0.top && w0.shown && w0.focusable && !!(await s.waitLog(/hud: desktop mode, frost off, behind other windows/, 5000)));
+  const look = () => hud.evaluate(() => ({
+    desk: document.documentElement.classList.contains('desk'),
+    page: getComputedStyle(document.documentElement).backgroundColor,
+    body: getComputedStyle(document.body).backgroundColor,
+    backdrop: getComputedStyle(document.body, '::before').opacity,
+    drag: getComputedStyle(document.getElementById('dragbar')).getPropertyValue('-webkit-app-region') || getComputedStyle(document.getElementById('dragbar')).getPropertyValue('app-region'),
+    name: getComputedStyle(document.querySelector('#brand .word')).getPropertyValue('-webkit-app-region') || getComputedStyle(document.querySelector('#brand .word')).getPropertyValue('app-region'),
+  }));
+  const l0 = await look();
+  check('at opacity 0 the page draws no background at all', l0.desk && l0.page === 'rgba(0, 0, 0, 0)' && l0.body === 'rgba(0, 0, 0, 0)' && l0.backdrop === '0', JSON.stringify(l0));
+  check('the top edge and the name move the window', l0.drag === 'drag' && l0.name === 'drag', `${l0.drag} ${l0.name}`);
+  await sleep(1200);
+  await shot(hud, 'desktop-1-home-clear');
+
+  // Still usable: tabs and Settings work, and the sliders apply and are saved
+  await hud.click('#nav a[data-view="settings"]');
+  await hud.click('#setnav [data-section="look"]');
+  check('Settings open, with the desktop sliders and no restart asked', await hud.evaluate(() => document.body.dataset.view === 'settings' && [...document.querySelectorAll('[data-desk]')].every((li) => !li.hidden) && document.getElementById('desk-restart').hidden));
+  const slide = (key, v) => hud.evaluate(([key, v]) => { const el = document.querySelector(`[data-key="${key}"]`); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); }, [key, v]);
+  let m = s.mark();
+  await slide('desktopOpacity', 60);
+  await sleep(700);
+  check('the opacity slider applies at once and is saved', s.config().desktopOpacity === 60 && (await look()).backdrop === '0.6' && /60%/.test(await text(hud, '#desk-opacity-v')), `${s.config().desktopOpacity} ${(await look()).backdrop}`);
+  await slide('desktopBlur', 50);
+  check('the blur slider turns on the frosted glass and is saved', !!(await s.waitLog(/hud: desktop mode, frost popover/, 4000, m)) && s.config().desktopBlur === 50 && /medium/.test(await text(hud, '#desk-blur-v')));
+  await shot(hud, 'desktop-2-settings');
+  m = s.mark();
+  await hud.click('label:has([data-key="desktopBehind"])');
+  await sleep(700);
+  check('"stay behind other windows" can be switched off', s.config().desktopBehind === false && !(await win()).top && !!(await s.waitLog(/a normal window level/, 4000, m)));
+  await s.app.close();
+
+  // Settings persist: a new start comes back the same
+  const again = await launch(s.state);
+  const hud2 = await windowByUrl(again.app, /hud\/index\.html/, 20000);
+  check('after a restart desktop mode and its settings are kept', hud2 && /[?&]desk=1/.test(hud2.url()) && /[?&]opacity=60/.test(hud2.url()) && !!(await again.waitLog(/hud: desktop mode, frost popover, a normal window level/, 8000)));
+  await again.app.close();
 }
 
 // ---------------------------------------------------------------------------
@@ -1302,7 +1372,7 @@ const t0 = Date.now();
 try {
   if (which === 'onboarding' || which === 'all') await testOnboarding();
   if (which === 'validation' || which === 'all') await testValidation();
-  if (which === 'hud' || which === 'all') await testHud();
+  if (which === 'hud' || which === 'all') { await testHud(); await testDesktopMode(); }
   if (which === 'themes' || which === 'all') await testThemes();
   if (which === 'voice' || which === 'all') await testVoice();
   if (which === 'proactive' || which === 'all') await testProactive();

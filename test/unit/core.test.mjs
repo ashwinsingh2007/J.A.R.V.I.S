@@ -95,6 +95,41 @@ test('config sanitising replaces junk with defaults', () => {
   assert.equal(c.ollamaUrl, C.DEFAULTS.ollamaUrl);
 });
 
+test('desktop mode is off by default, and its settings are kept in range', () => {
+  assert.equal(C.DEFAULTS.desktopMode, false);
+  assert.equal(C.DEFAULTS.desktopBehind, false);
+  assert.equal(C.DEFAULTS.desktopOpacity, 0);
+  assert.equal(C.DEFAULTS.desktopBlur, 0);
+  const c = C.sanitize({ ...C.DEFAULTS, desktopMode: 'yes', desktopBehind: 1, desktopOpacity: 140, desktopBlur: -5 });
+  assert.equal(c.desktopMode, false);
+  assert.equal(c.desktopBehind, false);
+  assert.equal(c.desktopOpacity, 100);
+  assert.equal(c.desktopBlur, 0);
+  const d = C.sanitize({ ...C.DEFAULTS, desktopOpacity: 'lots', desktopBlur: 'x' });
+  assert.equal(d.desktopOpacity, 0);
+  assert.equal(d.desktopBlur, 0);
+  // The blur has steps (macOS frosted glass has no strength of its own): values snap to them.
+  assert.equal(C.sanitize({ ...C.DEFAULTS, desktopBlur: 40, desktopOpacity: 33.6 }).desktopBlur, 50);
+  assert.equal(C.sanitize({ ...C.DEFAULTS, desktopOpacity: 33.6 }).desktopOpacity, 34);
+});
+
+test('desktop mode settings survive a restart', () => {
+  C.save({ desktopMode: true, desktopOpacity: 20, desktopBlur: 75, desktopBehind: true });
+  const c = C.load();
+  assert.deepEqual([c.desktopMode, c.desktopOpacity, c.desktopBlur, c.desktopBehind], [true, 20, 75, true]);
+  C.save({ desktopMode: false, desktopOpacity: 0, desktopBlur: 0, desktopBehind: false });
+  assert.equal(C.load().desktopMode, false);
+});
+
+test('the blur steps are macOS frosted glass materials, off at 0', () => {
+  const HudWindow = require('../../src/main/hud-window');
+  assert.equal(HudWindow.frostOf(0), null);
+  assert.equal(HudWindow.frostOf(undefined), null);
+  assert.deepEqual([25, 50, 75, 100].map(HudWindow.frostOf), ['fullscreen-ui', 'popover', 'under-window', 'sheet']);
+  assert.equal(HudWindow.frostOf(500), 'sheet');
+  assert.equal(HudWindow.frostOf(-20), null);
+});
+
 test('screen-control instructions follow the setting', () => {
   const on = { ...C.DEFAULTS, screenControl: true }, off = { ...C.DEFAULTS, screenControl: false };
   assert.match(systemPrompt(on), /hands\.sh/);

@@ -31,6 +31,10 @@ const DEFAULTS = {
   screenControl: true,
   greetOnStart: true,             // "Online, sir. Say wake up when you need me." at start
   autoHide: true,                 // HOME hides its panels after a few idle seconds, leaving the reactor
+  desktopMode: false,             // the HUD without a frame or shadow, on the wallpaper (applies after a restart)
+  desktopOpacity: 0,              // desktop mode: the HUD's own background, 0 (clear) to 100 (solid)
+  desktopBlur: 0,                 // desktop mode: macOS frosted glass behind the HUD, 0 (off) to 100, in steps of 25
+  desktopBehind: false,           // desktop mode: stay behind other windows, like a desktop widget
   morningBriefing: true,          // briefing on the first "wake up" of the morning
   checkIns: 'sometimes',          // proactive check-ins while awake and quiet: off | sometimes (~3 h) | often (~90 min)            // agents may use Mac apps outside Chrome (Accessibility, mouse, keyboard), after asking
   anthropicApiKey: '',
@@ -165,6 +169,7 @@ const ENUMS = {
 const RANGES = {
   commandSilenceSeconds: [0.5, 15], pauseGraceSeconds: [1, 30], kokoroSpeed: [0.5, 2],
   musicVolume: [0, 1], voiceVolume: [0, 1], maxSpokenSentences: [1, 999],
+  desktopOpacity: [0, 100], desktopBlur: [0, 100],
 };
 
 /** Hand-edited or junk values fall back to something that works. */
@@ -182,6 +187,9 @@ function sanitize(cfg) {
   if (!/^https?:\/\/[^\s]+$/.test(cfg.ollamaUrl)) cfg.ollamaUrl = DEFAULTS.ollamaUrl;
   cfg.userName = typeof cfg.userName === 'string' ? cfg.userName.trim().slice(0, 40) : '';
   cfg.voiceMuted = cfg.voiceMuted === true;
+  for (const k of ['desktopMode', 'desktopBehind']) cfg[k] = cfg[k] === true;
+  cfg.desktopOpacity = Math.round(cfg.desktopOpacity);
+  cfg.desktopBlur = Math.round(cfg.desktopBlur / 25) * 25;   // macOS offers steps, not a strength
   for (const k of ['assistantSettings', 'customAssistants']) if (!cfg[k] || typeof cfg[k] !== 'object' || Array.isArray(cfg[k])) cfg[k] = {};
   for (const k of ['wakeWords', 'endWords']) {
     cfg[k] = Array.isArray(cfg[k]) ? cfg[k].filter((w) => typeof w === 'string' && w.trim()).map((w) => w.toLowerCase()) : DEFAULTS[k];
